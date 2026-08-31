@@ -1,0 +1,27 @@
+import { setRequestLocale } from 'next-intl/server';
+import HeaderSlot from '../_components/HeaderSlot';
+import MarketplaceFooter from '../_components/MarketplaceFooter';
+
+/**
+ * Public chrome for (commerce).
+ *
+ * dir and the page background are set here rather than on the marketplace
+ * segment layout — the dashboard groups need a different shell, and a shared
+ * wrapper div there breaks shadcn's sidebar flex chain.
+ */
+export default async function GroupLayout({ children, params }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+
+  return (
+    <div
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      className="marketplace-root flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-[#0f0f0f] dark:text-neutral-100"
+    >
+      <HeaderSlot locale={locale} />
+      {/* Offsets the fixed 80px header. */}
+      <div className="flex-1 pt-20">{children}</div>
+      <MarketplaceFooter locale={locale} />
+    </div>
+  );
+}

@@ -1,0 +1,933 @@
+{
+  "key": "models",
+  "table": "car_models",
+  "items": [
+    {
+      "brand_slug": "mg",
+      "slug": "3",
+      "name": {
+        "ar": "3",
+        "en": "3"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "mg",
+      "slug": "5",
+      "name": {
+        "ar": "5",
+        "en": "5"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "accent",
+      "name": {
+        "ar": "اكسنت",
+        "en": "Accent"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "honda",
+      "slug": "accord",
+      "name": {
+        "ar": "اكورد",
+        "en": "Accord"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "slug": "alsvin",
+      "name": {
+        "ar": "السفن",
+        "en": "Alsvin"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "nissan",
+      "slug": "altima",
+      "name": {
+        "ar": "التيما",
+        "en": "Altima"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chery",
+      "slug": "arrizo",
+      "name": {
+        "ar": "اريزو",
+        "en": "Arrizo"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "azera",
+      "name": {
+        "ar": "ازيرا",
+        "en": "Azera"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "slug": "baleno",
+      "name": {
+        "ar": "بالينو",
+        "en": "Baleno"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "faw",
+      "slug": "bestune",
+      "name": {
+        "ar": "بيستون",
+        "en": "Bestune"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "slug": "bronco",
+      "name": {
+        "ar": "برونكو",
+        "en": "Bronco"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "slug": "bus",
+      "name": {
+        "ar": "باص فوتون",
+        "en": "Bus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "camry",
+      "name": {
+        "ar": "كامري",
+        "en": "Camry"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chevrolet",
+      "slug": "captiva",
+      "name": {
+        "ar": "كابتيفا",
+        "en": "Captiva"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "carens",
+      "name": {
+        "ar": "كارينز",
+        "en": "Carens"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "carnival",
+      "name": {
+        "ar": "كرنفال",
+        "en": "Carnival"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "geely",
+      "slug": "coolray",
+      "name": {
+        "ar": "كول راي",
+        "en": "Coolray"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "corolla",
+      "name": {
+        "ar": "كورولا",
+        "en": "Corolla"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jmc",
+      "slug": "costar",
+      "name": {
+        "ar": "كوستار",
+        "en": "Costar"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "creta",
+      "name": {
+        "ar": "كريتا",
+        "en": "Creta"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chevrolet",
+      "slug": "cruze",
+      "name": {
+        "ar": "كروز",
+        "en": "Cruze"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "slug": "cs35",
+      "name": {
+        "ar": "سي اس 35",
+        "en": "CS35"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "rolls-royce",
+      "slug": "cullinan",
+      "name": {
+        "ar": "كولينان",
+        "en": "Cullinan"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "d-max",
+      "name": {
+        "ar": "دي",
+        "en": "D-Max"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "daina",
+      "name": {
+        "ar": "دينا",
+        "en": "Daina"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "dashing",
+      "name": {
+        "ar": "داشينج",
+        "en": "Dashing"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "slug": "dzire",
+      "name": {
+        "ar": "ديزاير",
+        "en": "Dzire"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "slug": "eado-plus",
+      "name": {
+        "ar": "ايدو بلس",
+        "en": "Eado Plus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "slug": "eeco",
+      "name": {
+        "ar": "ايكو",
+        "en": "Eeco"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "elantra",
+      "name": {
+        "ar": "النترا",
+        "en": "Elantra"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "geely",
+      "slug": "emgrand",
+      "name": {
+        "ar": "ايمجراند",
+        "en": "Emgrand"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gac",
+      "slug": "empow",
+      "name": {
+        "ar": "ايمباو",
+        "en": "Empow"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "slug": "ertiga",
+      "name": {
+        "ar": "ارتيجا",
+        "en": "Ertiga"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "slug": "everest",
+      "name": {
+        "ar": "ايفرست",
+        "en": "Everest"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "fortuner",
+      "name": {
+        "ar": "فوتشنر",
+        "en": "Fortuner"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "slug": "fronx",
+      "name": {
+        "ar": "فرونكس",
+        "en": "Fronx"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "g700",
+      "name": {
+        "ar": "G700",
+        "en": "G700"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "genesis",
+      "slug": "g80",
+      "name": {
+        "ar": "جي80",
+        "en": "G80"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jmc",
+      "slug": "grand-avenue",
+      "name": {
+        "ar": "جراند افينيو",
+        "en": "Grand Avenue"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gac",
+      "slug": "gs3-emzoom",
+      "name": {
+        "ar": "جي اس 3 امززوم",
+        "en": "GS3 Emzoom"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "gt",
+      "name": {
+        "ar": "جي تي",
+        "en": "GT"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "mg",
+      "slug": "gt",
+      "name": {
+        "ar": "جي تي",
+        "en": "GT"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "genesis",
+      "slug": "gv80",
+      "name": {
+        "ar": "جي في 80",
+        "en": "GV80"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "slug": "h6",
+      "name": {
+        "ar": "اتش 6",
+        "en": "H6"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "slug": "h7",
+      "name": {
+        "ar": "اتش 7",
+        "en": "H7"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "slug": "h9",
+      "name": {
+        "ar": "اتش 9",
+        "en": "H9"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "hiace",
+      "name": {
+        "ar": "هاي اس",
+        "en": "Hiace"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "hilux",
+      "name": {
+        "ar": "هايلوكس",
+        "en": "Hilux"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "honda",
+      "slug": "hr-v",
+      "name": {
+        "ar": "اتش ار في",
+        "en": "HR-V"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "i10",
+      "name": {
+        "ar": "i10",
+        "en": "i10"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "slug": "jimny",
+      "name": {
+        "ar": "جيمني",
+        "en": "Jimny"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "slug": "jolion",
+      "name": {
+        "ar": "جوليان",
+        "en": "Jolion"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "k3",
+      "name": {
+        "ar": "K3",
+        "en": "K3"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "k4",
+      "name": {
+        "ar": "كي 4",
+        "en": "K4"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "k5",
+      "name": {
+        "ar": "كي 5",
+        "en": "K5"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "k8",
+      "name": {
+        "ar": "كي 8",
+        "en": "K8"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "nissan",
+      "slug": "kicks",
+      "name": {
+        "ar": "كيكس",
+        "en": "Kicks"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "kona",
+      "name": {
+        "ar": "كونا",
+        "en": "Kona"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "land-cruiser",
+      "name": {
+        "ar": "لاندكروزر",
+        "en": "Land Cruiser"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "lexus",
+      "slug": "lx",
+      "name": {
+        "ar": "إل إكس",
+        "en": "LX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "slug": "mini-bus",
+      "name": {
+        "ar": "ميني باص فوتون",
+        "en": "Mini Bus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "mu-x",
+      "name": {
+        "ar": "ام يو اكس",
+        "en": "MU-X"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jac",
+      "slug": "n50",
+      "name": {
+        "ar": "ان 50",
+        "en": "N50"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "slug": "omega",
+      "name": {
+        "ar": "أوميجا",
+        "en": "Omega"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "nissan",
+      "slug": "patrol",
+      "name": {
+        "ar": "باترول",
+        "en": "Patrol"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "pegas",
+      "name": {
+        "ar": "بيجاس",
+        "en": "Pegas"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "raize",
+      "name": {
+        "ar": "رايز",
+        "en": "Raize"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "rav4",
+      "name": {
+        "ar": "راف 4",
+        "en": "RAV4"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "mercedes",
+      "slug": "s-class",
+      "name": {
+        "ar": "اس",
+        "en": "S-Class"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "santa-fe",
+      "name": {
+        "ar": "سنتافي",
+        "en": "Santa Fe"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "byd",
+      "slug": "seal-7",
+      "name": {
+        "ar": "سيل 7",
+        "en": "Seal 7"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "seltos",
+      "name": {
+        "ar": "سيلتوس",
+        "en": "Seltos"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "sonata",
+      "name": {
+        "ar": "سوناتا",
+        "en": "Sonata"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "slug": "sportage",
+      "name": {
+        "ar": "سبورتاج",
+        "en": "Sportage"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "staria",
+      "name": {
+        "ar": "استاريا",
+        "en": "Staria"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "nissan",
+      "slug": "sunny",
+      "name": {
+        "ar": "صني",
+        "en": "Sunny"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "t1",
+      "name": {
+        "ar": "T1",
+        "en": "T1"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "t2",
+      "name": {
+        "ar": "T2",
+        "en": "T2"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jac",
+      "slug": "t8",
+      "name": {
+        "ar": "تي 8",
+        "en": "T8"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "slug": "taurus",
+      "name": {
+        "ar": "تورس",
+        "en": "Taurus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "slug": "territory",
+      "name": {
+        "ar": "تيريتوري",
+        "en": "Territory"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "byd",
+      "slug": "ti7",
+      "name": {
+        "ar": "تي اي 7",
+        "en": "Ti7"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chery",
+      "slug": "tiggo",
+      "name": {
+        "ar": "تيجو",
+        "en": "Tiggo"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "slug": "toano",
+      "name": {
+        "ar": "توانو",
+        "en": "Toano"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jmc",
+      "slug": "touring",
+      "name": {
+        "ar": "تورينج",
+        "en": "Touring"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "tucson",
+      "name": {
+        "ar": "توسان",
+        "en": "Tucson"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "geely",
+      "slug": "tugella",
+      "name": {
+        "ar": "توجيلا",
+        "en": "Tugella"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "slug": "tunland",
+      "name": {
+        "ar": "تولاند",
+        "en": "Tunland"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "slug": "uni-k",
+      "name": {
+        "ar": "يوني-كي",
+        "en": "Uni-K"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "urban-cruiser",
+      "name": {
+        "ar": "اوربان كروزر",
+        "en": "Urban Cruiser"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "slug": "v7",
+      "name": {
+        "ar": "V7",
+        "en": "V7"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "veloz",
+      "name": {
+        "ar": "فيلوز",
+        "en": "Veloz"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "slug": "venue",
+      "name": {
+        "ar": "فينيو",
+        "en": "Venue"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gwm",
+      "slug": "wingle-5",
+      "name": {
+        "ar": "ونجل 5",
+        "en": "WINGLE 5"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "nissan",
+      "slug": "x-trail",
+      "name": {
+        "ar": "اكس تريل",
+        "en": "X-Trail"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "x50",
+      "name": {
+        "ar": "X50",
+        "en": "X50"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "x70",
+      "name": {
+        "ar": "X70",
+        "en": "X70"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "slug": "x70-plus",
+      "name": {
+        "ar": "X70 بلس",
+        "en": "X70 Plus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "slug": "yaris",
+      "name": {
+        "ar": "ياريس",
+        "en": "Yaris"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "mg",
+      "slug": "zs",
+      "name": {
+        "ar": "زد اس",
+        "en": "ZS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "bdwn-dbl-zjaj-aady",
+      "name": {
+        "ar": "بدون دبل زجاج عادي",
+        "en": "بدون دبل زجاج عادي"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "dyana",
+      "name": {
+        "ar": "ديانا",
+        "en": "ديانا"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "slug": "dymaks-bdwn-dbl",
+      "name": {
+        "ar": "ديماكس بدون دبل",
+        "en": "ديماكس بدون دبل"
+      },
+      "active": true
+    }
+  ]
+}

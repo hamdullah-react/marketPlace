@@ -1,0 +1,104 @@
+[
+  {
+    "key": "brands",
+    "table": "car_brands",
+    "name": {
+      "ar": "الماركات",
+      "en": "Brands"
+    },
+    "description": {
+      "ar": "كل ماركات السيارات مع شعاراتها.",
+      "en": "Every car brand, with its logo."
+    },
+    "needs": [],
+    "count": 26
+  },
+  {
+    "key": "models",
+    "table": "car_models",
+    "name": {
+      "ar": "الموديلات",
+      "en": "Models"
+    },
+    "description": {
+      "ar": "موديلات السيارات مرتبطة بماركاتها.",
+      "en": "Car models, linked to their brands."
+    },
+    "needs": [
+      "brands"
+    ],
+    "count": 103
+  },
+  {
+    "key": "trims",
+    "table": "car_trims",
+    "name": {
+      "ar": "الفئات",
+      "en": "Trims"
+    },
+    "description": {
+      "ar": "فئات كل موديل.",
+      "en": "The trim levels of each model."
+    },
+    "needs": [
+      "models"
+    ],
+    "count": 111
+  },
+  {
+    "key": "years",
+    "table": "car_years",
+    "name": {
+      "ar": "السنوات",
+      "en": "Years"
+    },
+    "description": {
+      "ar": "سنوات الصنع.",
+      "en": "Model years."
+    },
+    "needs": [],
+    "count": 4
+  },
+  {
+    "key": "colors",
+    "table": "car_colors",
+    "name": {
+      "ar": "الألوان",
+      "en": "Colours"
+    },
+    "description": {
+      "ar": "ألوان السيارات مع أكوادها.",
+      "en": "Car colours, with their hex codes."
+    },
+    "needs": [],
+    "count": 86
+  },
+  {
+    "key": "offer-names",
+    "table": "offer_names",
+    "name": {
+      "ar": "أسماء العروض",
+      "en": "Offer names"
+    },
+    "description": {
+      "ar": "أسماء جاهزة للعروض حسب المناسبات السعودية.",
+      "en": "Ready-made offer names for the Saudi occasions."
+    },
+    "needs": [],
+    "count": 12
+  },
+  {
+    "key": "specifications",
+    "table": "spec_attributes",
+    "name": {
+      "ar": "المواصفات",
+      "en": "Specifications"
+    },
+    "description": {
+      "ar": "تعريفات المواصفات مع مجموعاتها وأيقوناتها وقيمها.",
+      "en": "Specification definitions with their categories, icons and allowed values."
+    },
+    "needs": [],
+    "count": 79
+  }
+]

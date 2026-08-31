@@ -1,0 +1,1574 @@
+/* Fonts will be loaded via Next.js font optimization */
+
+/* Tailwind CSS Directives */
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@config '../../tailwind.config.mjs';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility text-brand-primary {
+  color: var(--brand-primary);
+}
+
+@utility bg-brand-primary {
+  background-color: var(--brand-primary);
+}
+
+@utility bg-brand-light {
+  background-color: var(--brand-light);
+}
+
+@utility border-brand-primary {
+  border-color: var(--brand-primary);
+}
+
+@utility fill-brand-primary {
+  fill: var(--brand-primary);
+}
+
+/* ============================================ */
+/* Theme-Aware Utility Classes */
+/* ============================================ */
+
+@utility bg-theme {
+  /* Background utilities */
+  background-color: var(--color-background);
+}
+
+@utility bg-theme-secondary {
+  background-color: var(--color-background-secondary);
+}
+
+@utility bg-theme-tertiary {
+  background-color: var(--color-background-tertiary);
+}
+
+@utility bg-theme-card {
+  background-color: var(--color-card);
+}
+
+@utility bg-theme-primary {
+  background-color: var(--color-primary);
+}
+
+@utility bg-theme-muted {
+  background-color: var(--color-muted);
+}
+
+@utility text-theme {
+  /* Text utilities */
+  color: var(--color-foreground);
+}
+
+@utility text-theme-primary {
+  color: var(--color-text-primary);
+}
+
+@utility text-theme-secondary {
+  color: var(--color-text-secondary);
+}
+
+@utility text-theme-muted {
+  color: var(--color-text-muted);
+}
+
+@utility text-theme-inverse {
+  color: var(--color-text-inverse);
+}
+
+@utility text-theme-accent {
+  color: var(--color-accent);
+}
+
+@utility border-theme {
+  /* Border utilities */
+  border-color: var(--color-border);
+}
+
+@utility border-theme-card {
+  border-color: var(--color-card-border);
+}
+
+@utility border-theme-accent {
+  border-color: var(--color-accent);
+}
+
+@utility shadow-theme-sm {
+  /* Shadow utilities */
+  box-shadow: var(--shadow-sm);
+}
+
+@utility shadow-theme-md {
+  box-shadow: var(--shadow-md);
+}
+
+@utility shadow-theme-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+@utility shadow-theme-xl {
+  box-shadow: var(--shadow-xl);
+}
+
+@utility card-theme {
+  /* Card component */
+  background-color: var(--color-card);
+  color: var(--color-card-foreground);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+  &:hover {
+    background-color: var(--color-card-hover);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+@utility btn-theme-primary {
+  /* Button primary */
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  transition: all 0.2s ease;
+  &:hover {
+    background-color: var(--color-primary-hover);
+  }
+}
+
+@utility input-theme {
+  /* Input/Form elements */
+  background-color: var(--color-input);
+  border: 1px solid var(--color-input-border);
+  color: var(--color-foreground);
+  &:focus {
+    border-color: var(--color-ring);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(70, 25, 79, 0.2);
+  }
+}
+
+@utility header-theme {
+  /* Header/Navbar */
+  background-color: var(--color-header-bg);
+  border-color: var(--color-header-border);
+  color: var(--color-header-text);
+}
+
+@layer utilities {
+  /* NOTE on the next/image "width or height modified, but not the other"
+   warning: the warning is a dev-only FALSE POSITIVE caused by Tailwind
+   preflight's `img { height: auto }`. With HTML width/height attrs +
+   Tailwind's height:auto, the computed `height` style is the keyword
+   "auto" even though the *used* value resolves to the correct pixel
+   value via the browser-derived aspect-ratio. Layout is correct; only
+   getComputedStyle() returns "auto", which trips next/image's check.
+   We DO NOT override this with `width: auto; height: auto` because that
+   makes browsers fall back to each image's INTRINSIC dimensions (every
+   SVG icon has a different viewBox size — Twitter is 28x29, Facebook
+   15x30, etc.), which actually breaks rendering and CAUSES CLS. */
+
+  /* Prevent horizontal scroll from decorative elements */
+  html,
+  body {
+    overflow-x: hidden; /* Safari < 16 fallback */
+    overflow-x: clip;
+  }
+
+  /* Hero carousel containment.
+   IMPORTANT: do NOT use `content-visibility: auto` here. The hero is
+   above the fold, but `content-visibility: auto` defers rendering until
+   the browser has finished computing whether the element is in the
+   viewport. On slow loads / heavy initial layouts, the browser briefly
+   treats the element as off-screen, skips rendering, then snaps it in
+   once layout settles — which produced a single massive CLS event
+   (~0.59 in our measurement, the entire CLS budget for the page).
+   Use `contain: layout style` only — that gives us the rendering
+   isolation perf win without the deferred-render side effect. */
+  .hero-carousel-wrapper {
+    contain: layout style;
+  }
+
+  /* Shimmer animation for offer badges */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Global Styles */
+  body {
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    transition: none;
+  }
+
+  .font-dm-sans,
+  .font-dm-sans * {
+    font-family: var(--font-dm-sans), 'DM Sans', sans-serif !important;
+  }
+
+  .font-almarai,
+  .font-almarai * {
+    font-family: var(--font-almarai), 'Almarai', sans-serif !important;
+  }
+
+  /* Global Scrollbar Styles - Now handled by theme variables in @layer utilities */
+
+  /* ============================================ */
+  /* THEME SYSTEM - Light, Dark */
+  /* ============================================ */
+
+  /*
+  CSS Variable Naming Convention:
+  --color-{element}-{variant}
+
+  Elements: background, foreground, card, primary, secondary, accent, muted, border, ring
+  Variants: DEFAULT, hover, active, muted
+*/
+
+  /* ==================== LIGHT THEME (Default) ==================== */
+  :root,
+  .light {
+    /* Brand Colors */
+    --brand-primary: #46194f;
+    --brand-light: #f5e8fa;
+    --brand-dark: #4a1d6e;
+    --gold: #ffbf00;
+    --gold-light: #e8cc6e;
+
+    /* Core Colors */
+    --color-background: #ffffff;
+    --color-foreground: #1a1a1a;
+    --color-background-secondary: #f8f9fa;
+    --color-background-tertiary: #f1f3f5;
+
+    /* Card */
+    --color-card: #ffffff;
+    --color-card-foreground: #1a1a1a;
+    --color-card-hover: #f8f9fa;
+    --color-card-border: #e9ecef;
+
+    /* Primary (Brand Purple) */
+    --color-primary: #46194f;
+    --color-primary-foreground: #ffffff;
+    --color-primary-hover: #5a2066;
+    --color-primary-muted: #f5e8fa;
+
+    /* Secondary */
+    --color-secondary: #f1f3f5;
+    --color-secondary-foreground: #495057;
+    --color-secondary-hover: #e9ecef;
+
+    /* Accent */
+    --color-accent: #46194f;
+    --color-accent-foreground: #ffffff;
+
+    /* Muted */
+    --color-muted: #f1f3f5;
+    --color-muted-foreground: #6c757d;
+
+    /* Border & Input */
+    --color-border: #dee2e6;
+    --color-border-hover: #adb5bd;
+    --color-input: #ffffff;
+    --color-input-border: #ced4da;
+
+    /* Ring (Focus) */
+    --color-ring: #46194f;
+
+    /* Text Colors */
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #495057;
+    --color-text-muted: #6c757d;
+    --color-text-inverse: #ffffff;
+
+    /* Status Colors */
+    --color-success: #28a745;
+    --color-warning: #ffc107;
+    --color-error: #dc3545;
+    --color-info: #17a2b8;
+
+    /* Header/Navbar */
+    --color-header-bg: rgba(255, 255, 255, 0.98);
+    --color-header-border: #e9ecef;
+    --color-header-text: #1a1a1a;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+
+    /* Scrollbar */
+    --scrollbar-track: rgba(113, 48, 138, 0.05);
+    --scrollbar-thumb: #46194f;
+    --scrollbar-thumb-hover: #5a2066;
+
+    /* Radius */
+    --radius: 0.5rem;
+  }
+
+  /* ==================== DARK THEME ==================== */
+  .dark {
+    /* Brand Colors - White for dark mode */
+    --brand-primary: #ffffff;
+    --brand-light: #333333;
+    --brand-dark: #e0e0e0;
+
+    /* Core Colors */
+    --color-background: #0f0f0f;
+    --color-foreground: #ffffff;
+    --color-background-secondary: #1a1a1a;
+    --color-background-tertiary: #262626;
+
+    /* Card - Light dark background */
+    --color-card: #1e1e1e;
+    --color-card-foreground: #ffffff;
+    --color-card-hover: #2a2a2a;
+    --color-card-border: #3a3a3a;
+
+    /* Primary - White for dark mode */
+    --color-primary: #ffffff;
+    --color-primary-foreground: #0f0f0f;
+    --color-primary-hover: #e0e0e0;
+    --color-primary-muted: #333333;
+
+    /* Secondary */
+    --color-secondary: #262626;
+    --color-secondary-foreground: #d1d5db;
+    --color-secondary-hover: #333333;
+
+    /* Accent - White for dark mode */
+    --color-accent: #ffffff;
+    --color-accent-foreground: #0f0f0f;
+
+    /* Muted */
+    --color-muted: #262626;
+    --color-muted-foreground: #9ca3af;
+
+    /* Border & Input */
+    --color-border: #333333;
+    --color-border-hover: #525252;
+    --color-input: #1a1a1a;
+    --color-input-border: #404040;
+
+    /* Ring (Focus) */
+    --color-ring: #ffffff;
+
+    /* Text Colors */
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #d1d5db;
+    --color-text-muted: #9ca3af;
+    --color-text-inverse: #0f0f0f;
+
+    /* Status Colors */
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+    --color-error: #f87171;
+    --color-info: #38bdf8;
+
+    /* Header/Navbar */
+    --color-header-bg: rgba(15, 15, 15, 0.98);
+    --color-header-border: #262626;
+    --color-header-text: #ffffff;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+
+    /* Scrollbar - White */
+    --scrollbar-track: rgba(255, 255, 255, 0.05);
+    --scrollbar-thumb: #ffffff;
+    --scrollbar-thumb-hover: #e0e0e0;
+  }
+
+  /* Custom Animations for HeroSection */
+  @keyframes slideInLeft {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInRight {
+    0% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeInPulse {
+    0% {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-slideInLeft {
+    animation: slideInLeft 1s ease-out forwards;
+  }
+
+  .animate-slideInRight {
+    animation: slideInRight 1s ease-out forwards;
+  }
+
+  .animate-fadeInPulse {
+    animation: fadeInPulse 1.2s ease-out forwards;
+  }
+
+  /* Custom Tailwind Classes */
+}
+
+@layer utilities {
+  /* Flash Sale Card — Gold glow border */
+  .flash-sale-card {
+    position: relative;
+    border: 2px solid rgba(255, 191, 0, 0.35);
+    box-shadow:
+      0 0 15px rgba(255, 191, 0, 0.2),
+      0 0 30px rgba(255, 191, 0, 0.1),
+      0 8px 24px rgba(70, 25, 79, 0.25);
+    transition:
+      box-shadow 0.3s,
+      border-color 0.3s;
+  }
+
+  .flash-sale-card:hover {
+    border-color: rgba(255, 191, 0, 0.5);
+    box-shadow:
+      0 0 20px rgba(255, 191, 0, 0.3),
+      0 0 40px rgba(255, 191, 0, 0.15),
+      0 16px 40px rgba(70, 25, 79, 0.35);
+  }
+
+  /* Custom shimmer animation */
+  @keyframes shimmer {
+    0% {
+      background-position: -40rem 0;
+    }
+    100% {
+      background-position: 40rem 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 3s infinite linear;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    background-size: 200% 100%;
+  }
+
+  /* CSS Mask Button Animation Styles */
+  @keyframes ani {
+    from {
+      -webkit-mask-position: 0 0;
+      mask-position: 0 0;
+    }
+    to {
+      -webkit-mask-position: 100% 0;
+      mask-position: 100% 0;
+    }
+  }
+
+  @keyframes ani2 {
+    from {
+      -webkit-mask-position: 100% 0;
+      mask-position: 100% 0;
+    }
+    to {
+      -webkit-mask-position: 0 0;
+      mask-position: 0 0;
+    }
+  }
+
+  .button-container-mask {
+    position: relative;
+    width: 180px;
+    height: 45px;
+    margin-left: auto;
+    margin-right: auto;
+    overflow: hidden;
+    border: 1px solid #46194f;
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    font-weight: 300;
+    transition: 0.5s;
+    letter-spacing: 1px;
+    border-radius: 5px;
+  }
+
+  .mask-text {
+    position: absolute;
+    color: #46194f;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mask-button {
+    width: 101%;
+    height: 100%;
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    font-weight: 500;
+    padding: 0 16px;
+    font-size: 15px;
+    letter-spacing: 1px;
+    background: #46194f;
+    -webkit-mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
+    mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
+    -webkit-mask-size: 2300% 100%;
+    mask-size: 2300% 100%;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    -webkit-animation: ani2 0.7s steps(22) forwards;
+    animation: ani2 0.7s steps(22) forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Removed hover animation */
+  /* .mask-button:hover {
+  -webkit-animation: ani 0.7s steps(22) forwards;
+  animation: ani 0.7s steps(22) forwards;
+} */
+
+  /* Mobile version with full width */
+  .button-container-mask-mobile {
+    position: relative;
+    width: 100%;
+    height: 45px;
+    overflow: hidden;
+    border: 1px solid #46194f;
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    font-weight: 300;
+    transition: 0.5s;
+    letter-spacing: 1px;
+    border-radius: 5px;
+  }
+
+  .mask-text-mobile {
+    position: absolute;
+    color: #46194f;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    font-weight: 500;
+    font-size: 15px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mask-button-mobile {
+    width: 101%;
+    height: 100%;
+    font-family: var(--font-almarai), 'Almarai', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    letter-spacing: 1px;
+    background: #46194f;
+    -webkit-mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
+    mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
+    -webkit-mask-size: 2300% 100%;
+    mask-size: 2300% 100%;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    -webkit-animation: ani2 0.7s steps(22) forwards;
+    animation: ani2 0.7s steps(22) forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* Removed hover animation */
+  /* .mask-button-mobile:hover {
+  -webkit-animation: ani 0.7s steps(22) forwards;
+  animation: ani 0.7s steps(22) forwards;
+} */
+
+  /* 3D Perspective Utilities */
+  .perspective-800 {
+    perspective: 800px;
+  }
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .perspective-1200 {
+    perspective: 1200px;
+  }
+
+  .rotate-y-5 {
+    transform: rotateY(5deg);
+  }
+
+  .rotate-y-10 {
+    transform: rotateY(10deg);
+  }
+
+  .rotate-y-15 {
+    transform: rotateY(15deg);
+  }
+
+  /* Custom Scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  /* Used by the car and listing thumbnail strips. The class was already on
+     both markups with nothing behind it: Firefox hid the bar because of the
+     inline scrollbar-width, and Chrome drew one straight across the photos.
+     A gallery scrolls by its own arrows, so the bar is only chrome in the way. */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-thumb-purple-200 {
+    scrollbar-color: rgba(70, 25, 79, 0.2) transparent;
+  }
+
+  .scrollbar-track-transparent {
+    scrollbar-track-color: transparent;
+  }
+
+  /* Custom scrollbar for Webkit browsers */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(70, 25, 79, 0.2);
+    border-radius: 20px;
+  }
+  /* 
+/* In globals.css */
+
+  .ais-search-box {
+    @apply border-b px-3;
+  }
+  .ais-search-box form {
+    @apply flex gap-2;
+  }
+  .ais-search-box input {
+    @apply order-3 grow py-3 outline-hidden;
+  }
+  .ais-SearchBox-reset {
+    @apply hidden;
+  }
+
+  .ais-Pagination {
+    margin-top: 1em;
+  }
+
+  .ais-cmk-item[data-selected='true'] strong {
+    @apply text-white;
+  }
+
+  input[type='search']::-webkit-search-decoration,
+  input[type='search']::-webkit-search-cancel-button,
+  input[type='search']::-webkit-search-results-button,
+  input[type='search']::-webkit-search-results-decoration {
+    display: none;
+  }
+
+  /* Custom scrollbar for search modal */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #46194f transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #46194f;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #1f0c23;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  /* UI Animations (replaces framer-motion) */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes modalIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95) translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes dropdownIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Service Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseSlow {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes bounceSlow {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-pulse-slow {
+    animation: pulseSlow 3s ease-in-out infinite;
+  }
+
+  .animate-bounce-slow {
+    animation: bounceSlow 2s ease-in-out infinite;
+  }
+
+  /* ============================================ */
+  /* Blog Content Styling */
+  /* ============================================ */
+
+  /* Enhanced blog content styling for tables, lists, and other elements */
+  .blog-content-body {
+    @apply text-gray-800 leading-relaxed;
+  }
+
+  /* Headings */
+  .blog-content-body h1,
+  .blog-content-body h2,
+  .blog-content-body h3,
+  .blog-content-body h4,
+  .blog-content-body h5,
+  .blog-content-body h6 {
+    @apply font-bold text-gray-900 mt-8 mb-4;
+    scroll-margin-top: 120px;
+  }
+
+  .blog-content-body h1 {
+    @apply text-4xl md:text-5xl;
+  }
+
+  .blog-content-body h2 {
+    @apply text-3xl md:text-4xl border-b border-gray-200 pb-3;
+  }
+
+  .blog-content-body h3 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  .blog-content-body h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  .blog-content-body h5 {
+    @apply text-lg md:text-xl;
+  }
+
+  .blog-content-body h6 {
+    @apply text-base md:text-lg;
+  }
+
+  /* Paragraphs */
+  .blog-content-body p {
+    @apply mb-6 text-base md:text-lg leading-relaxed;
+  }
+
+  /* Links */
+  .blog-content-body a {
+    @apply text-brand-primary hover:text-brand-primary/80 underline underline-offset-4 transition-colors duration-200 font-medium;
+  }
+
+  /* Lists */
+  .blog-content-body ul,
+  .blog-content-body ol {
+    @apply my-6 space-y-3 text-base md:text-lg;
+  }
+
+  .blog-content-body ul {
+    @apply list-none pl-6;
+  }
+
+  .blog-content-body ul > li {
+    @apply relative pl-6;
+  }
+
+  .blog-content-body ul > li::before {
+    content: '●';
+    @apply absolute left-0 text-brand-primary font-bold;
+  }
+
+  .blog-content-body ol {
+    @apply list-decimal pl-6 marker:text-brand-primary marker:font-bold;
+  }
+
+  .blog-content-body li {
+    @apply mb-2;
+  }
+
+  /* Paragraphs inside list items (Odoo wraps li content in p tags) */
+  .blog-content-body li > p {
+    @apply m-0;
+  }
+
+  .blog-content-body li > p:only-child {
+    @apply inline;
+  }
+
+  /* Nested lists */
+  .blog-content-body ul ul,
+  .blog-content-body ol ul,
+  .blog-content-body ul ol,
+  .blog-content-body ol ol {
+    @apply mt-2 mb-2;
+  }
+
+  /* Tables */
+  .blog-content-body table {
+    @apply w-full my-8 border-collapse bg-white shadow-lg rounded-xl overflow-hidden;
+  }
+
+  .blog-content-body table thead {
+    @apply bg-brand-primary text-white;
+  }
+
+  .blog-content-body table thead th {
+    @apply px-6 py-4 text-left text-sm font-bold uppercase tracking-wider border-b-2 border-brand-primary;
+  }
+
+  .blog-content-body table tbody tr {
+    @apply border-b border-gray-200 hover:bg-brand-primary/5 transition-colors duration-150;
+  }
+
+  .blog-content-body table tbody tr:last-child {
+    @apply border-b-0;
+  }
+
+  .blog-content-body table tbody td {
+    @apply px-6 py-4 text-sm md:text-base text-gray-700;
+  }
+
+  .blog-content-body table tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+
+  /* Mobile table responsiveness */
+  @media (max-width: 768px) {
+    .blog-content-body table {
+      @apply block overflow-x-auto;
+    }
+
+    .blog-content-body table thead,
+    .blog-content-body table tbody,
+    .blog-content-body table th,
+    .blog-content-body table td,
+    .blog-content-body table tr {
+      @apply block;
+    }
+
+    .blog-content-body table thead {
+      @apply hidden;
+    }
+
+    .blog-content-body table tbody tr {
+      @apply mb-4 border border-gray-200 rounded-lg overflow-hidden;
+    }
+
+    .blog-content-body table tbody td {
+      @apply flex justify-between items-center px-4 py-3 border-b border-gray-100;
+    }
+
+    .blog-content-body table tbody td:last-child {
+      @apply border-b-0;
+    }
+
+    .blog-content-body table tbody td::before {
+      content: attr(data-label);
+      @apply font-bold text-brand-primary mr-4;
+    }
+  }
+
+  /* Images */
+  .blog-content-body img {
+    @apply rounded-2xl shadow-xl my-8 mx-auto max-w-full h-auto;
+  }
+
+  .blog-content-body img.img-fluid {
+    @apply w-full;
+  }
+
+  /* Blockquotes */
+  .blog-content-body blockquote {
+    @apply border-l-4 border-brand-primary bg-purple-50 pl-6 pr-4 py-4 my-8 rounded-r-xl italic;
+  }
+
+  .blog-content-body blockquote p {
+    @apply mb-0 text-gray-700;
+  }
+
+  /* Code blocks */
+  .blog-content-body pre {
+    @apply bg-gray-900 text-gray-100 rounded-xl p-6 my-8 overflow-x-auto;
+  }
+
+  .blog-content-body code {
+    @apply bg-gray-100 text-brand-primary px-2 py-1 rounded text-sm font-mono;
+  }
+
+  .blog-content-body pre code {
+    @apply bg-transparent text-gray-100 p-0;
+  }
+
+  /* Horizontal rule */
+  .blog-content-body hr {
+    @apply border-0 h-1 bg-linear-to-r from-transparent via-brand-primary to-transparent my-12;
+  }
+
+  /* Strong and emphasis */
+  .blog-content-body strong {
+    @apply font-bold text-gray-900;
+  }
+
+  .blog-content-body em {
+    @apply italic text-gray-700;
+  }
+
+  /* Divs and sections */
+  .blog-content-body div {
+    @apply mb-4;
+  }
+
+  /* RTL support for blog content */
+  [dir='rtl'] .blog-content-body {
+    @apply text-right;
+  }
+
+  [dir='rtl'] .blog-content-body ul {
+    @apply pl-0 pr-6;
+  }
+
+  [dir='rtl'] .blog-content-body ul > li {
+    @apply pl-0 pr-6;
+  }
+
+  [dir='rtl'] .blog-content-body ul > li::before {
+    @apply left-auto right-0;
+  }
+
+  [dir='rtl'] .blog-content-body ol {
+    @apply pl-0 pr-6;
+  }
+
+  [dir='rtl'] .blog-content-body table thead th,
+  [dir='rtl'] .blog-content-body table tbody td {
+    @apply text-right;
+  }
+
+  [dir='rtl'] .blog-content-body blockquote {
+    @apply border-l-0 border-r-4 pl-4 pr-6 rounded-l-xl rounded-r-none;
+  }
+
+  /* Responsive text sizing */
+  @media (max-width: 640px) {
+    .blog-content-body h1 {
+      @apply text-3xl;
+    }
+
+    .blog-content-body h2 {
+      @apply text-2xl;
+    }
+
+    .blog-content-body h3 {
+      @apply text-xl;
+    }
+
+    .blog-content-body h4,
+    .blog-content-body h5,
+    .blog-content-body h6 {
+      @apply text-lg;
+    }
+
+    .blog-content-body p,
+    .blog-content-body ul,
+    .blog-content-body ol {
+      @apply text-base;
+    }
+  }
+
+  /* ============================================ */
+  /* News Content Styling (Same as Blog) */
+  /* ============================================ */
+
+  /* Apply all blog styles to news content as well */
+  .news-content-body {
+    @apply text-gray-800 leading-relaxed;
+  }
+
+  .news-content-body h1,
+  .news-content-body h2,
+  .news-content-body h3,
+  .news-content-body h4,
+  .news-content-body h5,
+  .news-content-body h6 {
+    @apply font-bold text-gray-900 mt-8 mb-4;
+    scroll-margin-top: 120px;
+  }
+
+  .news-content-body h1 {
+    @apply text-4xl md:text-5xl;
+  }
+  .news-content-body h2 {
+    @apply text-3xl md:text-4xl border-b border-gray-200 pb-3;
+  }
+  .news-content-body h3 {
+    @apply text-2xl md:text-3xl;
+  }
+  .news-content-body h4 {
+    @apply text-xl md:text-2xl;
+  }
+  .news-content-body h5 {
+    @apply text-lg md:text-xl;
+  }
+  .news-content-body h6 {
+    @apply text-base md:text-lg;
+  }
+
+  .news-content-body p {
+    @apply mb-6 text-base md:text-lg leading-relaxed;
+  }
+  .news-content-body a {
+    @apply text-brand-primary hover:text-brand-primary/80 underline underline-offset-4 transition-colors duration-200 font-medium;
+  }
+
+  .news-content-body ul,
+  .news-content-body ol {
+    @apply my-6 space-y-3 text-base md:text-lg;
+  }
+  .news-content-body ul {
+    @apply list-none pl-6;
+  }
+  .news-content-body ul > li {
+    @apply relative pl-6;
+  }
+  .news-content-body ul > li::before {
+    content: '●';
+    @apply absolute left-0 text-brand-primary font-bold;
+  }
+  .news-content-body ol {
+    @apply list-decimal pl-6 marker:text-brand-primary marker:font-bold;
+  }
+  .news-content-body li {
+    @apply mb-2;
+  }
+  /* Paragraphs inside list items (Odoo wraps li content in p tags) */
+  .news-content-body li > p {
+    @apply m-0;
+  }
+  .news-content-body li > p:only-child {
+    @apply inline;
+  }
+
+  .news-content-body table {
+    @apply w-full my-8 border-collapse bg-white shadow-lg rounded-xl overflow-hidden;
+  }
+  .news-content-body table thead {
+    @apply bg-brand-primary text-white;
+  }
+  .news-content-body table thead th {
+    @apply px-6 py-4 text-left text-sm font-bold uppercase tracking-wider border-b-2 border-brand-primary;
+  }
+  .news-content-body table tbody tr {
+    @apply border-b border-gray-200 hover:bg-brand-primary/5 transition-colors duration-150;
+  }
+  .news-content-body table tbody tr:last-child {
+    @apply border-b-0;
+  }
+  .news-content-body table tbody td {
+    @apply px-6 py-4 text-sm md:text-base text-gray-700;
+  }
+  .news-content-body table tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+
+  .news-content-body img {
+    @apply rounded-2xl shadow-xl my-8 mx-auto max-w-full h-auto;
+  }
+  .news-content-body img.img-fluid {
+    @apply w-full;
+  }
+
+  .news-content-body blockquote {
+    @apply border-l-4 border-brand-primary bg-purple-50 pl-6 pr-4 py-4 my-8 rounded-r-xl italic;
+  }
+  .news-content-body blockquote p {
+    @apply mb-0 text-gray-700;
+  }
+
+  .news-content-body pre {
+    @apply bg-gray-900 text-gray-100 rounded-xl p-6 my-8 overflow-x-auto;
+  }
+  .news-content-body code {
+    @apply bg-gray-100 text-brand-primary px-2 py-1 rounded text-sm font-mono;
+  }
+  .news-content-body pre code {
+    @apply bg-transparent text-gray-100 p-0;
+  }
+
+  .news-content-body hr {
+    @apply border-0 h-1 bg-linear-to-r from-transparent via-brand-primary to-transparent my-12;
+  }
+  .news-content-body strong {
+    @apply font-bold text-gray-900;
+  }
+  .news-content-body em {
+    @apply italic text-gray-700;
+  }
+  .news-content-body div {
+    @apply mb-4;
+  }
+
+  /* RTL support for news */
+  [dir='rtl'] .news-content-body {
+    @apply text-right;
+  }
+  [dir='rtl'] .news-content-body ul {
+    @apply pl-0 pr-6;
+  }
+  [dir='rtl'] .news-content-body ul > li {
+    @apply pl-0 pr-6;
+  }
+  [dir='rtl'] .news-content-body ul > li::before {
+    @apply left-auto right-0;
+  }
+  [dir='rtl'] .news-content-body ol {
+    @apply pl-0 pr-6;
+  }
+  [dir='rtl'] .news-content-body table thead th,
+  [dir='rtl'] .news-content-body table tbody td {
+    @apply text-right;
+  }
+  [dir='rtl'] .news-content-body blockquote {
+    @apply border-l-0 border-r-4 pl-4 pr-6 rounded-l-xl rounded-r-none;
+  }
+
+  /* Mobile responsiveness for news tables */
+  @media (max-width: 768px) {
+    .news-content-body table {
+      @apply block overflow-x-auto;
+    }
+    .news-content-body table thead,
+    .news-content-body table tbody,
+    .news-content-body table th,
+    .news-content-body table td,
+    .news-content-body table tr {
+      @apply block;
+    }
+    .news-content-body table thead {
+      @apply hidden;
+    }
+    .news-content-body table tbody tr {
+      @apply mb-4 border border-gray-200 rounded-lg overflow-hidden;
+    }
+    .news-content-body table tbody td {
+      @apply flex justify-between items-center px-4 py-3 border-b border-gray-100;
+    }
+    .news-content-body table tbody td:last-child {
+      @apply border-b-0;
+    }
+    .news-content-body table tbody td::before {
+      content: attr(data-label);
+      @apply font-bold text-brand-primary mr-4;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .news-content-body h1 {
+      @apply text-3xl;
+    }
+    .news-content-body h2 {
+      @apply text-2xl;
+    }
+    .news-content-body h3 {
+      @apply text-xl;
+    }
+    .news-content-body h4,
+    .news-content-body h5,
+    .news-content-body h6 {
+      @apply text-lg;
+    }
+    .news-content-body p,
+    .news-content-body ul,
+    .news-content-body ol {
+      @apply text-base;
+    }
+  }
+
+  /* ============================================ */
+  /* Theme-Aware Base Styles */
+  /* ============================================ */
+}
+
+@layer base {
+  /* Sidebar Variables - All Themes */
+  :root, .light {
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  /* Apply theme backgrounds and colors globally */
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+}
+
+/* ============================================ */
+/* Theme-Aware Scrollbar */
+/* ============================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* ============================================ */
+/* Dark Theme - Text Colors */
+/* ============================================ */
+
+/* Headings - White */
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: #ffffff !important;
+}
+
+/* Paragraphs & Spans - Light Gray */
+.dark p,
+.dark span,
+.dark li {
+  color: #d1d5db !important;
+}
+
+/* Links - Light Gray, hover white */
+.dark a {
+  color: #d1d5db;
+}
+
+.dark a:hover {
+  color: #ffffff;
+}
+
+/* Labels - Light Gray */
+.dark label {
+  color: #d1d5db;
+}
+
+/* Icons - White */
+.dark svg {
+  color: #ffffff;
+}
+
+/* Brand colors - White in dark mode */
+/* Focus indicators for accessibility */
+:focus-visible {
+  outline: 2px solid #46194f;
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #46194f;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/*
+ * The search box inside a command palette is the exception.
+ *
+ * cmdk focuses it the instant the popover opens and keeps it focused for the
+ * whole session — you type into it without ever tabbing to it — so the ring
+ * above is not telling anyone where focus is. It is always on. What it DID do
+ * is draw a 2px purple rectangle, offset another 2px, around a field that sits
+ * flush inside the popover, so the dropdown appeared to contain a second
+ * floating box taller than the input itself.
+ *
+ * The element selector plus :focus-visible outranks the component's own
+ * `outline-hidden` utility, which is why the class could not turn it off.
+ * Focus is still perfectly clear: the popover only exists while it has focus.
+ */
+input[cmdk-input]:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
+.dark .text-brand-primary {
+  color: #ffffff !important;
+}
+
+.dark .bg-brand-primary {
+  background-color: #ffffff !important;
+  color: #0f0f0f !important;
+}
+
+:root {
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+.dark {
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   shadcn token aliases.
+
+   tailwind.config.mjs resolves these as `hsl(var(--primary))`, but globals.css
+   only ever defined `--color-primary: #46194f` — a different NAME and an
+   incompatible FORMAT (hex cannot go inside hsl()). So every shadcn utility
+   that reads a token — bg-primary, bg-background, border-border — resolved to
+   nothing.
+
+   It went unnoticed because the site uses the hardcoded `brand-primary` scale
+   instead; zero files outside src/components/ui referenced these classes. The
+   dashboard block is the first thing that does.
+
+   Values are HSL CHANNELS (no hsl() wrapper) because the config adds it.
+   --primary tracks the brand: #46194f = hsl(290 52% 20%).
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 290 52% 20%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 17% 95%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 210 17% 95%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 210 17% 95%;
+  --accent-foreground: 0 0% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 210 14% 89%;
+  --input: 210 14% 89%;
+  --ring: 290 52% 20%;
+}
+
+.dark {
+  --background: 0 0% 6%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 10%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 98%;
+  /* The lighter brand tint the marketplace already uses on dark grounds. */
+  --primary: 285 40% 74%;
+  --primary-foreground: 290 60% 8%;
+  --secondary: 0 0% 16%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 64%;
+  --accent: 0 0% 16%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 285 40% 74%;
+}

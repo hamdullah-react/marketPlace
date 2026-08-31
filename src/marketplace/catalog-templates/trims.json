@@ -1,0 +1,1116 @@
+{
+  "key": "trims",
+  "table": "car_trims",
+  "items": [
+    {
+      "brand_slug": "nissan",
+      "model_slug": "altima",
+      "slug": "sv",
+      "name": {
+        "ar": "اس في نص فل",
+        "en": "SV"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "hiace",
+      "slug": "13-seater",
+      "name": {
+        "ar": "13 راكب",
+        "en": "13 Seater"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "model_slug": "toano",
+      "slug": "18-seater-bus",
+      "name": {
+        "ar": "باص 18 راكب",
+        "en": "18 Seater Bus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "elantra",
+      "slug": "20-comfort",
+      "name": {
+        "ar": "كمفورت 2.0",
+        "en": "2.0 Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jac",
+      "model_slug": "t8",
+      "slug": "24-diesel",
+      "name": {
+        "ar": "2*4 ديزل",
+        "en": "2*4 Diesel"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "model_slug": "bus",
+      "slug": "26-seater",
+      "name": {
+        "ar": "26 راكب",
+        "en": "26 Seater"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "model_slug": "tunland",
+      "slug": "2wd",
+      "name": {
+        "ar": "بدون دبل",
+        "en": "2WD"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "model_slug": "daina",
+      "slug": "3-ton",
+      "name": {
+        "ar": "3 طن",
+        "en": "3 Ton"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chery",
+      "model_slug": "tiggo",
+      "slug": "4-pro-comfort",
+      "name": {
+        "ar": "4 Pro كومفورت",
+        "en": "4 Pro Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "model_slug": "daina",
+      "slug": "4-ton",
+      "name": {
+        "ar": "4 طن",
+        "en": "4 Ton"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jmc",
+      "model_slug": "grand-avenue",
+      "slug": "4wd",
+      "name": {
+        "ar": "رباعي اوتوماتيك",
+        "en": "4WD"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "model_slug": "omega",
+      "slug": "4wd-automatic",
+      "name": {
+        "ar": "دبل اتوماتيك",
+        "en": "4WD Automatic"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chery",
+      "model_slug": "arrizo",
+      "slug": "5-comfort",
+      "name": {
+        "ar": "5 كومفورت",
+        "en": "5 Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "lexus",
+      "model_slug": "lx",
+      "slug": "600",
+      "name": {
+        "ar": "600",
+        "en": "600"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "model_slug": "jolion",
+      "slug": "active",
+      "name": {
+        "ar": "اكتف",
+        "en": "Active"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "model_slug": "territory",
+      "slug": "ambiente",
+      "name": {
+        "ar": "امبيانتي",
+        "en": "Ambiente"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "model_slug": "taurus",
+      "slug": "ambiente",
+      "name": {
+        "ar": "امبيانتي",
+        "en": "Ambiente"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "faw",
+      "model_slug": "bestune",
+      "slug": "b70-comfort",
+      "name": {
+        "ar": "بي 70 كمفورت",
+        "en": "B70 Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "dashing",
+      "slug": "base",
+      "name": {
+        "ar": "بيسك",
+        "en": "Base"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "ford",
+      "model_slug": "bronco",
+      "slug": "big-bend",
+      "name": {
+        "ar": "بيج بيند",
+        "en": "Big Bend"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "rolls-royce",
+      "model_slug": "cullinan",
+      "slug": "black-badge",
+      "name": {
+        "ar": "بلاك بادج",
+        "en": "Black Badge"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "azera",
+      "slug": "classic",
+      "name": {
+        "ar": "كلاسيك",
+        "en": "Classic"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "nissan",
+      "model_slug": "sunny",
+      "slug": "classic-comfort",
+      "name": {
+        "ar": "كلاسيك كمفورت",
+        "en": "Classic Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "t1",
+      "slug": "comfort",
+      "name": {
+        "ar": "كمفورت",
+        "en": "Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "sonata",
+      "slug": "comfort",
+      "name": {
+        "ar": "كومفورت",
+        "en": "Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "mg",
+      "model_slug": "5",
+      "slug": "comfort",
+      "name": {
+        "ar": "كمفورت",
+        "en": "Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "creta",
+      "slug": "comfort",
+      "name": {
+        "ar": "كمفورت",
+        "en": "Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "x70",
+      "slug": "comfort",
+      "name": {
+        "ar": "كمفورت",
+        "en": "Comfort"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "tucson",
+      "slug": "comfort-16l",
+      "name": {
+        "ar": "كمفورت 1.6 لتر",
+        "en": "Comfort 1.6L"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "tucson",
+      "slug": "comfort-2-0l",
+      "name": {
+        "ar": "كومفورت 2 0L",
+        "en": "Comfort 2 0L"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "byd",
+      "model_slug": "ti7",
+      "slug": "design",
+      "name": {
+        "ar": "ديزاين",
+        "en": "Design"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "foton",
+      "model_slug": "mini-bus",
+      "slug": "diesel",
+      "name": {
+        "ar": "ديزل",
+        "en": "Diesel"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "model_slug": "d-max",
+      "slug": "double-cabin-4wd",
+      "name": {
+        "ar": "غمازتين دبل",
+        "en": "Double Cabin 4WD"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "camry",
+      "slug": "e-plus",
+      "name": {
+        "ar": "E-Plus",
+        "en": "E-Plus"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "model_slug": "uni-k",
+      "slug": "elite",
+      "name": {
+        "ar": "ايليت",
+        "en": "Elite"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "pegas",
+      "slug": "ex",
+      "name": {
+        "ar": "إي إكس",
+        "en": "EX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "honda",
+      "model_slug": "accord",
+      "slug": "ex",
+      "name": {
+        "ar": "اي اكس",
+        "en": "EX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "azera",
+      "slug": "exclusive",
+      "name": {
+        "ar": "اكسكلوزف",
+        "en": "Exclusive"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "honda",
+      "model_slug": "accord",
+      "slug": "exl",
+      "name": {
+        "ar": "اي اكس ال",
+        "en": "EXL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gwm",
+      "model_slug": "wingle-5",
+      "slug": "fl-diesel",
+      "name": {
+        "ar": "اف ال ديزل غمارة",
+        "en": "FL DIESEL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "sonata",
+      "slug": "fleet",
+      "name": {
+        "ar": "فليت",
+        "en": "Fleet"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "accent",
+      "slug": "fleet",
+      "name": {
+        "ar": "فليت",
+        "en": "Fleet"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "i10",
+      "slug": "fleet",
+      "name": {
+        "ar": "فليت",
+        "en": "Fleet"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "model_slug": "gt",
+      "slug": "full",
+      "name": {
+        "ar": "كامل",
+        "en": "FULL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "model_slug": "alsvin",
+      "slug": "full-option",
+      "name": {
+        "ar": "فل كامل",
+        "en": "Full Option"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "model_slug": "h7",
+      "slug": "full-option",
+      "name": {
+        "ar": "فل كامل",
+        "en": "Full Option"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "isuzu",
+      "model_slug": "mu-x",
+      "slug": "full-option",
+      "name": {
+        "ar": "فل كامل",
+        "en": "Full Option"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "geely",
+      "model_slug": "tugella",
+      "slug": "full-option-2wd",
+      "name": {
+        "ar": "فل بدون دبل",
+        "en": "Full Option 2WD"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "staria",
+      "slug": "gasoline",
+      "name": {
+        "ar": "بنزين",
+        "en": "Gasoline"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gac",
+      "model_slug": "gs3-emzoom",
+      "slug": "gb",
+      "name": {
+        "ar": "جي بي",
+        "en": "GB"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gac",
+      "model_slug": "empow",
+      "slug": "gb",
+      "name": {
+        "ar": "جي بي",
+        "en": "GB"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "baleno",
+      "slug": "gl",
+      "name": {
+        "ar": "جي إل",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "carnival",
+      "slug": "gl",
+      "name": {
+        "ar": "جي ال",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "k4",
+      "slug": "gl",
+      "name": {
+        "ar": "GL",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "gac",
+      "model_slug": "gs3-emzoom",
+      "slug": "gl",
+      "name": {
+        "ar": "جي ال",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "fronx",
+      "slug": "gl",
+      "name": {
+        "ar": "جي ال",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "santa-fe",
+      "slug": "gl",
+      "name": {
+        "ar": "جي إل",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "seltos",
+      "slug": "gl",
+      "name": {
+        "ar": "جي ال",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "dzire",
+      "slug": "gl",
+      "name": {
+        "ar": "جي ال",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "k8",
+      "slug": "gl",
+      "name": {
+        "ar": "جي ال",
+        "en": "GL"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "venue",
+      "slug": "gl-comfort-10l",
+      "name": {
+        "ar": "جي ال كمفورت 1.0لتر",
+        "en": "GL Comfort 1.0L"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "accent",
+      "slug": "gl-fleet",
+      "name": {
+        "ar": "جي ال فليت",
+        "en": "GL Fleet"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "ertiga",
+      "slug": "gl-model",
+      "name": {
+        "ar": "جي ال موديل",
+        "en": "GL Model"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "creta",
+      "slug": "gl-smart",
+      "name": {
+        "ar": "جي ال سمارت",
+        "en": "GL Smart"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "accent",
+      "slug": "gl-smart",
+      "name": {
+        "ar": "جي ال سمارت",
+        "en": "GL Smart"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "tucson",
+      "slug": "gl-smrt-16l",
+      "name": {
+        "ar": "جي ال سمارت 1.6لتر",
+        "en": "GL Smrt 1.6L"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "urban-cruiser",
+      "slug": "gl-standard",
+      "name": {
+        "ar": "جي إل ستاندرد",
+        "en": "GL Standard"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "hilux",
+      "slug": "gl2",
+      "name": {
+        "ar": "GL2",
+        "en": "GL2"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "seltos",
+      "slug": "gls",
+      "name": {
+        "ar": "جي ال اس",
+        "en": "GLS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "k5",
+      "slug": "gls",
+      "name": {
+        "ar": "جي ال اس",
+        "en": "GLS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "sonata",
+      "slug": "gls",
+      "name": {
+        "ar": "جي ال اس",
+        "en": "GLS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "carens",
+      "slug": "gls",
+      "name": {
+        "ar": "جي ال اس",
+        "en": "GLS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "sportage",
+      "slug": "gls-1-6l",
+      "name": {
+        "ar": "جي إل إس 1 6L",
+        "en": "GLS 1 6L"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "sportage",
+      "slug": "gls-4x2",
+      "name": {
+        "ar": "جي إل إس 4x2",
+        "en": "GLS 4X2"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "carnival",
+      "slug": "gls-mid",
+      "name": {
+        "ar": "جي ال اس",
+        "en": "GLS MID"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "ertiga",
+      "slug": "glx",
+      "name": {
+        "ar": "جي إل إكس",
+        "en": "GLX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "fronx",
+      "slug": "glx",
+      "name": {
+        "ar": "جي ال اكس",
+        "en": "GLX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "veloz",
+      "slug": "glx",
+      "name": {
+        "ar": "جي ال اكس",
+        "en": "GLX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "suzuki",
+      "model_slug": "jimny",
+      "slug": "glx-double",
+      "name": {
+        "ar": "GLX دبل كابينة",
+        "en": "GLX Double"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "fortuner",
+      "slug": "gx2-diesel",
+      "name": {
+        "ar": "جي اكس 2 ديزل",
+        "en": "GX2 Diesel"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "land-cruiser",
+      "slug": "gxr3",
+      "name": {
+        "ar": "GXR3",
+        "en": "GXR3"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "model_slug": "h9",
+      "slug": "h9",
+      "name": {
+        "ar": "H9",
+        "en": "H9"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "geely",
+      "model_slug": "coolray",
+      "slug": "half-full",
+      "name": {
+        "ar": "نصف فل",
+        "en": "Half Full"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "model_slug": "alsvin",
+      "slug": "l7-standard",
+      "name": {
+        "ar": "L7 ستاندرد",
+        "en": "L7 Standard"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "rav4",
+      "slug": "le-4x2",
+      "name": {
+        "ar": "إل إي بدون دبل",
+        "en": "LE 4X2"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "rav4",
+      "slug": "le-4x4",
+      "name": {
+        "ar": "إل إي 4X4",
+        "en": "LE 4X4"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "toyota",
+      "model_slug": "camry",
+      "slug": "le-gasoline",
+      "name": {
+        "ar": "إل إي بنزين",
+        "en": "LE Gasoline"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "changan",
+      "model_slug": "cs35",
+      "slug": "limited-full",
+      "name": {
+        "ar": "ليميتد فل كامل",
+        "en": "Limited Full"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chevrolet",
+      "model_slug": "cruze",
+      "slug": "ls",
+      "name": {
+        "ar": "ال اس",
+        "en": "LS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "chevrolet",
+      "model_slug": "captiva",
+      "slug": "ls",
+      "name": {
+        "ar": "ال اس",
+        "en": "LS"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "g700",
+      "slug": "luxury",
+      "name": {
+        "ar": "لاكجري",
+        "en": "Luxury"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "dashing",
+      "slug": "luxury",
+      "name": {
+        "ar": "لاكجري",
+        "en": "Luxury"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "t2",
+      "slug": "luxury",
+      "name": {
+        "ar": "لاكجري",
+        "en": "Luxury"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "x70-plus",
+      "slug": "luxury",
+      "name": {
+        "ar": "لاكجري",
+        "en": "Luxury"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "t1",
+      "slug": "luxury",
+      "name": {
+        "ar": "لاكجري",
+        "en": "Luxury"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "t2",
+      "slug": "luxury-plus-edition",
+      "name": {
+        "ar": "لاكجري بلس",
+        "en": "Luxury Plus Edition"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "honda",
+      "model_slug": "accord",
+      "slug": "lx",
+      "name": {
+        "ar": "ال اكس",
+        "en": "LX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "k5",
+      "slug": "lx",
+      "name": {
+        "ar": "إل إكس",
+        "en": "LX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "kia",
+      "model_slug": "k3",
+      "slug": "lx",
+      "name": {
+        "ar": "ال اكس",
+        "en": "LX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "model_slug": "jolion",
+      "slug": "max-top",
+      "name": {
+        "ar": "MAX TOP",
+        "en": "MAX TOP"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "dashing",
+      "slug": "mid",
+      "name": {
+        "ar": "ميد",
+        "en": "Mid"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "model_slug": "h9",
+      "slug": "mid-option",
+      "name": {
+        "ar": "نصف فل",
+        "en": "Mid Option"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jac",
+      "model_slug": "n50",
+      "slug": "n50",
+      "name": {
+        "ar": "N50",
+        "en": "N50"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jmc",
+      "model_slug": "grand-avenue",
+      "slug": "plus-slx",
+      "name": {
+        "ar": "Plus SLX",
+        "en": "Plus SLX"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "byd",
+      "model_slug": "ti7",
+      "slug": "premium",
+      "name": {
+        "ar": "بريميوم",
+        "en": "Premium"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jetour",
+      "model_slug": "x50",
+      "slug": "premium",
+      "name": {
+        "ar": "بريميوم",
+        "en": "Premium"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "hyundai",
+      "model_slug": "azera",
+      "slug": "premium",
+      "name": {
+        "ar": "بريميوم",
+        "en": "Premium"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "byd",
+      "model_slug": "seal-7",
+      "slug": "premium",
+      "name": {
+        "ar": "بريميوم",
+        "en": "Premium"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "haval",
+      "model_slug": "v7",
+      "slug": "premium-4x4",
+      "name": {
+        "ar": "PREMIUM 4X4",
+        "en": "PREMIUM 4X4"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "genesis",
+      "model_slug": "g80",
+      "slug": "prestige",
+      "name": {
+        "ar": "بريستيج",
+        "en": "Prestige"
+      },
+      "active": true
+    },
+    {
+      "brand_slug": "jmc",
+      "model_slug": "grand-avenue",
+      "slug": "pro",
+      "name": {
+        "ar": "برو",
+        "en": "Pro"
+      },
+      "active": true
+    }
+  ]
+}

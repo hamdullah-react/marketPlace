@@ -1,0 +1,29 @@
+/*
+ * Marketplace design tokens.
+ *
+ * Tailwind utilities themselves come from src/app/globals.css via the root
+ * layout. This file holds ONLY marketplace-owned variables, so the marketplace
+ * can restyle without touching the main site — and so that when the root-layout
+ * split lands (docs/MARKETPLACE-STRUCTURE.md §7) this becomes the app's whole
+ * stylesheet.
+ */
+
+.marketplace-root {
+  --mp-brand: #46194f;
+  --mp-brand-hover: #5a2363;
+  --mp-brand-fg: #ffffff;
+  --mp-surface: #ffffff;
+  --mp-muted: #f5f5f5;
+  --mp-border: #e5e5e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .marketplace-root {
+    --mp-brand: #c9a3d4;
+    --mp-brand-hover: #d9bce1;
+    --mp-brand-fg: #1a0620;
+    --mp-surface: #0a0a0a;
+    --mp-muted: #171717;
+    --mp-border: #262626;
+  }
+}

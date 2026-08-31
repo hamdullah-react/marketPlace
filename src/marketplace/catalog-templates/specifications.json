@@ -1,0 +1,2337 @@
+{
+  "key": "specifications",
+  "table": "spec_attributes",
+  "items": [
+    {
+      "slug": "drive-type",
+      "attribute_name": {
+        "ar": "نوع الجر",
+        "en": "Drive type"
+      },
+      "attribute_icon_file": "spec-icons/230b867a9242.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "ناقل الحركة",
+        "en": "Transmission"
+      },
+      "category_icon_file": "category-icons/6a91510caa52.svg",
+      "category_sequence": 0,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": true,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "الدفع الأمامي",
+          "en": "Front-Wheel Drive (FWD)"
+        },
+        {
+          "ar": "الدفع الرباعي",
+          "en": "Four-Wheel Drive (4WD / 4x4)"
+        },
+        {
+          "ar": "الدفع بجميع العجلات",
+          "en": "All-Wheel Drive (AWD)"
+        },
+        {
+          "ar": "الدفع الخلفي",
+          "en": "Rear-Wheel Drive (RWD)"
+        }
+      ]
+    },
+    {
+      "slug": "transmission",
+      "attribute_name": {
+        "ar": "ناقل الحركة",
+        "en": "Transmission"
+      },
+      "attribute_icon_file": "spec-icons/c31324fd2460.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "ناقل الحركة",
+        "en": "Transmission"
+      },
+      "category_icon_file": "category-icons/6a91510caa52.svg",
+      "category_sequence": 0,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": true,
+      "show_on_card": true,
+      "values": [
+        {
+          "ar": "أوتوماتيك",
+          "en": "Automatic"
+        },
+        {
+          "ar": "يدوي",
+          "en": "Manual"
+        },
+        {
+          "ar": "CVT",
+          "en": "CVT"
+        },
+        {
+          "ar": "e-CVT (هجين)",
+          "en": "e-CVT (Hybrid)"
+        },
+        {
+          "ar": "ناقل حركة مزدوج القابض (DCT)",
+          "en": "Dual-Clutch (DCT)"
+        },
+        {
+          "ar": "ناقل حركة يدوي مؤتمت (AMT)",
+          "en": "Automated Manual (AMT)"
+        },
+        {
+          "ar": "نصف أوتوماتيك",
+          "en": "Semi-Automatic"
+        },
+        {
+          "ar": "تيبترونيك",
+          "en": "Tiptronic"
+        },
+        {
+          "ar": "ناقل حركة متسلسل",
+          "en": "Sequential"
+        },
+        {
+          "ar": "سرعة واحدة (كهربائي)",
+          "en": "Single-Speed (Electric)"
+        }
+      ]
+    },
+    {
+      "slug": "driving-mode",
+      "attribute_name": {
+        "ar": "وضع القيادة",
+        "en": "Driving mode"
+      },
+      "attribute_icon_file": "spec-icons/ca2d877034c6.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "ناقل الحركة",
+        "en": "Transmission"
+      },
+      "category_icon_file": "category-icons/6a91510caa52.svg",
+      "category_sequence": 0,
+      "unit_code": null,
+      "display_type": "multi",
+      "is_key": true,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "وضع الرمال, الوضع العادي, الوضع الرياضي, وضع الطين",
+          "en": "Sand Mode, Normal Mode, Sport Mode, Mud Mode"
+        },
+        {
+          "ar": "الوضع العادي",
+          "en": "Normal Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, وضع الطين, وضع الراحة, الوضع البيئي, وضع الرمال",
+          "en": "Normal Mode, Sport Mode, Mud Mode, Comfort Mode, Eco Mode, Sand Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, وضع الراحة",
+          "en": "Normal Mode, Sport Mode, Comfort Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي",
+          "en": "Normal Mode, Sport Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, وضع الطين, وضع الرمال",
+          "en": "Normal Mode, Sport Mode, Mud Mode, Sand Mode"
+        },
+        {
+          "ar": "الوضع العادي, وضع الطين, وضع الرمال",
+          "en": "Normal Mode, Mud Mode, Sand Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, وضع الطين, الوضع البيئي, وضع الرمال",
+          "en": "Normal Mode, Sport Mode, Mud Mode, Eco Mode, Sand Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, الوضع البيئي",
+          "en": "Normal Mode, Sport Mode, Eco Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع البيئي",
+          "en": "Normal Mode, Eco Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, وضع الطين, وضع الرمال, وضع الثلج",
+          "en": "Normal Mode, Sport Mode, Mud Mode, Sand Mode, Snow Mode"
+        },
+        {
+          "ar": "الوضع العادي, الوضع الرياضي, وضع الطين",
+          "en": "Normal Mode, Sport Mode, Mud Mode"
+        },
+        {
+          "ar": "الوضع العادي, وضع الرمال",
+          "en": "Normal Mode, Sand Mode"
+        }
+      ]
+    },
+    {
+      "slug": "engine-type-cylinders",
+      "attribute_name": {
+        "ar": "نوع المحرك / عدد الأسطوانات",
+        "en": "Engine type / cylinders"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": null,
+      "display_type": "text",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "valves",
+      "attribute_name": {
+        "ar": "الصمامات",
+        "en": "Valves"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": {
+        "ar": "L",
+        "en": "L"
+      },
+      "display_type": "numeric",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "maximum-power",
+      "attribute_name": {
+        "ar": "القوة",
+        "en": "Maximum power"
+      },
+      "attribute_icon_file": "spec-icons/cd917836f6ad.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": {
+        "ar": "hp",
+        "en": "hp"
+      },
+      "display_type": "numeric",
+      "is_key": true,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "torque",
+      "attribute_name": {
+        "ar": "عزم الدوران",
+        "en": "Torque"
+      },
+      "attribute_icon_file": "spec-icons/72ee4227c4fc.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": {
+        "ar": "Nm",
+        "en": "Nm"
+      },
+      "display_type": "numeric",
+      "is_key": true,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "fuel-consumption",
+      "attribute_name": {
+        "ar": "استهلاك الوقود",
+        "en": "Fuel Consumption"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": {
+        "ar": "km/L",
+        "en": "km/L"
+      },
+      "display_type": "numeric",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "fuel-type",
+      "attribute_name": {
+        "ar": "نظام المحرك",
+        "en": "Fuel Type"
+      },
+      "attribute_icon_file": "spec-icons/911287a01b40.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": true,
+      "show_on_card": true,
+      "values": [
+        {
+          "ar": "البنزين",
+          "en": "Gasoline"
+        },
+        {
+          "ar": "الديزل",
+          "en": "Diesel"
+        },
+        {
+          "ar": "هجين (بنزين + كهربائي)",
+          "en": "Hybrid (Petrol + Electric)"
+        },
+        {
+          "ar": "هايبرد قابل للشحن (PHEV)",
+          "en": "Plug-in Hybrid (PHEV)"
+        },
+        {
+          "ar": "هجين خفيف (MHEV)",
+          "en": "Mild Hybrid (MHEV)"
+        },
+        {
+          "ar": "كهربائي (EV)",
+          "en": "Electric (EV)"
+        },
+        {
+          "ar": "هيدروجين (FCEV)",
+          "en": "Hydrogen (FCEV)"
+        },
+        {
+          "ar": "الغاز الطبيعي المضغوط (CNG)",
+          "en": "Compressed Natural Gas (CNG)"
+        },
+        {
+          "ar": "غاز البترول المسال (LPG)",
+          "en": "Liquefied Petroleum Gas (LPG)"
+        },
+        {
+          "ar": "وقود مرن (E85)",
+          "en": "Flex-Fuel (E85)"
+        }
+      ]
+    },
+    {
+      "slug": "fuel-efficiency-rating",
+      "attribute_name": {
+        "ar": "كفاءة الوقود",
+        "en": "Fuel efficiency rating"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": {
+        "ar": "km/L",
+        "en": "km/L"
+      },
+      "display_type": "numeric",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "engine-capacity",
+      "attribute_name": {
+        "ar": "قياس المحرك",
+        "en": "Engine capacity"
+      },
+      "attribute_icon_file": "spec-icons/c6a2844aacab.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": {
+        "ar": "L",
+        "en": "L"
+      },
+      "display_type": "numeric",
+      "is_key": true,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "turbo",
+      "attribute_name": {
+        "ar": "تيربو",
+        "en": "Turbo"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "additional-electric-motor",
+      "attribute_name": {
+        "ar": "محرك كهربائي إضافي",
+        "en": "Additional electric motor"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المحرك",
+        "en": "Engine"
+      },
+      "category_icon_file": "category-icons/79a6e745ee00.svg",
+      "category_sequence": 2,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "fuel-tank-capacity",
+      "attribute_name": {
+        "ar": "سعة خزان الوقود",
+        "en": "Fuel tank capacity"
+      },
+      "attribute_icon_file": "spec-icons/cb608a4c89fa.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "الهيكل والأبعاد",
+        "en": "Structure and dimensions"
+      },
+      "category_icon_file": "category-icons/ed79a56f2d9c.svg",
+      "category_sequence": 3,
+      "unit_code": {
+        "ar": "L",
+        "en": "L"
+      },
+      "display_type": "numeric",
+      "is_key": true,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "body-style",
+      "attribute_name": {
+        "ar": "نمط الجسم",
+        "en": "Body style"
+      },
+      "attribute_icon_file": "spec-icons/1f481b84271a.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "الهيكل والأبعاد",
+        "en": "Structure and dimensions"
+      },
+      "category_icon_file": "category-icons/ed79a56f2d9c.svg",
+      "category_sequence": 3,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": true,
+      "show_on_card": true,
+      "values": [
+        {
+          "ar": "سيدان",
+          "en": "Sedan"
+        },
+        {
+          "ar": "سيارة رياضية متعددة الاستخدامات",
+          "en": "SUV"
+        },
+        {
+          "ar": "كروس أوفر",
+          "en": "Crossover"
+        },
+        {
+          "ar": "هاتشباك",
+          "en": "Hatchback"
+        },
+        {
+          "ar": "بيك أب",
+          "en": "Pickup Truck"
+        },
+        {
+          "ar": "كوبيه",
+          "en": "Coupe"
+        },
+        {
+          "ar": "مكشوفة",
+          "en": "Convertible"
+        },
+        {
+          "ar": "ستيشن واجن",
+          "en": "Station Wagon"
+        },
+        {
+          "ar": "فان",
+          "en": "Van"
+        },
+        {
+          "ar": "ميني فان",
+          "en": "Minivan"
+        },
+        {
+          "ar": "باص",
+          "en": "Bus"
+        }
+      ]
+    },
+    {
+      "slug": "seating-capacity",
+      "attribute_name": {
+        "ar": "سعة الجلوس",
+        "en": "Seating capacity"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "الهيكل والأبعاد",
+        "en": "Structure and dimensions"
+      },
+      "category_icon_file": "category-icons/ed79a56f2d9c.svg",
+      "category_sequence": 3,
+      "unit_code": null,
+      "display_type": "numeric",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "wheels-size",
+      "attribute_name": {
+        "ar": "العجلات",
+        "en": "Wheels size"
+      },
+      "attribute_icon_file": "spec-icons/bc8c9199e163.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "الهيكل والأبعاد",
+        "en": "Structure and dimensions"
+      },
+      "category_icon_file": "category-icons/ed79a56f2d9c.svg",
+      "category_sequence": 3,
+      "unit_code": {
+        "ar": "inch",
+        "en": "inch"
+      },
+      "display_type": "numeric",
+      "is_key": true,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "steering-adjustment",
+      "attribute_name": {
+        "ar": "المقود",
+        "en": "Steering adjustment"
+      },
+      "attribute_icon_file": "spec-icons/fbfcb89a2215.svg",
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "الهيكل والأبعاد",
+        "en": "Structure and dimensions"
+      },
+      "category_icon_file": "category-icons/ed79a56f2d9c.svg",
+      "category_sequence": 3,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": true,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "مقود كهربائي (EPS)",
+          "en": "Electric Power Steering (EPS)"
+        },
+        {
+          "ar": "يدوي",
+          "en": "Manual"
+        },
+        {
+          "ar": "مقود كهربائي-هيدروليكي",
+          "en": "Electro-Hydraulic Steering"
+        },
+        {
+          "ar": "مقود هيدروليكي (باور)",
+          "en": "Power Steering"
+        }
+      ]
+    },
+    {
+      "slug": "suv",
+      "attribute_name": {
+        "ar": "SUV",
+        "en": "SUV"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "الهيكل والأبعاد",
+        "en": "Structure and dimensions"
+      },
+      "category_icon_file": "category-icons/ed79a56f2d9c.svg",
+      "category_sequence": 3,
+      "unit_code": null,
+      "display_type": "text",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "electronic-parking-brake",
+      "attribute_name": {
+        "ar": "فرامل يد كهربائية",
+        "en": "Electronic parking brake"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "cruise-control",
+      "attribute_name": {
+        "ar": "نظام تثبيت السرعة",
+        "en": "Cruise control"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "second-row-ac-vents",
+      "attribute_name": {
+        "ar": "فتحات للتكييف في صف المقاعد الثاني",
+        "en": "Second-row A/C vents"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "engine-start-button",
+      "attribute_name": {
+        "ar": "زر تشغيل المحرك",
+        "en": "Engine start button"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "remote-engine-start",
+      "attribute_name": {
+        "ar": "تشغيل المحرك عن بُعد",
+        "en": "Remote engine start"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "leather-steering-wheel",
+      "attribute_name": {
+        "ar": "عجلة قيادة مغلّفة بالجلد",
+        "en": "Leather steering wheel"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "engine-start-via-fingerprint",
+      "attribute_name": {
+        "ar": "تشغيل بصمة",
+        "en": "Engine start via fingerprint"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "electronic-handbrake-with-auto-hold",
+      "attribute_name": {
+        "ar": "فرامل يد كهربائية مع ميزة تثبيت",
+        "en": "Electronic handbrake with auto-hold"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السهولة والراحة",
+        "en": "Ease and comfort"
+      },
+      "category_icon_file": "category-icons/c302bb9f0e10.svg",
+      "category_sequence": 5,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "sunroof",
+      "attribute_name": {
+        "ar": "فتحة سقف",
+        "en": "Sunroof"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "led-headlights",
+      "attribute_name": {
+        "ar": "أنوار أمامية بتقنية LED",
+        "en": "LED headlights"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "daytime-running-lights",
+      "attribute_name": {
+        "ar": "أنوار أمامية نهارية",
+        "en": "Daytime running lights"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "fog-lights",
+      "attribute_name": {
+        "ar": "أضواء ضباب",
+        "en": "Fog lights"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "rear-led-lights",
+      "attribute_name": {
+        "ar": "أنوار خلفية LED",
+        "en": "Rear LED lights"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "rear-parking-sensors",
+      "attribute_name": {
+        "ar": "حساسات خلفية",
+        "en": "Rear parking sensors"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "electric-side-mirrors",
+      "attribute_name": {
+        "ar": "مرايا جانبية كهربائية",
+        "en": "Electric side mirrors"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "led-daytime-running-lights",
+      "attribute_name": {
+        "ar": "أضواء ساطعة خلال النهار LED",
+        "en": "LED daytime running lights"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "rear-wing-spoiler",
+      "attribute_name": {
+        "ar": "جناح خلفي",
+        "en": "Rear wing / spoiler"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "smart-entry-system",
+      "attribute_name": {
+        "ar": "نظام الدخول الذكي",
+        "en": "Smart entry system"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "rear-view-camera",
+      "attribute_name": {
+        "ar": "كاميرا خلفية",
+        "en": "Rear-view camera"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "panoramic-sunroof",
+      "attribute_name": {
+        "ar": "فتحة سقف بانورامية",
+        "en": "Panoramic sunroof"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "electric-sunroof-with-anti-leak",
+      "attribute_name": {
+        "ar": "فتحة سقف كهربائية بلمسة واحدة مع خاصية منع التسرب",
+        "en": "Electric sunroof with anti-leak"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "automatic-high-beam",
+      "attribute_name": {
+        "ar": "نور عالي متكييف",
+        "en": "Automatic high-beam"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "front-parking-sensors",
+      "attribute_name": {
+        "ar": "حساسات أمامية",
+        "en": "Front parking sensors"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "front-sensors-four-point",
+      "attribute_name": {
+        "ar": "حساسات أمامية 4 نقاط",
+        "en": "Front sensors (four-point)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "rear-sensors-with-camera",
+      "attribute_name": {
+        "ar": "حساسات خلفية 4 نقاط + كاميرا خلفية",
+        "en": "Rear sensors with camera"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "automatic-tailgate",
+      "attribute_name": {
+        "ar": "باب صندوق الامتعة آلي",
+        "en": "Automatic tailgate"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "headlight-height-adjustment-control",
+      "attribute_name": {
+        "ar": "تحكم بإرتفاع الأنوار الأمامية",
+        "en": "Headlight height adjustment control"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "chrome-door-handles",
+      "attribute_name": {
+        "ar": "مقابض أبواب كروم",
+        "en": "Chrome door handles"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "halogen-headlights",
+      "attribute_name": {
+        "ar": "مصابيح أمامية هالوجين",
+        "en": "Halogen headlights"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "التجهيزات الخارجية",
+        "en": "External equipment"
+      },
+      "category_icon_file": "category-icons/222152303186.svg",
+      "category_sequence": 40,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "seats",
+      "attribute_name": {
+        "ar": "عدد المقاعد",
+        "en": "Seats"
+      },
+      "attribute_icon_file": "spec-icons/da609932b5b8.svg",
+      "attribute_sequence": 10,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": true,
+      "show_on_card": true,
+      "values": [
+        {
+          "ar": "2",
+          "en": "2"
+        },
+        {
+          "ar": "3",
+          "en": "3"
+        },
+        {
+          "ar": "4",
+          "en": "4"
+        },
+        {
+          "ar": "5",
+          "en": "5"
+        },
+        {
+          "ar": "6",
+          "en": "6"
+        },
+        {
+          "ar": "7",
+          "en": "7"
+        },
+        {
+          "ar": "8",
+          "en": "8"
+        },
+        {
+          "ar": "9",
+          "en": "9"
+        },
+        {
+          "ar": "13",
+          "en": "13"
+        },
+        {
+          "ar": "15",
+          "en": "15"
+        },
+        {
+          "ar": "18",
+          "en": "18"
+        },
+        {
+          "ar": "26",
+          "en": "26"
+        },
+        {
+          "ar": "28",
+          "en": "28"
+        }
+      ]
+    },
+    {
+      "slug": "seat-upholstery",
+      "attribute_name": {
+        "ar": "تنجيد المقاعد",
+        "en": "Seat upholstery"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "select",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "مقاعد جلد",
+          "en": "Leather Seats"
+        },
+        {
+          "ar": "قماش فاخر / مخملي",
+          "en": "Premium Fabric / Cloth"
+        },
+        {
+          "ar": "جلد صناعي (جلد صناعي/فينيل)",
+          "en": "Synthetic Leather (Leatherette / PU / Vinyl)"
+        },
+        {
+          "ar": "مقاعد قماش",
+          "en": "Fabric Seats"
+        }
+      ]
+    },
+    {
+      "slug": "passenger-seat-adjustment-manual",
+      "attribute_name": {
+        "ar": "تعديل حركة مقعد الراكب الأمامي يدوي",
+        "en": "Passenger seat adjustment (manual)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "driver-seat-adjustment-electric",
+      "attribute_name": {
+        "ar": "تعديل حركة مقعد السائق كهربائي",
+        "en": "Driver seat adjustment (electric)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "driver-seat-adjustment-manual",
+      "attribute_name": {
+        "ar": "تعديل حركة مقعد السائق يدوي",
+        "en": "Driver seat adjustment (manual)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "passenger-seat-adjustment-electric",
+      "attribute_name": {
+        "ar": "تعديل حركة مقعد الراكب الأمامي كهربائي",
+        "en": "Passenger seat adjustment (electric)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "multi-way-driver-seat",
+      "attribute_name": {
+        "ar": "مقعد السائق قابل للتعديل بعدة وضعيات",
+        "en": "Multi-way driver seat"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "المقاعد",
+        "en": "Seats"
+      },
+      "category_icon_file": "category-icons/a1aa4a50e517.svg",
+      "category_sequence": 60,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "usb-interface-for-audio",
+      "attribute_name": {
+        "ar": "واجهة USB للنظام الصوتي",
+        "en": "USB interface for audio"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "apple-carplay-android-auto",
+      "attribute_name": {
+        "ar": "نظام آبل كاربلاي وأندرويد أوتو",
+        "en": "Apple CarPlay & Android Auto"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "mp3-auxiliary-input",
+      "attribute_name": {
+        "ar": "MP3 / مدخل إضافي",
+        "en": "MP3 / auxiliary input"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "information-display-screen",
+      "attribute_name": {
+        "ar": "شاشة معلومات",
+        "en": "Information display screen"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "Available",
+          "en": "Available"
+        },
+        {
+          "ar": "متاح",
+          "en": "متاح"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "central-screen-with-phone-mirroring",
+      "attribute_name": {
+        "ar": "شاشة وسطية مع انعكاس الهاتف",
+        "en": "Central screen with phone mirroring"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "digital-instrument-cluster",
+      "attribute_name": {
+        "ar": "لوحة عدادات رقمية",
+        "en": "Digital instrument cluster"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "number-of-speakers",
+      "attribute_name": {
+        "ar": "عدد السماعات",
+        "en": "Number of speakers"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "numeric",
+      "is_key": false,
+      "show_on_card": false,
+      "values": []
+    },
+    {
+      "slug": "bluetooth-connectivity",
+      "attribute_name": {
+        "ar": "بلوتوث",
+        "en": "Bluetooth connectivity"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "wireless-phone-charger",
+      "attribute_name": {
+        "ar": "شاحن لاسلكي للهاتف",
+        "en": "Wireless phone charger"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "نظام المعلومات والترفيه",
+        "en": "Infotainment"
+      },
+      "category_icon_file": "category-icons/7a97daac4d4e.svg",
+      "category_sequence": 70,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "front-side-airbags",
+      "attribute_name": {
+        "ar": "وسائد هوائية أمامية جانبية",
+        "en": "Front side airbags"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "anti-lock-braking-system-abs",
+      "attribute_name": {
+        "ar": "نظام الفرامل المانعة للانغلاق (ABS)",
+        "en": "Anti-lock braking system (ABS)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "electronic-brakeforce-distribution-ebd",
+      "attribute_name": {
+        "ar": "نظام التوزيع الإلكتروني لقوة الفرامل (EBD)",
+        "en": "Electronic Brakeforce Distribution (EBD)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "hill-start-assist-hsa",
+      "attribute_name": {
+        "ar": "نظام المساعدة للانطلاق على المنحدرات (HSA)",
+        "en": "Hill-Start Assist (HSA)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "tire-pressure-monitoring-system-tpms",
+      "attribute_name": {
+        "ar": "نظام مراقبة ضغط الهواء في الإطارات (TPMS)",
+        "en": "Tire Pressure Monitoring System (TPMS)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "electronic-brake-assist-eba",
+      "attribute_name": {
+        "ar": "نظام المساعدة الإلكترونية للكبح",
+        "en": "Electronic brake assist (EBA)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "front-airbags-srs",
+      "attribute_name": {
+        "ar": "وسائد هواء أمامية (SRS)",
+        "en": "Front airbags (SRS)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "vehicle-stability-assist-vsa",
+      "attribute_name": {
+        "ar": "نظام المساعدة في ثبات السيارة",
+        "en": "Vehicle Stability Assist (VSA)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "rear-camera-multi-angle-camera",
+      "attribute_name": {
+        "ar": "كاميرا للرؤية الخلفية متعددة الزوايا",
+        "en": "Rear camera / multi-angle camera"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "متوفر",
+          "en": "Available"
+        }
+      ]
+    },
+    {
+      "slug": "road-departure-mitigation-rdm",
+      "attribute_name": {
+        "ar": "نظام الحد من مغادرة الطريق (RDM)",
+        "en": "Road-Departure Mitigation (RDM)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "blind-spot-monitoring",
+      "attribute_name": {
+        "ar": "معلومات عن النقاط غير المرئية",
+        "en": "Blind-spot monitoring"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "forward-collision-warning-fcw",
+      "attribute_name": {
+        "ar": "تحذير من الاصطدامات الأمامية (FCW)",
+        "en": "Forward collision warning (FCW)"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "lane-departure-warning",
+      "attribute_name": {
+        "ar": "نظام التنبيه عند الخروج عن المسار",
+        "en": "Lane departure warning"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    },
+    {
+      "slug": "side-curtain-airbags",
+      "attribute_name": {
+        "ar": "وسائد هوائية جانبية",
+        "en": "Side curtain airbags"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        },
+        {
+          "ar": "لا",
+          "en": "No"
+        }
+      ]
+    },
+    {
+      "slug": "360-degree-camera",
+      "attribute_name": {
+        "ar": "كاميرا 360 درجة",
+        "en": "360-degree camera"
+      },
+      "attribute_icon_file": null,
+      "attribute_sequence": 20,
+      "category_name": {
+        "ar": "السلامة",
+        "en": "Safety"
+      },
+      "category_icon_file": "category-icons/1d6ca204f462.svg",
+      "category_sequence": 80,
+      "unit_code": null,
+      "display_type": "yesno",
+      "is_key": false,
+      "show_on_card": false,
+      "values": [
+        {
+          "ar": "نعم",
+          "en": "Yes"
+        }
+      ]
+    }
+  ]
+}

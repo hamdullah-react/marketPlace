@@ -1,0 +1,78 @@
+{
+  "key": "offer-names",
+  "table": "offer_names",
+  "items": [
+    {
+      "slug": "saudi-national-day",
+      "name": { "ar": "عرض اليوم الوطني السعودي", "en": "Saudi National Day Offer" },
+      "description": { "ar": "يوافق 23 سبتمبر من كل عام.", "en": "Falls on 23 September each year." },
+      "sequence": 10
+    },
+    {
+      "slug": "founding-day",
+      "name": { "ar": "عرض يوم التأسيس", "en": "Founding Day Offer" },
+      "description": { "ar": "يوافق 22 فبراير من كل عام.", "en": "Falls on 22 February each year." },
+      "sequence": 20
+    },
+    {
+      "slug": "saudi-flag-day",
+      "name": { "ar": "عرض يوم العلم السعودي", "en": "Saudi Flag Day Offer" },
+      "description": { "ar": "يوافق 11 مارس من كل عام.", "en": "Falls on 11 March each year." },
+      "sequence": 30
+    },
+    {
+      "slug": "ramadan",
+      "name": { "ar": "عرض رمضان", "en": "Ramadan Offer" },
+      "description": { "ar": "طوال شهر رمضان المبارك.", "en": "Throughout the holy month of Ramadan." },
+      "sequence": 40
+    },
+    {
+      "slug": "eid-al-fitr",
+      "name": { "ar": "عرض عيد الفطر", "en": "Eid al-Fitr Offer" },
+      "description": { "ar": "أيام عيد الفطر المبارك.", "en": "The days of Eid al-Fitr." },
+      "sequence": 50
+    },
+    {
+      "slug": "eid-al-adha",
+      "name": { "ar": "عرض عيد الأضحى", "en": "Eid al-Adha Offer" },
+      "description": { "ar": "أيام عيد الأضحى المبارك.", "en": "The days of Eid al-Adha." },
+      "sequence": 60
+    },
+    {
+      "slug": "hajj-season",
+      "name": { "ar": "عرض موسم الحج", "en": "Hajj Season Offer" },
+      "description": { "ar": "خلال موسم الحج.", "en": "During the Hajj season." },
+      "sequence": 70
+    },
+    {
+      "slug": "white-friday",
+      "name": { "ar": "عرض الجمعة البيضاء", "en": "White Friday Offer" },
+      "description": { "ar": "موسم التخفيضات في نوفمبر.", "en": "The November sale season." },
+      "sequence": 80
+    },
+    {
+      "slug": "back-to-school",
+      "name": { "ar": "عرض العودة إلى المدارس", "en": "Back to School Offer" },
+      "description": { "ar": "بداية العام الدراسي.", "en": "The start of the school year." },
+      "sequence": 90
+    },
+    {
+      "slug": "summer",
+      "name": { "ar": "عرض الصيف", "en": "Summer Offer" },
+      "description": { "ar": "عروض إجازة الصيف.", "en": "Summer holiday offers." },
+      "sequence": 100
+    },
+    {
+      "slug": "riyadh-season",
+      "name": { "ar": "عرض موسم الرياض", "en": "Riyadh Season Offer" },
+      "description": { "ar": "خلال فعاليات موسم الرياض.", "en": "During the Riyadh Season events." },
+      "sequence": 110
+    },
+    {
+      "slug": "end-of-year",
+      "name": { "ar": "عرض نهاية العام", "en": "End of Year Offer" },
+      "description": { "ar": "تصفية موديلات العام المنتهي.", "en": "Clearing the outgoing model year." },
+      "sequence": 120
+    }
+  ]
+}

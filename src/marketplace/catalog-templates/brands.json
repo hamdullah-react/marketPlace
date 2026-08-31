@@ -1,0 +1,266 @@
+{
+  "key": "brands",
+  "table": "car_brands",
+  "items": [
+    {
+      "slug": "byd",
+      "name": {
+        "ar": "بي واي دي",
+        "en": "BYD"
+      },
+      "logo_file": "logos/7d85f2ee77ba.jpg",
+      "active": true,
+      "sequence": 0
+    },
+    {
+      "slug": "changan",
+      "name": {
+        "ar": "شانجان",
+        "en": "Changan"
+      },
+      "logo_file": "logos/3a9b2df01acb.jpg",
+      "active": true,
+      "sequence": 10
+    },
+    {
+      "slug": "chery",
+      "name": {
+        "ar": "شيري",
+        "en": "Chery"
+      },
+      "logo_file": "logos/724ef1239b14.jpg",
+      "active": true,
+      "sequence": 20
+    },
+    {
+      "slug": "chevrolet",
+      "name": {
+        "ar": "شفروليه",
+        "en": "Chevrolet"
+      },
+      "logo_file": "logos/d3f2db98afb4.svg",
+      "active": true,
+      "sequence": 30
+    },
+    {
+      "slug": "faw",
+      "name": {
+        "ar": "فاو",
+        "en": "Faw"
+      },
+      "logo_file": "logos/106df63a1b19.svg",
+      "active": true,
+      "sequence": 40
+    },
+    {
+      "slug": "ford",
+      "name": {
+        "ar": "فورد",
+        "en": "Ford"
+      },
+      "logo_file": "logos/367883e04688.svg",
+      "active": true,
+      "sequence": 50
+    },
+    {
+      "slug": "foton",
+      "name": {
+        "ar": "فوتون",
+        "en": "Foton"
+      },
+      "logo_file": "logos/ae19773350b2.jpg",
+      "active": true,
+      "sequence": 60
+    },
+    {
+      "slug": "gac",
+      "name": {
+        "ar": "جي اي سي",
+        "en": "GAC"
+      },
+      "logo_file": "logos/a580f5bc3d1a.svg",
+      "active": true,
+      "sequence": 70
+    },
+    {
+      "slug": "geely",
+      "name": {
+        "ar": "جيلي",
+        "en": "Geely"
+      },
+      "logo_file": "logos/9a25bbf990df.svg",
+      "active": true,
+      "sequence": 80
+    },
+    {
+      "slug": "genesis",
+      "name": {
+        "ar": "جينيسيس",
+        "en": "Genesis"
+      },
+      "logo_file": "logos/3367d80e8011.jpg",
+      "active": true,
+      "sequence": 90
+    },
+    {
+      "slug": "gwm",
+      "name": {
+        "ar": "جي دبليو إم",
+        "en": "GWM"
+      },
+      "logo_file": "logos/2aee24ba28cf.jpg",
+      "active": true,
+      "sequence": 100
+    },
+    {
+      "slug": "haval",
+      "name": {
+        "ar": "هافال",
+        "en": "Haval"
+      },
+      "logo_file": "logos/9ea988580397.svg",
+      "active": true,
+      "sequence": 110
+    },
+    {
+      "slug": "honda",
+      "name": {
+        "ar": "هوندا",
+        "en": "Honda"
+      },
+      "logo_file": "logos/a03633914240.svg",
+      "active": true,
+      "sequence": 120
+    },
+    {
+      "slug": "hyundai",
+      "name": {
+        "ar": "هيونداي",
+        "en": "Hyundai"
+      },
+      "logo_file": "logos/443711c0eb58.svg",
+      "active": true,
+      "sequence": 130
+    },
+    {
+      "slug": "isuzu",
+      "name": {
+        "ar": "ايسوزو",
+        "en": "Isuzu"
+      },
+      "logo_file": "logos/80adfea90af2.jpg",
+      "active": true,
+      "sequence": 140
+    },
+    {
+      "slug": "jac",
+      "name": {
+        "ar": "جاك",
+        "en": "JAC"
+      },
+      "logo_file": "logos/0f1cde1192bd.svg",
+      "active": true,
+      "sequence": 150
+    },
+    {
+      "slug": "jetour",
+      "name": {
+        "ar": "جيتور",
+        "en": "Jetour"
+      },
+      "logo_file": "logos/e5d5d2b896e2.jpg",
+      "active": true,
+      "sequence": 160
+    },
+    {
+      "slug": "jmc",
+      "name": {
+        "ar": "جاي ام سي",
+        "en": "JMC"
+      },
+      "logo_file": "logos/aaa5872d4843.jpg",
+      "active": true,
+      "sequence": 170
+    },
+    {
+      "slug": "kia",
+      "name": {
+        "ar": "كيا",
+        "en": "KIA"
+      },
+      "logo_file": "logos/77a4a073b957.svg",
+      "active": true,
+      "sequence": 180
+    },
+    {
+      "slug": "lexus",
+      "name": {
+        "ar": "لكزس",
+        "en": "Lexus"
+      },
+      "logo_file": "logos/3be789edf313.jpg",
+      "active": true,
+      "sequence": 190
+    },
+    {
+      "slug": "mercedes",
+      "name": {
+        "ar": "مرسيدس",
+        "en": "Mercedes"
+      },
+      "logo_file": "logos/0336f4d8de81.jpg",
+      "active": true,
+      "sequence": 200
+    },
+    {
+      "slug": "mg",
+      "name": {
+        "ar": "إم جي",
+        "en": "MG"
+      },
+      "logo_file": "logos/264ba296063d.jpg",
+      "active": true,
+      "sequence": 210
+    },
+    {
+      "slug": "nissan",
+      "name": {
+        "ar": "نيسان",
+        "en": "Nissan"
+      },
+      "logo_file": "logos/82b2ce589586.svg",
+      "active": true,
+      "sequence": 220
+    },
+    {
+      "slug": "rolls-royce",
+      "name": {
+        "ar": "رولز رويس",
+        "en": "Rolls-Royce"
+      },
+      "logo_file": "logos/0cf110f69b6d.jpg",
+      "active": true,
+      "sequence": 230
+    },
+    {
+      "slug": "suzuki",
+      "name": {
+        "ar": "سوزوكي",
+        "en": "Suzuki"
+      },
+      "logo_file": "logos/556078073ca0.svg",
+      "active": true,
+      "sequence": 240
+    },
+    {
+      "slug": "toyota",
+      "name": {
+        "ar": "تويوتا",
+        "en": "Toyota"
+      },
+      "logo_file": "logos/bef745de9e62.svg",
+      "active": true,
+      "sequence": 250
+    }
+  ]
+}

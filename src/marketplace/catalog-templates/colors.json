@@ -1,0 +1,866 @@
+{
+  "key": "colors",
+  "table": "car_colors",
+  "items": [
+    {
+      "slug": "aurora-gray",
+      "name": {
+        "ar": "Aurora Gray",
+        "en": "Aurora Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 0
+    },
+    {
+      "slug": "avalanche",
+      "name": {
+        "ar": "افلانش",
+        "en": "Avalanche"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 10
+    },
+    {
+      "slug": "ayers-grey",
+      "name": {
+        "ar": "AYERS GREY",
+        "en": "AYERS GREY"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 20
+    },
+    {
+      "slug": "beige",
+      "name": {
+        "ar": "Beige",
+        "en": "Beige"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 30
+    },
+    {
+      "slug": "beige-black",
+      "name": {
+        "ar": "بيج + اسود",
+        "en": "Beige + Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 40
+    },
+    {
+      "slug": "beige-blue",
+      "name": {
+        "ar": "بيج + ازرق",
+        "en": "Beige + Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 50
+    },
+    {
+      "slug": "beige-brown",
+      "name": {
+        "ar": "بيج  + بني",
+        "en": "Beige + Brown"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 60
+    },
+    {
+      "slug": "beige-gray",
+      "name": {
+        "ar": "بيج + رمادى",
+        "en": "Beige + Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 70
+    },
+    {
+      "slug": "beige-red",
+      "name": {
+        "ar": "بيج + احمر",
+        "en": "Beige + Red"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 80
+    },
+    {
+      "slug": "black-gray",
+      "name": {
+        "ar": "اسود+رمادي",
+        "en": "Black + Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 90
+    },
+    {
+      "slug": "black-orange",
+      "name": {
+        "ar": "اسود + اورانج",
+        "en": "Black + Orange"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 100
+    },
+    {
+      "slug": "black-red",
+      "name": {
+        "ar": "اسود + احمر",
+        "en": "Black + Red"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 110
+    },
+    {
+      "slug": "black-matte",
+      "name": {
+        "ar": "اسود مطفي",
+        "en": "Black Matte"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 120
+    },
+    {
+      "slug": "blue-black",
+      "name": {
+        "ar": "ازرق + اسود",
+        "en": "Blue + Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 130
+    },
+    {
+      "slug": "blue-gray",
+      "name": {
+        "ar": "ازرق + رمادي",
+        "en": "Blue + Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 140
+    },
+    {
+      "slug": "blue-white",
+      "name": {
+        "ar": "ازرق * ابيض",
+        "en": "Blue + White"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 150
+    },
+    {
+      "slug": "bluish-black-pearl",
+      "name": {
+        "ar": "Bluish Black Pearl",
+        "en": "Bluish Black Pearl"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 160
+    },
+    {
+      "slug": "brown-beige",
+      "name": {
+        "ar": "بني+بيج",
+        "en": "Brown + Beige"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 170
+    },
+    {
+      "slug": "camel",
+      "name": {
+        "ar": "جملي",
+        "en": "Camel"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 180
+    },
+    {
+      "slug": "camel-black",
+      "name": {
+        "ar": "جملي + اسود",
+        "en": "Camel + Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 190
+    },
+    {
+      "slug": "celestial-blue",
+      "name": {
+        "ar": "أزرق سماوي",
+        "en": "Celestial Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 200
+    },
+    {
+      "slug": "cyan",
+      "name": {
+        "ar": "سيان",
+        "en": "Cyan"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 210
+    },
+    {
+      "slug": "cyan-gray",
+      "name": {
+        "ar": "رمادي سيان",
+        "en": "Cyan Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 220
+    },
+    {
+      "slug": "dark-gold",
+      "name": {
+        "ar": "ذهبي غامق",
+        "en": "Dark Gold"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 230
+    },
+    {
+      "slug": "dark-gray",
+      "name": {
+        "ar": "Dark Gray",
+        "en": "Dark Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 240
+    },
+    {
+      "slug": "dark-green",
+      "name": {
+        "ar": "اخضر غامق",
+        "en": "Dark Green"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 250
+    },
+    {
+      "slug": "dark-lead-gray",
+      "name": {
+        "ar": "رصاصي غامق",
+        "en": "Dark Lead Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 260
+    },
+    {
+      "slug": "glossy-gray",
+      "name": {
+        "ar": "رمادي لامع",
+        "en": "Glossy Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 270
+    },
+    {
+      "slug": "glossy-ivory",
+      "name": {
+        "ar": "عاج لامع",
+        "en": "Glossy Ivory"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 280
+    },
+    {
+      "slug": "glossy-silver",
+      "name": {
+        "ar": "فضي لامع",
+        "en": "Glossy Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 290
+    },
+    {
+      "slug": "gold",
+      "name": {
+        "ar": "ذهبي",
+        "en": "Gold"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 300
+    },
+    {
+      "slug": "gold-beige",
+      "name": {
+        "ar": "بيج ذهبي",
+        "en": "Gold Beige"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 310
+    },
+    {
+      "slug": "granite-gray",
+      "name": {
+        "ar": "رمادي جرانيت",
+        "en": "Granite Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 320
+    },
+    {
+      "slug": "granite-gray-metallic",
+      "name": {
+        "ar": "Granite Gray Metallic",
+        "en": "Granite Gray Metallic"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 330
+    },
+    {
+      "slug": "gray-beige",
+      "name": {
+        "ar": "رمادي+بيج",
+        "en": "Gray + Beige"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 340
+    },
+    {
+      "slug": "gray-black",
+      "name": {
+        "ar": "رمادي + اسود",
+        "en": "Gray + Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 350
+    },
+    {
+      "slug": "green-orange",
+      "name": {
+        "ar": "اخضر + اورانج",
+        "en": "Green + Orange"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 360
+    },
+    {
+      "slug": "hamilton-white",
+      "name": {
+        "ar": "HAMILTON WHITE",
+        "en": "HAMILTON WHITE"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 370
+    },
+    {
+      "slug": "highwaygrey",
+      "name": {
+        "ar": "HIGHWAYGREY",
+        "en": "HIGHWAYGREY"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 380
+    },
+    {
+      "slug": "jungle-green",
+      "name": {
+        "ar": "أخضر الغابة",
+        "en": "Jungle Green"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 390
+    },
+    {
+      "slug": "lead-gray",
+      "name": {
+        "ar": "رصاصي",
+        "en": "Lead Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 400
+    },
+    {
+      "slug": "light-blue",
+      "name": {
+        "ar": "ازرق فاتح",
+        "en": "Light Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 410
+    },
+    {
+      "slug": "light-brown",
+      "name": {
+        "ar": "بني فاتح",
+        "en": "Light Brown"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 420
+    },
+    {
+      "slug": "light-gray",
+      "name": {
+        "ar": "Light Gray",
+        "en": "Light Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 430
+    },
+    {
+      "slug": "light-green",
+      "name": {
+        "ar": "اخضر فاتح",
+        "en": "Light Green"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 440
+    },
+    {
+      "slug": "magma-gray",
+      "name": {
+        "ar": "ماجما جراي",
+        "en": "Magma Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 450
+    },
+    {
+      "slug": "matte-black",
+      "name": {
+        "ar": "Matte Black",
+        "en": "Matte Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 460
+    },
+    {
+      "slug": "matte-gray",
+      "name": {
+        "ar": "Matte Gray",
+        "en": "Matte Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 470
+    },
+    {
+      "slug": "matte-green",
+      "name": {
+        "ar": "اخضر مطفي",
+        "en": "Matte Green"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 480
+    },
+    {
+      "slug": "matte-silver",
+      "name": {
+        "ar": "فضي مطفي",
+        "en": "Matte Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 490
+    },
+    {
+      "slug": "medium-gray",
+      "name": {
+        "ar": "رمادي معتدل",
+        "en": "Medium Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 500
+    },
+    {
+      "slug": "metallic-gray",
+      "name": {
+        "ar": "Metallic Gray",
+        "en": "Metallic Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 510
+    },
+    {
+      "slug": "olive",
+      "name": {
+        "ar": "زيتى",
+        "en": "Olive"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 520
+    },
+    {
+      "slug": "pearl-arctic-white",
+      "name": {
+        "ar": "لؤلؤة بيضاء قطبية",
+        "en": "Pearl Arctic White"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 530
+    },
+    {
+      "slug": "pearl-black",
+      "name": {
+        "ar": "أسود لؤلؤي",
+        "en": "Pearl Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 540
+    },
+    {
+      "slug": "prime-grandeur-gray",
+      "name": {
+        "ar": "برايم غراندور غراي",
+        "en": "Prime Grandeur Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 550
+    },
+    {
+      "slug": "prime-splendid-silver",
+      "name": {
+        "ar": "برايم سبلينديد سيلفر",
+        "en": "Prime Splendid Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 560
+    },
+    {
+      "slug": "purple",
+      "name": {
+        "ar": "ارجواني",
+        "en": "Purple"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 570
+    },
+    {
+      "slug": "silky-glossy-silver",
+      "name": {
+        "ar": "فضي حريري لامع",
+        "en": "Silky Glossy Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 580
+    },
+    {
+      "slug": "silky-silver",
+      "name": {
+        "ar": "فضي ناعم",
+        "en": "Silky Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 590
+    },
+    {
+      "slug": "silver-black-roof",
+      "name": {
+        "ar": "فضي سقف اسود",
+        "en": "Silver black roof"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 600
+    },
+    {
+      "slug": "titanium-white",
+      "name": {
+        "ar": "TITANIUM WHITE",
+        "en": "TITANIUM WHITE"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 610
+    },
+    {
+      "slug": "white-black",
+      "name": {
+        "ar": "ابيض + اسود",
+        "en": "White + Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 620
+    },
+    {
+      "slug": "white-black-roof",
+      "name": {
+        "ar": "ابيض سقف اسود",
+        "en": "White + Black Roof"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 630
+    },
+    {
+      "slug": "5-2026",
+      "name": {
+        "ar": "كيا كي 5 جي ال اس 2026",
+        "en": "كيا كي 5 جي ال اس 2026"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 640
+    },
+    {
+      "slug": "black",
+      "name": {
+        "ar": "أسود",
+        "en": "Black"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 650
+    },
+    {
+      "slug": "blue",
+      "name": {
+        "ar": "أزرق",
+        "en": "Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 660
+    },
+    {
+      "slug": "brown",
+      "name": {
+        "ar": "بني",
+        "en": "Brown"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 670
+    },
+    {
+      "slug": "cement",
+      "name": {
+        "ar": "إسمنتي",
+        "en": "Cement"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 680
+    },
+    {
+      "slug": "dark-blue",
+      "name": {
+        "ar": "أزرق غامق",
+        "en": "Dark Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 690
+    },
+    {
+      "slug": "dark-khaki",
+      "name": {
+        "ar": "زيتي غامق",
+        "en": "Dark Khaki"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 700
+    },
+    {
+      "slug": "gray",
+      "name": {
+        "ar": "رمادي",
+        "en": "Gray"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 710
+    },
+    {
+      "slug": "green",
+      "name": {
+        "ar": "أخضر",
+        "en": "Green"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 720
+    },
+    {
+      "slug": "metallic-blue",
+      "name": {
+        "ar": "أزرق ميتاليك",
+        "en": "Metallic Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 730
+    },
+    {
+      "slug": "navy",
+      "name": {
+        "ar": "كحلي",
+        "en": "Navy"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 740
+    },
+    {
+      "slug": "orange",
+      "name": {
+        "ar": "برتقالي",
+        "en": "Orange"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 750
+    },
+    {
+      "slug": "red",
+      "name": {
+        "ar": "أحمر",
+        "en": "Red"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 760
+    },
+    {
+      "slug": "silver",
+      "name": {
+        "ar": "فضي",
+        "en": "Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 770
+    },
+    {
+      "slug": "titanium-silver",
+      "name": {
+        "ar": "فضي تيتانيوم",
+        "en": "Titanium Silver"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 780
+    },
+    {
+      "slug": "white",
+      "name": {
+        "ar": "أبيض",
+        "en": "White"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 790
+    },
+    {
+      "slug": "yellow",
+      "name": {
+        "ar": "أصفر",
+        "en": "Yellow"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 800
+    },
+    {
+      "slug": "black-blue",
+      "name": {
+        "ar": "اسود + ازرق",
+        "en": "Black + Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 810
+    },
+    {
+      "slug": "sky-blue",
+      "name": {
+        "ar": "سماوي",
+        "en": "Sky Blue"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 820
+    },
+    {
+      "slug": "dark-graphite",
+      "name": {
+        "ar": "رصاصي غامق",
+        "en": "Dark Graphite"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 830
+    },
+    {
+      "slug": "golden-beige",
+      "name": {
+        "ar": "بيج ذهبي",
+        "en": "Golden Beige"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 840
+    },
+    {
+      "slug": "graphite",
+      "name": {
+        "ar": "رصاصي",
+        "en": "Graphite"
+      },
+      "hex": null,
+      "image_file": null,
+      "sequence": 850
+    }
+  ]
+}
