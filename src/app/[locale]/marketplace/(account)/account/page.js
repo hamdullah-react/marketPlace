@@ -15,6 +15,13 @@ import { buyerStage } from '@/marketplace/lib/lead-stages';
 import DangerZone from '../_components/DangerZone';
 import { SavedCount } from '../../_components/savedStore';
 
+/**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'My Account',
   robots: { index: false, follow: false },

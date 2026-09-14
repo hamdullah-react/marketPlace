@@ -33,6 +33,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useOnChange } from "@/hooks/use-on-change";
 import {
   Phone, X, Loader2, CheckCircle2, AlertCircle, LogIn, ArrowRight, ClipboardList,
 } from "lucide-react";
@@ -135,6 +136,11 @@ export default function LeadPanel({
      end, so the panel reopens where they left it. Read once on mount — a hash
      that stays in the URL must not fight the close button afterwards. */
   useEffect(() => {
+    // set-state-in-effect is disabled here rather than worked around: the URL
+    // fragment is not sent to the server, so this genuinely cannot be read
+    // during render, and it is read exactly once on mount. Deriving it would
+    // mean touching window during render, which is the worse of the two.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (typeof window !== "undefined" && window.location.hash === "#contact") setOpen(true);
   }, []);
 
@@ -226,20 +232,32 @@ export default function LeadPanel({
    */
   const [openAt, setOpenAt] = useState(alreadySentAt || null);
 
+  /* The three SYNCHRONOUS writers below moved out of effects and into render.
+     Each still fires on exactly the transition it fired on before — useOnChange
+     compares the same value the dependency array did — so "the most recent
+     writer wins" is unchanged. What is gone is the extra commit: the button
+     used to paint "Request a quote" for one frame after a send succeeded,
+     which is the flicker the second comment below was already trying to avoid.
+
+     The fourth writer, the database check, stays an effect: it is asynchronous
+     and it talks to Supabase, which is what an effect is actually for. */
+
   // The server re-rendered with a different answer — a navigation, or a
   // revalidate after the buyer cancelled.
-  useEffect(() => { setOpenAt(alreadySentAt || null); }, [alreadySentAt]);
+  useOnChange(alreadySentAt, (next) => setOpenAt(next || null));
 
   // Just sent one. sendLead returns sentAt precisely so this needs no round
   // trip and cannot flicker through "Request a quote" on the way.
-  useEffect(() => {
-    if (lead.result?.ok && lead.result.sentAt) setOpenAt(lead.result.sentAt);
-  }, [lead.result?.ok, lead.result?.sentAt]);
+  useOnChange(
+    lead.result?.ok ? lead.result.sentAt ?? null : null,
+    (sentAt) => { if (sentAt) setOpenAt(sentAt); }
+  );
 
   // Refused as a duplicate: there IS one, and the page did not know.
-  useEffect(() => {
-    if (lead.result?.error === "ALREADY_SENT") setOpenAt(lead.result.sentAt || true);
-  }, [lead.result?.error, lead.result?.sentAt]);
+  useOnChange(
+    lead.result?.error === "ALREADY_SENT" ? (lead.result.sentAt || true) : null,
+    (sentAt) => { if (sentAt) setOpenAt(sentAt); }
+  );
 
   /**
    * Asking the database, because it is the only source that can say NO.

@@ -23,7 +23,7 @@
  * cancelling.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Pencil, Loader2, AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -140,14 +140,19 @@ export default function EditSection({
   const wide = fields.some(
     (f) => f.type === "richtext" || f.type === "heading" || f.type === "sociallinks"
   );
-  const { result, formAction, pending } = useActionResult(saveStorefrontSection);
-
   /* Close on a save that worked. The page re-renders from the server behind
      the dialog — revalidatePath in the action — so what is underneath is
-     already the new version by the time it is visible. */
-  useEffect(() => {
-    if (result?.ok) setOpen(false);
-  }, [result]);
+     already the new version by the time it is visible.
+
+     Through useActionResult's own onSuccess rather than an effect watching
+     `result`. Closing is a response to the save HAPPENING, which is an event,
+     not a state the component needs to keep re-deriving — and the effect
+     version re-fired on every render that produced a truthy `result`, so
+     reopening the dialog to fix a typo slammed it shut again before anything
+     could be typed. */
+  const { result, formAction, pending } = useActionResult(saveStorefrontSection, undefined, {
+    onSuccess: () => setOpen(false),
+  });
 
   const fieldError = (name) => result?.errors?.[name];
 

@@ -1,34 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Alromaih Marketplace — standalone
 
-## Getting Started
+The marketplace, lifted out of `alromaih-web` into its own Next.js project so it can
+later run on its own origin (`marketplace.alromaihcars.com`).
 
-First, run the development server:
+**The copy in `alromaih-web` is still there and still live.** This is a second copy, not
+a move. Until one is retired, a fix belongs in both.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+npm run dev      # http://localhost:3001  (3000 is the main site)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Why the routes still say /marketplace
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+The tree was copied with its `/[locale]/marketplace/...` segment intact, so a file sits at
+the same path in both repos and a change can be applied by path. `/`, `/ar` and `/en`
+redirect into `/<locale>/marketplace` from `src/proxy.js`.
 
-## Learn More
+When this moves to its own subdomain, dropping the segment is the routing change — plus
+the one line in `src/proxy.js` (`MARKETPLACE_PATH`) that assumes the prefix.
 
-To learn more about Next.js, take a look at the following resources:
+## What is deliberately different from the parent
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| | alromaih-web | here |
+|---|---|---|
+| root layout | `src/app/layout.js`, hardcoded `lang="ar" dir="rtl"` | `src/app/[locale]/layout.js` — **correct `lang`/`dir` per locale** |
+| fonts | 5 families | 2 (Almarai, Noto Sans Arabic) — the only ones the marketplace uses |
+| proxy | NextAuth + non-www 301 + `?srsltid` + `/car/` slug rules + Supabase | Supabase session only |
+| deps | 81 | 47 |
+| Next | 16.2.1 | 16.3.3 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The root layout moved under `[locale]` on purpose —
+`next/dist/docs/01-app/03-api-reference/03-file-conventions/layout.md`: *"The root layout
+can be under a dynamic segment ... with `app/[lang]/layout.js`"*. That is what makes the
+`lang`/`dir` fix possible; the parent cannot do it because its `<html>` sits above
+`[locale]` and cannot see it.
 
-## Deploy on Vercel
+`cacheComponents: true` and `reactCompiler: false` carried over unchanged. The first is
+not a performance toggle — the copied queries are written against it (`'use cache'`,
+`cacheLife()`, and the rule that `new Date()` must sit inside a cached scope).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Before this goes to a real subdomain
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `NEXT_PUBLIC_BASE_URL` in `.env.local` is `http://localhost:3001`. It feeds canonicals
+  and JSON-LD `@id`s — wrong value, wrong structured data.
+- `src/app/[locale]/marketplace/layout.js` sets `robots: { index: false, follow: false }`.
+  Inherited from the parent, where it was correct while the catalog was demo data. **A
+  public marketplace has to turn this off** or nothing ranks.
+- Read `docs/MARKETPLACE-STRUCTURE.md` §0 first. It argues against the subdomain on SEO
+  grounds — a new origin starts at near-zero authority, while `/marketplace` on the main
+  domain inherits it. That argument has not changed; this project only makes the move
+  *possible*, it does not make it *advisable*.
+
+## Shared database
+
+Same DB2 Supabase project as the parent's marketplace — same rows, same storage bucket,
+same `MARKETPLACE_*` keys. Two apps, one database: a listing published from either shows
+up in both. `src/marketplace/db/schema.sql` is the single source of truth for schema.

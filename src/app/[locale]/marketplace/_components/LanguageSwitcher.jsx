@@ -11,28 +11,38 @@
  * and take the whole header with it.
  */
 
-import { useEffect, useState, Suspense } from 'react';
+import { useState, useTransition, Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 function LanguageSwitcherInternal() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
 
+  /**
+   * The URL is the language. The state below is only the OPTIMISM.
+   *
+   * `lang` used to be its own useState kept in step with the path by an effect,
+   * which is a copy of a value React already has — so the flag lagged the URL
+   * by a render, and a language change made anywhere else (a link, the back
+   * button) left this button showing the old flag until something re-rendered
+   * it.
+   *
+   * The optimism is still worth keeping: the flag should flip on click rather
+   * than when the new route finishes loading. So the pending value applies only
+   * while the transition is actually in flight, and the moment it settles the
+   * pathname is the single answer again — which is what makes a back button, a
+   * redirect or a second click impossible to get out of step.
+   */
   const currentLang = pathname.startsWith('/ar') ? 'ar' : 'en';
-  const [lang, setLang] = useState(currentLang);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    setLang(currentLang);
-  }, [currentLang]);
+  const [pendingLang, setPendingLang] = useState(null);
+  const [switching, startSwitching] = useTransition();
+  const lang = switching && pendingLang ? pendingLang : currentLang;
 
   const buttonStyle = () => {
     if (!mounted) return 'bg-white border border-gray-200';
@@ -43,11 +53,15 @@ function LanguageSwitcherInternal() {
 
   const toggleLanguage = () => {
     const newLang = lang === 'ar' ? 'en' : 'ar';
-    setLang(newLang);
+    setPendingLang(newLang);
 
     const pathWithoutLocale = pathname.replace(/^\/(en|ar)/, '');
     const queryString = searchParams.toString();
-    router.push(queryString ? `/${newLang}${pathWithoutLocale}?${queryString}` : `/${newLang}${pathWithoutLocale}`);
+    const href = queryString
+      ? `/${newLang}${pathWithoutLocale}?${queryString}`
+      : `/${newLang}${pathWithoutLocale}`;
+
+    startSwitching(() => router.push(href));
   };
 
   return (

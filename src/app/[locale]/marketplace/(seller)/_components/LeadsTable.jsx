@@ -28,6 +28,7 @@
 import { useMemo, useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useOnChange } from "@/hooks/use-on-change";
 import {
   ChevronDown, Columns3, Phone, ExternalLink, Search, X, CheckCheck, Loader2, RotateCcw,
   Trash2, AlertTriangle,
@@ -113,8 +114,9 @@ export default function LeadsTable({
 
   // The server's term wins whenever it changes — clearing the filter from
   // anywhere else must empty the box rather than leave a stale word sitting in
-  // it, implying a filter that is no longer applied.
-  useEffect(() => { setBox(serverQuery); }, [serverQuery]);
+  // it, implying a filter that is no longer applied. Applied during render, so
+  // the box never shows the cleared-away term for a frame.
+  useOnChange(serverQuery, (next) => setBox(next));
 
   /**
    * Coming BACK to this list, with the browser button.
@@ -273,29 +275,6 @@ export default function LeadsTable({
   const storageKey = `leads-hidden:${basePath}`;
   const seeded = useRef(false);
 
-  useEffect(() => {
-    if (seeded.current) return;
-    seeded.current = true;
-
-    try {
-      const saved = window.localStorage.getItem(storageKey);
-      if (saved) {
-        setHidden(new Set(JSON.parse(saved)));
-        setHasChosen(true);
-        return;
-      }
-    } catch {
-      // A blocked or full localStorage is not a reason to fail to render a
-      // table — it just means the default applies every time.
-    }
-
-    // Nothing stored: hide everything past the first few.
-    setHidden(new Set(columns.slice(DEFAULT_COLUMNS).map((c) => c.key)));
-    // `columns` is read once, on mount, and re-running this on every change to
-    // it would fight the seller's own choices.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
-
   /** Stores whatever set it is handed, and records that the seller chose it. */
   const commitHidden = (next) => {
     setHidden(next);
@@ -342,6 +321,46 @@ export default function LeadsTable({
         .map((f) => ({ key: f.field_key, label: text(f.label) || f.field_key })),
     [fields, locale]
   );
+
+  /**
+   * The seller's saved column choice, read once per table.
+   *
+   * Placed AFTER `columns` deliberately: it reads it, and a closure written
+   * above the declaration is one the lint cannot reason about — it cannot tell
+   * that the effect will not re-run when the column list changes, which is the
+   * whole intent here. Reading it below says the same thing in an order that is
+   * true on the page as well as at runtime.
+   *
+   * Still an effect rather than a lazy useState initialiser, and still guarded
+   * by `seeded`: localStorage does not exist on the server, so this genuinely
+   * cannot be read during the first render, and re-running it on every change
+   * to `columns` would overwrite the seller's own choices every time they edit
+   * a question.
+   */
+  useEffect(() => {
+    if (seeded.current) return;
+    seeded.current = true;
+
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) {
+        // Same reason as every other localStorage seed in this app: unreadable
+        // on the server, so it cannot be a render-time value. Guarded by
+        // `seeded` so it happens once per table.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHidden(new Set(JSON.parse(saved)));
+        setHasChosen(true);
+        return;
+      }
+    } catch {
+      // A blocked or full localStorage is not a reason to fail to render a
+      // table — it just means the default applies every time.
+    }
+
+    // Nothing stored: hide everything past the first few.
+    setHidden(new Set(columns.slice(DEFAULT_COLUMNS).map((c) => c.key)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
   const visible = columns.filter((c) => !hidden.has(c.key));
 

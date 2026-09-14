@@ -3,6 +3,13 @@ import { setRequestLocale } from 'next-intl/server';
 import { getViewer } from '@/marketplace/auth/session';
 import CompleteProfileForm from '../_components/CompleteProfileForm';
 
+/**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Complete your profile',
   robots: { index: false, follow: false },

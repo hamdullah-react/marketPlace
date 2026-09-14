@@ -22,7 +22,7 @@
  * navigation per pixel.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 
@@ -39,9 +39,24 @@ export default function RangeSlider({
   /* The URL is the source of truth, but a drag has to move the handles before
      the server answers. So the committed value seeds local state and re-seeds
      it whenever the URL changes underneath — which is what makes "Reset All"
-     put the handles back rather than leaving them where they were dragged. */
-  const [local, setLocal] = useState(() => clamp(value, min, max));
-  useEffect(() => setLocal(clamp(value, min, max)), [value?.[0], value?.[1], min, max]);
+     put the handles back rather than leaving them where they were dragged.
+
+     Re-seeded DURING RENDER rather than from an effect. This is React's
+     documented "adjusting state when a prop changes" pattern: compare against
+     the last committed value, and if it moved, set both before returning.
+     React discards the render it is in the middle of and immediately re-runs
+     with the new state, so nothing is painted with the stale handles — whereas
+     an effect paints the old positions once, then corrects them, which is a
+     visible jump back to where the handles were dragged before Reset All takes
+     hold. */
+  const seed = clamp(value, min, max);
+  const [seenValue, setSeenValue] = useState(seed);
+  const [local, setLocal] = useState(seed);
+
+  if (seenValue[0] !== seed[0] || seenValue[1] !== seed[1]) {
+    setSeenValue(seed);
+    setLocal(seed);
+  }
 
   const [lo, hi] = local;
 

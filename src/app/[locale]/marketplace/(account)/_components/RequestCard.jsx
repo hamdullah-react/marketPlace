@@ -26,9 +26,10 @@
  *      source of truth.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Car, Store, Phone, Loader2, X, Trash2, Check } from "lucide-react";
+import { useOnChange } from "@/hooks/use-on-change";
 import { useActionResult } from "../../(seller)/_components/useActionResult";
 import { cancelRequest, removeRequest } from "../_actions/requests";
 import {
@@ -66,7 +67,10 @@ export default function RequestCard({ row, locale = "ar" }) {
   const [gone, setGone] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => { setStage(row.stage); }, [row.stage]);
+  // During render, not in an effect: an effect would paint the old stage once
+  // before correcting it, which on a card that says "Cancelled" is a flash of
+  // the state the buyer just left. See hooks/use-on-change.
+  useOnChange(row.stage, (next) => setStage(next));
 
   const cancel = useActionResult(cancelRequest, { ok: false, error: null }, {
     autoClearMs: 0,

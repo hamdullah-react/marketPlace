@@ -7,6 +7,13 @@ import { getVendorSettings } from '@/marketplace/db/queries/settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import OffersManager from '../../_components/OffersManager';
 
+/**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Offers',
   robots: { index: false, follow: false },

@@ -9,6 +9,13 @@ import { normalizeListing } from '@/marketplace/lib/listing';
 import ListingCard from '../../../_components/ListingCard';
 import { CarGridSkeleton } from '../../../_components/Skeletons';
 
+/**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Saved Cars',
   robots: { index: false, follow: false },

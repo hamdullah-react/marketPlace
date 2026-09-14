@@ -29,7 +29,7 @@
  * that silently carried rows you can no longer see would be a trap.
  */
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Children, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Search, Loader2, X, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ import {
 import { useActionResult } from "./useActionResult";
 import { deleteListings } from "../_actions/listing-crud";
 import { errorText } from "@/marketplace/lib/errors";
+import { useOnChange } from "@/hooks/use-on-change";
 
 export default function ListingsTable({
   locale = "ar",
@@ -111,13 +112,20 @@ export default function ListingsTable({
     setSelected(count);
   };
 
-  // New rows arrived — a page, a tab, a search. The fresh checkboxes come back
-  // unticked, so the count has to follow them down rather than keep claiming a
-  // selection that no longer exists.
-  useEffect(() => {
-    setSelected(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children]);
+  /**
+   * New rows arrived — a page, a tab, a search, or a delete that shortened the
+   * list. The fresh checkboxes come back unticked, so the count has to follow
+   * them down rather than keep claiming a selection that no longer exists.
+   *
+   * Keyed on the QUERY plus the row count, not on `children`. `children` is a
+   * fresh element tree on every single render, so the old effect fired on every
+   * render — tick three rows, let the debounce transition land, and the count
+   * silently went back to 0 while the three boxes stayed visibly ticked and the
+   * bulk bar vanished. The query identifies which page of rows this is, and the
+   * count catches a delete that leaves the URL alone.
+   */
+  const rowsKey = `${searchParams.toString()}|${Children.count(children)}`;
+  useOnChange(rowsKey, () => setSelected(0));
 
   const setParam = (key, value, opts = {}) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -147,11 +155,10 @@ export default function ListingsTable({
   }, [query]);
 
   // The URL changed elsewhere (a state tab, the back button) — resync the box
-  // rather than leaving a stale term sitting in it.
-  useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.get("state"), searchParams.get("q")]);
+  // rather than leaving a stale term sitting in it. During render, so the box
+  // never shows the previous tab's term for a frame.
+  const urlQuery = searchParams.get("q") ?? "";
+  useOnChange(`${searchParams.get("state") ?? ""}|${urlQuery}`, () => setQuery(urlQuery));
 
   return (
     <>

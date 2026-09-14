@@ -48,6 +48,7 @@ import {
   AlertCircle, GripVertical, X, Check, Sparkles,
 } from "lucide-react";
 import { ERRORS } from "@/marketplace/lib/errors";
+import { useOnChange } from "@/hooks/use-on-change";
 import { FIELD_TYPES, TYPES_WITH_OPTIONS } from "@/marketplace/lib/form-fields";
 import {
   FORM_STYLES, WIDTHS, ACCENT_PRESETS, NUMERIC_TOKENS, COLOR_FIELDS,
@@ -1145,8 +1146,10 @@ function SectionSelect({ action, vendorId, fieldId, value, tabs, text, t }) {
   }, [tabId]);
 
   // The server's value wins on every re-render, so a rejected move does not
-  // leave the picker showing a section the field is not actually in.
-  useEffect(() => { setTabId(value ?? ""); }, [value]);
+  // leave the picker showing a section the field is not actually in. Applied
+  // during render — an effect would show the rejected section for a frame
+  // first, which is the exact impression this is meant to prevent.
+  useOnChange(value, (next) => setTabId(next ?? ""));
 
   return (
     <form ref={form} action={action}>

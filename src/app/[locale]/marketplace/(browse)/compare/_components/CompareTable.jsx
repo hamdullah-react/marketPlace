@@ -35,6 +35,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useOnChange } from "@/hooks/use-on-change";
 import {
   X, Plus, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   Sparkles, Share2, Loader2, Filter, Search,
@@ -125,13 +126,16 @@ export default function CompareTable({
 
   /* Cleared when the navigation lands, whatever the outcome. Tying this to
      `pending` rather than to a timer means a slow server holds the spinner for
-     as long as it is actually slow, and a fast one never flashes it. */
-  useEffect(() => {
-    if (!pending) {
+     as long as it is actually slow, and a fast one never flashes it.
+
+     During render rather than in an effect: an effect paints the spinner one
+     more time after the new table has already arrived. See hooks/use-on-change. */
+  useOnChange(pending, (nowPending) => {
+    if (!nowPending) {
       setAdding(null);
       setRemoving(null);
     }
-  }, [pending]);
+  });
 
   /* Closed on arrival, like the main site. A visitor lands on the cards and
      the key specs — the categories are there to be opened, not to be scrolled

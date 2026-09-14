@@ -33,6 +33,7 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
+import { useOnChange } from "@/hooks/use-on-change";
 import {
   Menu, X, Search, Heart, User, ChevronDown, Store, LogOut,
   LogIn, UserPlus, SlidersHorizontal, ClipboardList, Car, Plus,
@@ -325,10 +326,14 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  useEffect(() => {
+  // Navigating closes both menus. During render rather than in an effect: the
+  // new page paints with the old menu still open for a frame otherwise, which
+  // on the mobile drawer is a full-screen panel flashing over the page the
+  // visitor just asked for.
+  useOnChange(pathname, () => {
     setProfileOpen(false);
     setMenuOpen(false);
-  }, [pathname]);
+  });
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "auto";

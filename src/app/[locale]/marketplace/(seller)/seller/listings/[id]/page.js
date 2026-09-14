@@ -6,6 +6,13 @@ import ListingForm from '../../../_components/ListingForm';
 import SetupNotice from '../../../_components/SetupNotice';
 import EmptyCatalogNotice from '../../../_components/EmptyCatalogNotice';
 
+/**
+ * This route's params are not known at build time, so under cacheComponents
+ * the shell cannot be prerendered without blocking. Same reason, same fix as
+ * listing/[slug]: route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Edit Listing',
   robots: { index: false, follow: false },

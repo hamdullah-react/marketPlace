@@ -20,6 +20,26 @@ import {
 } from '@/marketplace/db/queries/forms';
 
 /**
+ * This route is allowed to block — and that is the trade this page already
+ * made on purpose.
+ *
+ * Next 16.3 flags the unguarded getListingMeta() await below: "fetch(...) or
+ * connection() accessed outside of <Suspense> prevents the route from being
+ * prerendered". True, and the alternative is worse. notFound() has to fire
+ * BEFORE the first chunk ships, because after that the status is already 200
+ * and a sold car answers a crawler with a soft 404 instead of a real one. See
+ * the comment on ListingDetailPage.
+ *
+ * `instant = false` is the documented way to say so (route-segment-config/
+ * instant.md, "Disabling instant") rather than leaving a dev-overlay error
+ * standing that somebody later "fixes" by deleting the 404.
+ *
+ * It costs nothing at build: everything after the existence check is already
+ * inside Suspense, so the gallery, the panel and the specs still stream.
+ */
+export const instant = false;
+
+/**
  * Which car pages are built ahead of time.
  *
  * Params for BOTH segments, [locale] and [slug], because a page may generate

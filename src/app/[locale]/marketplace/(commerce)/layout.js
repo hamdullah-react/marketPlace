@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import HeaderSlot from '../_components/HeaderSlot';
+import { HeaderSkeleton } from '../_components/Skeletons';
 import MarketplaceFooter from '../_components/MarketplaceFooter';
 
 /**
@@ -18,7 +20,11 @@ export default async function GroupLayout({ children, params }) {
       dir={locale === 'ar' ? 'rtl' : 'ltr'}
       className="marketplace-root flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-[#0f0f0f] dark:text-neutral-100"
     >
-      <HeaderSlot locale={locale} />
+      {/* The session read lives behind a boundary so the page around it can
+          still be prerendered — see HeaderSkeleton. */}
+      <Suspense fallback={<HeaderSkeleton />}>
+        <HeaderSlot locale={locale} />
+      </Suspense>
       {/* Offsets the fixed 80px header. */}
       <div className="flex-1 pt-20">{children}</div>
       <MarketplaceFooter locale={locale} />

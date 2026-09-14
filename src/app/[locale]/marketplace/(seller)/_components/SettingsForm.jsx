@@ -14,7 +14,7 @@
  * clobber Profile with stale values from a tab the seller never opened.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import {
   Store, MapPin, Briefcase, Languages, Database, AlertTriangle,
@@ -65,6 +65,25 @@ function SettingSelect({ id, name, defaultValue, options, className }) {
 
 
 /**
+ * The two things every field below needs, and neither of them is a prop.
+ *
+ * The form has 26 field call sites and exactly two values to thread through
+ * them — the dashboard language and whether fields author in one language or
+ * two. Passing both at every call site is 52 chances to forget one; binding
+ * them by wrapping the components in the parent's render is worse, because a
+ * wrapper built during render is a NEW COMPONENT TYPE on every pass, which is
+ * what remounts BilingualField and wipes whatever was half-typed in it. (That
+ * was the original bug here; an earlier fix moved the bodies to module scope
+ * but kept useMemo'd wrappers, which is the same defect wearing a hat —
+ * useMemo may drop its cache at any time, and the identity still changes
+ * whenever fieldMode or locale does.)
+ *
+ * A context read is the version with no wrapper at all: one provider, and the
+ * components below stay module-scope constants for the life of the module.
+ */
+const FieldCtx = createContext({ locale: "ar", mode: "ar" });
+
+/**
  * Declared at MODULE scope on purpose.
  *
  * A component defined inside another component is a new type on every render,
@@ -72,7 +91,8 @@ function SettingSelect({ id, name, defaultValue, options, className }) {
  * keeps the two language values in useState) resets. That is what made the
  * settings inputs lose text while typing.
  */
-function PairImpl({ id, labelText, ar, en, textarea, rows = 3, phAr = "", phEn = "", required, error, mode, locale }) {
+function Pair({ id, labelText, ar, en, textarea, rows = 3, phAr = "", phEn = "", required, error }) {
+  const { locale, mode } = useContext(FieldCtx);
   return (
     <BilingualField
       id={id} label={labelText} ar={ar} en={en}
@@ -83,7 +103,7 @@ function PairImpl({ id, labelText, ar, en, textarea, rows = 3, phAr = "", phEn =
   );
 }
 
-function ToggleImpl({ name, defaultChecked, labelText, note }) {
+function Toggle({ name, defaultChecked, labelText, note }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
       <input type="checkbox" name={name} defaultChecked={defaultChecked} className="mt-0.5 h-4 w-4 accent-[#46194F]" />
@@ -95,8 +115,9 @@ function ToggleImpl({ name, defaultChecked, labelText, note }) {
   );
 }
 
-function SaveBarImpl({ state, pending, locale }) {
+function SaveBar({ state, pending }) {
   //  may be null once the result auto-clears.
+  const { locale } = useContext(FieldCtx);
   const t = (ar, en) => (locale === "ar" ? ar : en);
   return (
     <div className="flex items-center justify-between gap-3 border-t pt-4">
@@ -118,7 +139,8 @@ function SaveBarImpl({ state, pending, locale }) {
   );
 }
 
-function ErrImpl({ state, name, locale }) {
+function Err({ state, name }) {
+  const { locale } = useContext(FieldCtx);
   return state?.errors?.[name] ? <p className="mt-1 text-xs text-red-600">{errorText(state.errors[name], locale)}</p> : null;
 }
 
@@ -188,29 +210,11 @@ export default function SettingsForm({
   // is already reading, rather than defaulting everyone to Arabic.
   const fieldMode = s.default_locale ?? locale;
 
-  // The implementations live at module scope (below). These wrappers only exist
-  // to pre-bind locale, and they are memoised so their identity is STABLE
-  // across renders — a fresh arrow each render is a new component type, which
-  // makes React unmount and remount the field and wipe whatever was typed.
-  const Pair = useMemo(
-    () => function Pair(props) {
-      return <PairImpl {...props} mode={fieldMode} locale={locale} />;
-    },
-    [fieldMode, locale]
-  );
-  const SaveBar = useMemo(
-    () => function SaveBar(props) {
-      return <SaveBarImpl {...props} locale={locale} />;
-    },
-    [locale]
-  );
-  const Toggle = ToggleImpl;
-  const Err = useMemo(
-    () => function Err(props) {
-      return <ErrImpl {...props} locale={locale} />;
-    },
-    [locale]
-  );
+  // Pair, SaveBar, Err and Toggle are module-scope components (above) that read
+  // these two values from FieldCtx. Memoised only so the provider's value is
+  // not a fresh object each render, which would re-render every field for
+  // nothing.
+  const fieldCtx = useMemo(() => ({ locale, mode: fieldMode }), [locale, fieldMode]);
 
   const router = useRouter();
 
@@ -280,7 +284,7 @@ export default function SettingsForm({
   ) : null;
 
   return (
-    <>
+    <FieldCtx.Provider value={fieldCtx}>
     {deletedBanner}
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
       {/* ── Tab rail ─────────────────────────────────────────────────────── */}
@@ -840,6 +844,6 @@ export default function SettingsForm({
         ) : null}
       </div>
     </div>
-    </>
+    </FieldCtx.Provider>
   );
 }

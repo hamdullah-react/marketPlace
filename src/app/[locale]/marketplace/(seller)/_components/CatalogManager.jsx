@@ -19,6 +19,7 @@ import {
   AlertTriangle, ChevronDown, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useOnChange } from "@/hooks/use-on-change";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -211,9 +212,19 @@ export default function CatalogManager({
     onSuccess: () => { setSelected(new Set()); setConfirmBulk(false); router.refresh(); },
   });
 
-  // Rows differ per tab and per filter, so a selection carried across them
-  // would point at ids no longer on screen.
-  useEffect(() => { setSelected(new Set()); }, [entityKey, items]);
+  /**
+   * Rows differ per tab and per filter, so a selection carried across them
+   * would point at ids no longer on screen.
+   *
+   * Keyed on the ids themselves rather than on `items`, which is a new array on
+   * every render — so the old effect cleared the selection on EVERY render, and
+   * ticking a few rows then letting anything else re-render (the search
+   * debounce, a router transition) emptied the set while the boxes still looked
+   * ticked. A page is at most pageSize rows, so joining the ids is cheap and it
+   * is exact: same rows, same key, selection kept.
+   */
+  const rowsKey = `${entityKey}|${items.map((r) => r.id).join(",")}`;
+  useOnChange(rowsKey, () => setSelected(new Set()));
 
   const allChecked = items.length > 0 && selected.size === items.length;
   const toggleRow = (id) =>
@@ -253,11 +264,9 @@ export default function CatalogManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  // Someone else changed the URL (tab switch, back button) — resync the box.
-  useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityKey]);
+  // Someone else changed the URL (tab switch, back button) — resync the box,
+  // during render so it never shows the previous tab's term for a frame.
+  useOnChange(entityKey, () => setQuery(searchParams.get("q") ?? ""));
 
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);

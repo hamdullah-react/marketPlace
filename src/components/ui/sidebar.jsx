@@ -535,10 +535,29 @@ const SidebarMenuBadge = React.forwardRef(({ className, ...props }, ref) => (
 SidebarMenuBadge.displayName = "SidebarMenuBadge"
 
 const SidebarMenuSkeleton = React.forwardRef(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
+  /**
+   * Varied width between 50% and 90%, so a column of skeleton rows looks like
+   * text rather than a stack of identical bars.
+   *
+   * Derived from useId() rather than Math.random(). Two reasons, and the first
+   * is a real bug rather than a lint preference:
+   *
+   *   · Math.random() during render is not the same on the server as in the
+   *     browser, so every one of these rows hydrated with a different width
+   *     than it was sent with — a mismatch React has to repair on mount.
+   *   · Render must be pure. A component may be rendered and thrown away, or
+   *     rendered twice in StrictMode, and a width that changes each time makes
+   *     the skeleton flicker while it is still loading.
+   *
+   * useId is stable for the life of the element and identical on both sides, so
+   * the row keeps one width and each row still gets its own.
+   */
+  const id = React.useId()
   const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`;
-  }, [])
+    let hash = 0
+    for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) | 0
+    return `${(Math.abs(hash) % 40) + 50}%`;
+  }, [id])
 
   return (
     <div

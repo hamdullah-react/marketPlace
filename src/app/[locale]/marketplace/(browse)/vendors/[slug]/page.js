@@ -30,6 +30,13 @@ import { SocialIcon } from '@/app/[locale]/marketplace/(seller)/_components/Soci
 import RichTextRender, { hasRichText } from './_components/RichTextRender';
 
 /**
+ * This route's params are not known at build time, so under cacheComponents
+ * the shell cannot be prerendered without blocking. Same reason, same fix as
+ * listing/[slug]: route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
+/**
  * One showroom's storefront.
  *
  * ── Tabs, and why they are LINKS ────────────────────────────────────────────

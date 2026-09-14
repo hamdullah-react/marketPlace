@@ -24,6 +24,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useOnChange } from "@/hooks/use-on-change";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
 import { priceWithOffer } from "@/marketplace/lib/offer";
 import LeadPanel from "./LeadPanel";
@@ -140,18 +141,25 @@ export default function ListingFold({
   /* No categories in the active set means no tabs — and then the whole set IS
      the gallery. Filtering by a category nothing carries is what blanked the
      frame the moment a colour was selected. */
-  const photos = tabs.length ? source.filter((p) => p?.category === view) : source;
+  /**
+   * The tab actually on screen, which is not always the one last clicked.
+   *
+   * `view` is the REQUEST. `tabs` only lists categories this colour actually
+   * has photos in, so a buyer sitting on Interior who picks a colour shot only
+   * from outside has asked for a tab that no longer exists. That used to be
+   * repaired by an effect — render an empty frame, notice, setView, render
+   * again — so the gallery blinked empty on the way. Derived here instead, it
+   * is simply never empty, and `view` stays whatever they last chose so the
+   * tab comes back on its own when a colour that has it is selected again.
+   */
+  const activeTab = tabs.some((tb) => tb.key === view) ? view : (tabs[0]?.key ?? view);
+  const photos = tabs.length ? source.filter((p) => p?.category === activeTab) : source;
   const current = photos[index] ?? null;
 
-  // Reset the frame whenever the set of photos underneath it changes.
-  useEffect(() => { setIndex(0); }, [view, variantId]);
-
-  // A tab that empties out (colour switch, or a listing with interior shots
-  // only) must not leave the frame showing nothing.
-  const firstTab = tabs[0]?.key;
-  useEffect(() => {
-    if (photos.length === 0 && firstTab) setView(firstTab);
-  }, [photos.length, firstTab]);
+  // Reset the frame whenever the set of photos underneath it changes. During
+  // render rather than in an effect, so the frame never paints the previous
+  // colour's photo for a beat before jumping. See hooks/use-on-change.
+  useOnChange(`${activeTab} ${variantId}`, () => setIndex(0));
 
   // ← / → move through the gallery; Esc leaves fullscreen.
   useEffect(() => {
@@ -202,7 +210,7 @@ export default function ListingFold({
                     type="button"
                     onClick={() => setView(tab.key)}
                     className={`flex min-w-[60px] flex-col items-center gap-1 px-3 py-2.5 text-sm font-medium transition-colors sm:min-w-auto sm:flex-row sm:gap-2 md:px-4 ${
-                      view === tab.key
+                      activeTab === tab.key
                         ? "bg-brand-primary text-white"
                         : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-[#161616] dark:text-gray-300 dark:hover:bg-[#1c1c1c]"
                     }`}

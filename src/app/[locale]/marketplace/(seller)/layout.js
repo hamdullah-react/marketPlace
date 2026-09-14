@@ -4,6 +4,13 @@ import { getShellVendor } from './_apicalls/shellApi';
 import SellerShell from './_components/SellerShell';
 
 /**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
+/**
  * (seller) — vendor dashboard. Never indexed.
  *
  * The shell lives here so the sidebar renders once and survives navigation

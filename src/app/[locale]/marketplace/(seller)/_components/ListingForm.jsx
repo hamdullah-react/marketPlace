@@ -13,7 +13,9 @@
  * field, side by side, so nothing is filled in only one language by accident.
  */
 
-import { useState, useEffect, useMemo, useRef, useActionState } from "react";
+import {
+  useState, useEffect, useMemo, useRef, useActionState, createContext, useContext,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -21,6 +23,7 @@ import {
   Car, Camera, Gauge, FileText, ChevronRight, ChevronLeft, ListChecks, Search, Sparkles,
 } from "lucide-react";
 import { saveListing } from "../_actions/save-listing";
+import { useOnChange } from "@/hooks/use-on-change";
 import { listingSeo, keywordList } from "@/marketplace/lib/seo";
 import MediaGallery from "./MediaGallery";
 import ImagePicker from "./ImagePicker";
@@ -458,12 +461,18 @@ export default function ListingForm({
 
   // Jump to the first tab carrying an error — otherwise a failed submit looks
   // like nothing happened when the problem is two tabs away.
-  useEffect(() => {
-    const keys = Object.keys(state.errors ?? {});
+  //
+  // Keyed on the errors OBJECT, which useActionState replaces on every submit,
+  // so this fires once per attempt — including a second attempt that fails the
+  // same way, where comparing the contents would not. During render, so the
+  // form never shows the tab the seller was on before snapping to the one with
+  // the error.
+  useOnChange(state.errors, (errors) => {
+    const keys = Object.keys(errors ?? {});
     if (!keys.length) return;
     const owner = tabs.find((tb) => tb.fields.some((f) => keys.includes(f)));
     if (owner) setTab(owner.id);
-  }, [state.errors]);
+  });
 
   /**
    * Models for the chosen brand.
@@ -476,10 +485,20 @@ export default function ListingForm({
    * AbortController rather than a `cancelled` flag, so a fast brand-switch also
    * stops the request instead of only ignoring its answer.
    */
+  /* set-state-in-effect is disabled for the two fetches below rather than
+     restructured. They are the shape the rule's own documentation allows —
+     subscribe to an external system, write what comes back — and the two
+     synchronous calls it objects to are the ones that CANNOT move into the
+     callback: clearing the stale list and raising the loading flag have to
+     happen with the request, not after it, or the form shows the previous
+     brand's models as though they were this brand's while the fetch is in
+     flight. That is the wrong answer on screen, which is worse than a render. */
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!brandId) { setModels([]); setModelId(""); setTrims([]); return; }
 
     const ac = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingModels(true);
 
     fetchModels(brandId, ac.signal)
@@ -497,9 +516,12 @@ export default function ListingForm({
   }, [brandId, catalogVersion]);
 
   useEffect(() => {
+    // See the note on the models fetch above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!modelId) { setTrims([]); return; }
 
     const ac = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingTrims(true);
 
     fetchTrims(modelId, ac.signal)
@@ -524,7 +546,21 @@ export default function ListingForm({
    */
   const leftAt = useRef(0);
   const submitting = useRef(false);
-  submitting.current = pending;
+
+  /**
+   * Mirrored into a ref in an effect, not assigned during render.
+   *
+   * The visibility listener below is registered once and would otherwise close
+   * over whatever `pending` was on the render that installed it, which is why
+   * this is a ref at all. Writing it during render is the wrong half of the
+   * fix: render must be pure, and React may render a component without
+   * committing it — under StrictMode or a discarded concurrent attempt this
+   * would leave the ref claiming a submit that never happened, and the tab
+   * would then refuse to refresh for the rest of the session.
+   */
+  useEffect(() => {
+    submitting.current = pending;
+  }, [pending]);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -582,31 +618,11 @@ export default function ListingForm({
      subtree under it — FieldError included — and hoisting would have bought
      nothing. */
 
-  // Uses the shared BilingualField (module scope) rather than a locally
-  // declared component — a component defined inside this one is a new type on
-  // every render, so React remounts the inputs and typing is lost.
-  const BilingualPair = useMemo(
-    () => function BilingualPair({ id, labelAr, labelEn, textarea = false, placeholderAr = "", placeholderEn = "", rows = 4 }) {
-      const col = id.replace(/([A-Z])/g, "_$1").toLowerCase();
-      // The COLUMN, not the field id. `description` happens to be spelled the
-      // same either way, which is why this went unnoticed until metaTitle
-      // arrived and looked up `existing.metaTitle` — a key no row has.
-      const json = existing?.[id === "title" ? "name" : col] ?? existing?.[id];
-      return (
-        <BilingualField
-          id={id}
-          label={isAr ? labelAr : labelEn}
-          ar={json?.ar ?? existing?.[col + "_ar"] ?? ""}
-          en={json?.en ?? existing?.[col + "_en"] ?? ""}
-          mode={fieldMode}
-          locale={locale}
-          textarea={textarea}
-          rows={rows}
-          phAr={placeholderAr}
-          phEn={placeholderEn}
-        />
-      );
-    },
+  // BilingualPair is a module-scope component (above) that reads these from
+  // PairCtx. Memoised only so the provider's value is not a fresh object on
+  // every render, which would re-render all seven fields for nothing.
+  const pairCtx = useMemo(
+    () => ({ existing, fieldMode, locale, isAr }),
     [existing, fieldMode, locale, isAr]
   );
 
@@ -670,7 +686,19 @@ export default function ListingForm({
    * it stops following the pickers, otherwise choosing a trim would silently
    * overwrite a URL they had deliberately written.
    */
-  const [customSlug, setCustomSlug] = useState(
+  /**
+   * Only the HAND-TYPED slug is state. The followed-along one is computed.
+   *
+   * This used to be one piece of state kept in step with the pickers by an
+   * effect that called setCustomSlug on every brand/model/year change. That is
+   * a render, a commit, and then a second render to show the new value — for
+   * something that is a pure function of state React already has. Worse, the
+   * field showed the stale slug for one paint after every pick.
+   *
+   * Derived during render instead: `slugTouched` chooses which of the two the
+   * field is showing, and the auto value is never stored at all.
+   */
+  const [typedSlug, setTypedSlug] = useState(
     existing?.slug ? existing.slug.replace(/-[0-9a-f]{8}$/, "") : ""
   );
   const [slugTouched, setSlugTouched] = useState(!!existing?.slug);
@@ -740,10 +768,10 @@ export default function ListingForm({
     trim: nameOf(trims, trimId),
   });
 
-  useEffect(() => {
-    if (slugTouched) return;
-    setCustomSlug(autoSlug === "listing" ? "" : autoSlug);
-  }, [autoSlug, slugTouched]);
+  // What the field shows and what the form posts. `listing` is listingStem()'s
+  // "nothing to build from" answer, and an empty box is what tells the seller
+  // to keep picking rather than offering them a URL that says nothing.
+  const customSlug = slugTouched ? typedSlug : (autoSlug === "listing" ? "" : autoSlug);
 
   /** Exactly one photo carries `main`, so setting it clears every other. */
   const setMain = (id, bucket) =>
@@ -806,7 +834,7 @@ export default function ListingForm({
   }
 
   return (
-    <>
+    <PairCtx.Provider value={pairCtx}>
       <form action={formAction}>
         <input type="hidden" name="listingId" value={existing?.id ?? ""} />
         <input type="hidden" name="media" value={JSON.stringify(media)} />
@@ -1368,13 +1396,15 @@ export default function ListingForm({
                   id="customSlug" name="customSlug" dir="ltr"
                   className={`${field} font-mono text-xs`}
                   value={customSlug}
-                  onChange={(e) => { setSlugTouched(true); setCustomSlug(e.target.value); }}
+                  onChange={(e) => { setSlugTouched(true); setTypedSlug(e.target.value); }}
                   placeholder="toyota-camry-2022-gle"
                 />
                 {slugTouched && autoSlug && autoSlug !== "listing" && customSlug !== autoSlug ? (
                   <button
                     type="button"
-                    onClick={() => { setSlugTouched(false); setCustomSlug(autoSlug); }}
+                    // Clearing the typed value too, so "follow the pickers"
+                    // means exactly that rather than freezing today's autoSlug.
+                    onClick={() => { setSlugTouched(false); setTypedSlug(""); }}
                     className="shrink-0 text-xs text-brand-primary hover:underline"
                   >
                     {t("توليد تلقائي", "Auto")}
@@ -1765,7 +1795,7 @@ export default function ListingForm({
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </PairCtx.Provider>
   );
 }
 
@@ -1797,6 +1827,46 @@ function useCatalogSync(incoming, setList) {
     // render and the signature is what actually says whether it changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, setList]);
+}
+
+/**
+ * What every <BilingualPair> below needs and none of its call sites pass: the
+ * row being edited, the field language, and the dashboard locale.
+ *
+ * Same reasoning as SettingsForm's FieldCtx. BilingualPair used to be built
+ * inside ListingForm — first as a plain arrow, then wrapped in useMemo — and
+ * both are a component created during render: the type changes identity, React
+ * unmounts the subtree, and BilingualField's useState goes with it, so the
+ * seller loses whatever they were typing into the title or the description.
+ * useMemo does not save it; a memo cache may be dropped at any time, and the
+ * identity still changes whenever `existing` does.
+ *
+ * With the values in context the component is a module-scope constant and the
+ * seven call sites stay exactly as they read.
+ */
+const PairCtx = createContext({ existing: null, fieldMode: "ar", locale: "ar", isAr: true });
+
+function BilingualPair({ id, labelAr, labelEn, textarea = false, placeholderAr = "", placeholderEn = "", rows = 4 }) {
+  const { existing, fieldMode, locale, isAr } = useContext(PairCtx);
+  const col = id.replace(/([A-Z])/g, "_$1").toLowerCase();
+  // The COLUMN, not the field id. `description` happens to be spelled the
+  // same either way, which is why this went unnoticed until metaTitle
+  // arrived and looked up `existing.metaTitle` — a key no row has.
+  const json = existing?.[id === "title" ? "name" : col] ?? existing?.[id];
+  return (
+    <BilingualField
+      id={id}
+      label={isAr ? labelAr : labelEn}
+      ar={json?.ar ?? existing?.[col + "_ar"] ?? ""}
+      en={json?.en ?? existing?.[col + "_en"] ?? ""}
+      mode={fieldMode}
+      locale={locale}
+      textarea={textarea}
+      rows={rows}
+      phAr={placeholderAr}
+      phEn={placeholderEn}
+    />
+  );
 }
 
 /**

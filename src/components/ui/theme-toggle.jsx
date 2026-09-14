@@ -10,14 +10,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useHydrated } from "@/hooks/use-hydrated"
 
 export function ThemeToggle({ className }) {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
+  // The resolved theme is a browser fact, so the server cannot render it and
+  // the first client render must not either — see hooks/use-hydrated.
+  const mounted = useHydrated()
 
   // Prevent hydration mismatch
   if (!mounted) {

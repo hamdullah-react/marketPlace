@@ -9,6 +9,13 @@ import { readAnswers } from '@/marketplace/lib/form-fields';
 import LeadWorkspace from '../../../_components/LeadWorkspace';
 import MarkLeadRead from '../../../_components/MarkLeadRead';
 
+/**
+ * This route's params are not known at build time, so under cacheComponents
+ * the shell cannot be prerendered without blocking. Same reason, same fix as
+ * listing/[slug]: route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Lead',
   robots: { index: false, follow: false },

@@ -77,6 +77,10 @@ const Carousel = React.forwardRef((
       return
     }
 
+    // Embla is an external store with no render-time snapshot: the initial
+    // read has to happen once the carousel exists, next to the subscription
+    // that keeps it in step. Vendored shadcn code, kept as shipped.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api)
     api.on("reInit", onSelect)
     api.on("select", onSelect)

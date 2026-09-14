@@ -68,6 +68,10 @@ export default function SearchModal({ open, onClose, locale = "ar" }) {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+      // localStorage does not exist on the server, so this list cannot be part
+      // of the first render and has to arrive on mount. Read once, and only
+      // this component writes it afterwards.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (Array.isArray(saved)) setRecent(saved.filter((s) => typeof s === "string"));
     } catch {
       // A corrupted entry is not worth a broken modal.

@@ -23,6 +23,42 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
  * pure CSS animation, so a skeleton costs nothing on the client.
  */
 
+/* ── Chrome ───────────────────────────────────────────────────────────────── */
+
+/**
+ * The header's silhouette, shown while HeaderSlot reads the session.
+ *
+ * HeaderSlot calls getViewer(), which reads cookies() — request data, so the
+ * route cannot be prerendered while it renders inline. Next 16.3 says so out
+ * loud: "cookies(), headers(), params, or searchParams accessed outside of
+ * <Suspense> prevents the route from being prerendered, blocking the page load"
+ * (nextjs.org/docs/messages/blocking-prerender-runtime). Behind a boundary the
+ * page ships as static HTML and only the header waits on the session.
+ *
+ * Same box as the real thing — `fixed inset-x-0 top-0 z-50 h-20`, copied from
+ * MarketplaceHeader — so the 80px offset the layouts add stays correct and
+ * nothing shifts when the real header lands.
+ */
+export function HeaderSkeleton() {
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 h-20 w-full bg-white shadow-lg dark:bg-[#0f0f0f]">
+      <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between gap-4 px-3 sm:px-8">
+        <Skeleton className="h-9 w-32" />
+        <div className="hidden items-center gap-6 lg:flex">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} className="h-4 w-16" />
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-9 w-9 rounded-full" />
+          <Skeleton className="h-9 w-24 rounded-full" />
+        </div>
+      </div>
+    </header>
+  );
+}
+
 /* ── Primitives ──────────────────────────────────────────────────────────── */
 
 /** A run of text lines. The last one is short, the way a real paragraph ends. */

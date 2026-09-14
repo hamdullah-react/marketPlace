@@ -62,6 +62,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getMarketplaceAuthClient } from "@/marketplace/auth/browser";
+import { useOnChange } from "@/hooks/use-on-change";
 
 /**
  * The shared AudioContext, and the gesture that unlocks it.
@@ -180,16 +181,31 @@ export function useLiveLeads(vendorId, { initial = 0, onLead } = {}) {
   // Held in a ref so changing the callback does not tear down the subscription
   // and rebuild it — a resubscribe drops any lead that lands in the gap.
   const handler = useRef(onLead);
-  handler.current = onLead;
 
   // The latest count, readable from a callback that must not be rebuilt every
   // time the number changes — recount() is a subscription dependency.
   const countRef = useRef(count);
-  countRef.current = count;
+
+  /**
+   * Both refs are written on COMMIT, not during render.
+   *
+   * They used to be assigned in the component body, which is a mutation during
+   * render: React is allowed to render a component and throw the result away —
+   * a discarded concurrent attempt, or StrictMode's double render — and a ref
+   * written on a render that never commits leaves the subscription calling a
+   * handler for a tree that does not exist, or counting from a number that was
+   * never shown. No dependency array on purpose: the point is "after every
+   * render that actually landed".
+   */
+  useEffect(() => {
+    handler.current = onLead;
+    countRef.current = count;
+  });
 
   // The server's number wins whenever the page re-renders with a fresh one —
   // a navigation, or a router.refresh() after something was marked read.
-  useEffect(() => { setCount(initial); }, [initial]);
+  // Applied during render so the badge never shows the stale count for a frame.
+  useOnChange(initial, (next) => setCount(next));
 
   /**
    * Unlock the audio on the seller's first interaction, whatever it is.

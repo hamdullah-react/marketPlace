@@ -7,6 +7,13 @@ import { getVendorFormFields } from '@/marketplace/db/queries/forms';
 import { Skeleton } from '@/components/ui/skeleton';
 import LeadsTable from '../../_components/LeadsTable';
 
+/**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Leads',
   robots: { index: false, follow: false },

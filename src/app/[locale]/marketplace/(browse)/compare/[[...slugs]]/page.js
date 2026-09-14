@@ -7,6 +7,13 @@ import {
 import CompareTable from '../_components/CompareTable';
 
 /**
+ * This route's params are not known at build time, so under cacheComponents
+ * the shell cannot be prerendered without blocking. Same reason, same fix as
+ * listing/[slug]: route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
+/**
  * /marketplace/compare/<slug>/<slug>
  *
  * An OPTIONAL catch-all, so /marketplace/compare with nothing after it is the
@@ -176,7 +183,13 @@ export default async function ComparePage({ params }) {
       {jsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{
+            // `<` escaped, for the same reason listing/[slug] escapes it: every
+            // string in here — the car's name, the brand, the showroom's name —
+            // is written by a seller, and a `</script>` inside one would close
+            // this tag and hand the rest of the value to the parser as markup.
+            __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+          }}
         />
       ) : null}
 

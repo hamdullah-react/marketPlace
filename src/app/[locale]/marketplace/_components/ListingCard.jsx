@@ -43,6 +43,12 @@ import { useSyncExternalStore } from "react";
 import {
   subscribe, getSnapshot, getServerSnapshot, toggle as toggleCompare, MAX as MAX_COMPARE,
 } from "./compareStore";
+import {
+  subscribe as subscribeWishlist,
+  getSnapshot as getWishlist,
+  getServerSnapshot as getServerWishlist,
+  toggle as toggleWishlist,
+} from "./wishlistStore";
 import { toggleSavedListing } from "../(account)/_actions/account";
 import { nudgeSavedCount, publishSavedCount } from "./savedStore";
 
@@ -57,17 +63,11 @@ import { nudgeSavedCount, publishSavedCount } from "./savedStore";
  * The local list is not thrown away on sign-in; migrating it is a separate,
  * deliberate step and not something a card should do as a side effect of being
  * rendered.
+ *
+ * The signed-out list lives in wishlistStore.js, for the same reason the
+ * compare shortlist has its own store: it is shared by every card on the page,
+ * so no card may own a copy of it.
  */
-const WISHLIST_KEY = "marketplaceWishlist";
-
-function readWishlist() {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(WISHLIST_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
 
 /** The icon row holds four. A fifth wraps and breaks the card's fixed height. */
 const MAX_FACTS = 4;
@@ -97,13 +97,21 @@ export default function ListingCard({
   // `saved` is null for a signed-out visitor and a boolean for a signed-in one.
   // That distinction is what decides which store the heart writes to.
   const signedIn = saved !== null;
-  const [isFavorite, setIsFavorite] = useState(Boolean(saved));
+
+  /* Signed out: read straight from the shared store, exactly as the compare
+     tick does. This used to be an effect that filled the heart in on the frame
+     after mount — so a grid of cars painted twenty-four empty hearts and then
+     corrected them, on every navigation. */
+  const wishlist = useSyncExternalStore(
+    subscribeWishlist, getWishlist, getServerWishlist
+  );
+
+  /* Signed in: the server's answer, flipped optimistically by the toggle below
+     and corrected by what the action returns. */
+  const [savedHere, setSavedHere] = useState(Boolean(saved));
   const [, startSaving] = useTransition();
 
-  useEffect(() => {
-    if (signedIn) return;
-    setIsFavorite(readWishlist().includes(listing.id));
-  }, [listing.id, signedIn]);
+  const isFavorite = signedIn ? savedHere : wishlist.includes(listing.id);
 
   const toggleFavorite = (e) => {
     // The card is a link. Without both of these the click navigates to the car
@@ -112,12 +120,9 @@ export default function ListingCard({
     e.stopPropagation();
 
     if (!signedIn) {
-      const current = readWishlist();
-      const next = current.includes(listing.id)
-        ? current.filter((id) => id !== listing.id)
-        : [...current, listing.id];
-      localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
-      setIsFavorite(next.includes(listing.id));
+      // The store writes and notifies; every card reading it re-renders,
+      // including any other card showing this same car.
+      toggleWishlist(listing.id);
       return;
     }
 
@@ -125,7 +130,7 @@ export default function ListingCard({
     // for a round trip feels broken on a slow connection, and the failure mode
     // — it flips back — is both rare and self-explanatory.
     const next = !isFavorite;
-    setIsFavorite(next);
+    setSavedHere(next);
 
     /* The header badge moves with the heart rather than after it. This is a
        guess for the length of one round trip; the action returns the real total
@@ -139,12 +144,12 @@ export default function ListingCard({
       const result = await toggleSavedListing(null, body);
 
       if (!result?.ok) {
-        setIsFavorite(!next);
+        setSavedHere(!next);
         nudgeSavedCount(-step);
         return;
       }
 
-      setIsFavorite(Boolean(result.saved));
+      setSavedHere(Boolean(result.saved));
 
       /* The count AFTER the write, which is not always the guess: a double tap
          that raced, or a car already saved in another tab, both end somewhere

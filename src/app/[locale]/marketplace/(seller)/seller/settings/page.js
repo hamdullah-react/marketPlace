@@ -8,6 +8,13 @@ import { getViewer } from '@/marketplace/auth/session';
 import { getAccountCounts } from '@/marketplace/db/queries/account';
 import { localized as localizedName } from '@/marketplace/lib/listing';
 
+/**
+ * The session is read at the top of this component, so the shell cannot be
+ * prerendered without blocking. Same reason, same fix as listing/[slug]:
+ * route-segment-config/instant.md, "Disabling instant".
+ */
+export const instant = false;
+
 export const metadata = {
   title: 'Store Settings',
   robots: { index: false, follow: false },
