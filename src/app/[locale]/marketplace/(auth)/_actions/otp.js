@@ -112,10 +112,10 @@ export async function resendSignupOtp(prevState, formData) {
   // sign-in form, where admitting that an address has no account would turn a
   // leaked email list into a list of confirmed customers.
   if (result.error && result.error !== 'NO_SUCH_USER') {
-    return bad(result.error, { wait: result.wait ?? null });
+    return bad(result.error, { wait: result.wait ?? null, remaining: result.remaining ?? null });
   }
 
-  return ok({ sent: true, email });
+  return ok({ sent: true, email, remaining: result.remaining ?? null });
 }
 
 /* ── Password reset ──────────────────────────────────────────────────────── */
@@ -137,10 +137,14 @@ export async function sendRecoveryOtp(prevState, formData) {
   //
   // NO_SUCH_USER is the only one still swallowed, and it is the only one that
   // would answer "does this person have an account here".
-  if (result.error === 'TOO_SOON') return bad('TOO_SOON', { wait: result.wait ?? null });
+  // DAILY_LIMIT leaks nothing either: the budget is per address and is spent
+  // whether or not that address has an account.
+  if (result.error === 'TOO_SOON' || result.error === 'DAILY_LIMIT') {
+    return bad(result.error, { wait: result.wait ?? null, remaining: result.remaining ?? null });
+  }
   if (result.error === 'SEND_FAILED') return bad('SEND_FAILED');
 
-  return ok({ sent: true, email });
+  return ok({ sent: true, email, remaining: result.remaining ?? null });
 }
 
 /**

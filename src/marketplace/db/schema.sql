@@ -1934,8 +1934,8 @@ create or replace function otp_send_allowed(
   target text,
   kind text,
   cooldown interval default '60 seconds',
-  per_address int default 6,
-  address_window interval default '1 hour',
+  per_address int default 5,
+  address_window interval default '24 hours',
   per_hour int default 300
 )
 returns int
@@ -1961,8 +1961,9 @@ begin
     return greatest(1, ceil(extract(epoch from (last_at + cooldown - now())))::int);
   end if;
 
-  -- 2. The hourly ceiling for one address. Six is well past any honest retry
-  --    and still far short of a usable mail bomb.
+  -- 2. The daily ceiling for one address: five codes in 24 hours, sign-up and
+  --    reset together. The app passes these explicitly (OTP_DAILY_LIMIT in
+  --    src/marketplace/lib/env.ts) and tells the person the rule up front.
   select count(*), min(sent_at) into recent, oldest
   from auth_otp_sends
   where email = lower(target) and sent_at > now() - address_window;

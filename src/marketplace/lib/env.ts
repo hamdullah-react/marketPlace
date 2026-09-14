@@ -71,6 +71,14 @@ export function marketplacePublicEnv(): { url: string; anonKey: string } {
  * Falls back to 6 — Supabase's own default — and clamps to the range the
  * dashboard allows, so a typo in the env file cannot render a 400-slot form.
  */
+/**
+ * How many email codes one address may be sent in 24 hours — sign-up and
+ * password-reset codes counted together. Shared by the server (which enforces
+ * it) and the forms (which tell the person up front), so the number shown can
+ * never drift from the number enforced.
+ */
+export const OTP_DAILY_LIMIT = 5;
+
 export function otpLength(): number {
   const n = Number(process.env.NEXT_PUBLIC_MARKETPLACE_OTP_LENGTH);
   return Number.isInteger(n) && n >= 6 && n <= 10 ? n : 6;

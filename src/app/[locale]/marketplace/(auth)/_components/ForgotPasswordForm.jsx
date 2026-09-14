@@ -28,6 +28,7 @@ import { useActionResult } from "../../(seller)/_components/useActionResult";
 import { sendRecoveryOtp, resetPasswordWithOtp } from "../_actions/otp";
 import CodeField from "./CodeField";
 import { otpLength } from "@/marketplace/lib/env";
+import { waitMessage, dailyLimitMessage, quotaNote } from "./otpQuota";
 
 const MESSAGES = {
   CREDENTIALS_REQUIRED: { ar: "أدخل بريدك الإلكتروني.", en: "Enter your email address." },
@@ -61,32 +62,6 @@ const MESSAGES = {
   SAVE_FAILED: { ar: "تعذّر تغيير كلمة المرور.", en: "Could not change the password." },
 };
 
-
-/**
- * "Wait a moment" was a lie when the real answer was fourteen minutes.
- *
- * The action returns `wait` in seconds; ignoring it left someone pressing a
- * button every few seconds against a limit measured in quarter-hours. Rounded
- * up, because telling a person to wait 59 seconds and refusing them at 59
- * seconds is worse than saying a minute.
- */
-function waitMessage(seconds, locale) {
-  if (!seconds || seconds < 1) return null;
-  const isAr = locale === "ar";
-
-  if (seconds < 90) {
-    const s = Math.ceil(seconds);
-    return isAr
-      ? `انتظر ${s} ثانية قبل طلب رمز جديد.`
-      : `Wait ${s} seconds before asking for another code.`;
-  }
-
-  const m = Math.ceil(seconds / 60);
-  return isAr
-    ? `انتظر ${m} دقيقة قبل طلب رمز جديد.`
-    : `Wait ${m} minutes before asking for another code.`;
-}
-
 export default function ForgotPasswordForm({ locale = "ar" }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -97,9 +72,14 @@ export default function ForgotPasswordForm({ locale = "ar" }) {
 
   const send = useActionResult(sendRecoveryOtp, { ok: false, error: null }, { autoClearMs: 0 });
   const reset = useActionResult(resetPasswordWithOtp, { ok: false, error: null }, { autoClearMs: 0 });
+  // Step two's "send another code" gets its own slot. Sharing step one's would
+  // mean a refused resend (daily limit) flips `send.result.ok` to false and
+  // throws the person back to the email screen mid-reset.
+  const resend = useActionResult(sendRecoveryOtp, { ok: false, error: null }, { autoClearMs: 0 });
 
   const msg = (r) => {
     if (!r?.error) return null;
+    if (r.error === "DAILY_LIMIT") return dailyLimitMessage(r.wait, locale);
     // The throttle knows exactly how long; say so instead of "a moment".
     if (r.error === "TOO_SOON") {
       const exact = waitMessage(r.wait, locale);
@@ -112,6 +92,12 @@ export default function ForgotPasswordForm({ locale = "ar" }) {
   if (send.result?.ok) {
     const sentTo = send.result.email ?? "";
     const error = msg(reset.result);
+    const resendError = msg(resend.result);
+    const remaining =
+      typeof resend.result?.remaining === "number"
+        ? resend.result.remaining
+        : send.result.remaining ?? null;
+    const outOfCodes = remaining === 0;
 
     return (
       <Card>
@@ -180,16 +166,27 @@ export default function ForgotPasswordForm({ locale = "ar" }) {
 
           {/* Reuses step one's form, so a resend is the same code path that
               sent the first one — no second "send" action to keep in step. */}
-          <form action={send.formAction} className="mt-4 text-center">
+          <form action={resend.formAction} className="mt-4 flex flex-col items-center gap-1 text-center">
             <input type="hidden" name="locale" value={locale} />
             <input type="hidden" name="email" value={sentTo} />
             <button
               type="submit"
-              disabled={send.pending}
-              className="text-sm text-muted-foreground underline-offset-4 hover:text-brand-primary hover:underline disabled:opacity-60"
+              disabled={resend.pending || outOfCodes}
+              className="text-sm text-muted-foreground underline-offset-4 hover:text-brand-primary hover:underline disabled:pointer-events-none disabled:opacity-60"
             >
-              {t("أرسل رمزاً جديداً", "Send another code")}
+              {outOfCodes
+                ? t("وصلت إلى حد الرموز اليومي", "Daily code limit reached")
+                : resend.result?.ok
+                  ? t("أُرسل رمز جديد ✓", "New code sent ✓")
+                  : t("أرسل رمزاً جديداً", "Send another code")}
             </button>
+            {resendError ? (
+              <p className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {resendError}
+              </p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">{quotaNote(remaining, locale)}</p>
           </form>
         </CardContent>
       </Card>
@@ -229,6 +226,7 @@ export default function ForgotPasswordForm({ locale = "ar" }) {
                 dir="ltr"
                 required
               />
+              <p className="text-xs text-muted-foreground">{quotaNote(null, locale)}</p>
             </div>
 
             {error ? (

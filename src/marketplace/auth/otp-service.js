@@ -24,9 +24,12 @@ import 'server-only';
 import { getMarketplaceAuthAdmin } from '@/marketplace/auth/admin';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { sendOtpEmail, mailerConfig } from '@/marketplace/auth/mailer';
+import { OTP_DAILY_LIMIT } from '@/marketplace/lib/env';
 
 /** Supabase's default code lifetime. Shown in the email, not enforced here. */
 const EXPIRY_MINUTES = 15;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const isMissingUser = (error) =>
   /user_not_found|not found/i.test(`${error?.code ?? ''} ${error?.message ?? ''}`);
@@ -44,22 +47,69 @@ const isDuplicate = (error) =>
  * publicly reachable endpoint that mails arbitrary addresses on demand, which
  * is not a thing to leave switched on by accident.
  *
- * Returns seconds to wait, 0 meaning go ahead.
+ * The per-address cap is OTP_DAILY_LIMIT codes in 24 hours, passed to the
+ * function explicitly so the number lives in one place (lib/env) and the forms
+ * can show the same figure the database enforces.
+ *
+ * Returns { remaining } when the send may go ahead, or { error, wait } when not:
+ *   TOO_SOON     the one-minute cooldown (or the platform-wide ceiling)
+ *   DAILY_LIMIT  this address has had its codes for the day
+ *   SEND_FAILED  the throttle itself is unavailable
  */
 async function reserveSend(email, purpose) {
   const db = getMarketplaceDb();
-  const { data, error } = await db.rpc('otp_send_allowed', { target: email, kind: purpose });
 
-  if (error) {
+  // Counted first so the person can be told how many are left. The function
+  // below still makes the real decision — this read is advisory, and two
+  // simultaneous requests cannot both slip past the cap because of it.
+  const since = new Date(Date.now() - DAY_MS).toISOString();
+  const { data: today, count, error: countError } = await db
+    .from('auth_otp_sends')
+    .select('sent_at', { count: 'exact' })
+    .eq('email', email)
+    .gt('sent_at', since)
+    .order('sent_at', { ascending: true })
+    .limit(1);
+
+  const sent = countError ? null : count ?? 0;
+  const secondsUntilSlot = () => {
+    const oldest = today?.[0]?.sent_at;
+    if (!oldest) return 24 * 60 * 60;
+    return Math.max(60, Math.ceil((Date.parse(oldest) + DAY_MS - Date.now()) / 1000));
+  };
+
+  if (sent !== null && sent >= OTP_DAILY_LIMIT) {
+    return { error: 'DAILY_LIMIT', wait: secondsUntilSlot(), remaining: 0 };
+  }
+
+  const { data, error } = await db.rpc('otp_send_allowed', {
+    target: email,
+    kind: purpose,
+    per_address: OTP_DAILY_LIMIT,
+    address_window: '24 hours',
+  });
+
+  if (error || typeof data !== 'number') {
     console.error(
       '[marketplace] otp_send_allowed failed — no code was sent. Run section 19 ' +
         'of src/marketplace/db/schema.sql. Cause:',
-      error.message
+      error?.message ?? `unexpected result ${JSON.stringify(data)}`
     );
-    return -1;
+    return { error: 'SEND_FAILED' };
   }
 
-  return typeof data === 'number' ? data : -1;
+  const remaining = sent === null ? null : Math.max(0, OTP_DAILY_LIMIT - sent);
+
+  if (data > 0) {
+    // The cooldown and the platform ceiling never ask for more than a minute,
+    // so a longer wait can only be the daily window (reached by a request that
+    // raced the count above).
+    return data > 60
+      ? { error: 'DAILY_LIMIT', wait: data, remaining: 0 }
+      : { error: 'TOO_SOON', wait: data, remaining };
+  }
+
+  return { remaining: remaining === null ? null : Math.max(0, remaining - 1) };
 }
 
 /**
@@ -79,9 +129,9 @@ async function reserveSend(email, purpose) {
 export async function sendCode({ email, purpose, locale = 'ar' }) {
   const address = email.toLowerCase();
 
-  const wait = await reserveSend(address, purpose);
-  if (wait < 0) return { error: 'SEND_FAILED' };
-  if (wait > 0) return { error: 'TOO_SOON', wait };
+  const slot = await reserveSend(address, purpose);
+  if (slot.error) return slot;
+  const { remaining } = slot;
 
   const admin = getMarketplaceAuthAdmin();
   const { data, error } = await admin.auth.admin.generateLink({
@@ -93,7 +143,7 @@ export async function sendCode({ email, purpose, locale = 'ar' }) {
   // reset it must not, and the send budget has deliberately been spent either
   // way so the form cannot be used to test which addresses exist.
   if (error) {
-    if (isMissingUser(error)) return { error: 'NO_SUCH_USER' };
+    if (isMissingUser(error)) return { error: 'NO_SUCH_USER', remaining };
     console.error('[marketplace] generateLink failed:', error.message);
     return { error: 'SEND_FAILED' };
   }
@@ -130,13 +180,13 @@ export async function sendCode({ email, purpose, locale = 'ar' }) {
           '              Nothing was emailed. Fix the mail account with:\n' +
           '              node scripts/marketplace-mail-test.cjs you@example.com\n'
       );
-      return { ok: true, deliveredTo: 'console' };
+      return { ok: true, deliveredTo: 'console', remaining };
     }
 
     return { error: 'SEND_FAILED' };
   }
 
-  return { ok: true };
+  return { ok: true, remaining };
 }
 
 /**

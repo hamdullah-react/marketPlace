@@ -28,6 +28,7 @@ import { signIn, signUp, signInWithGoogle } from "../_actions/auth";
 import { verifySignupOtp, resendSignupOtp } from "../_actions/otp";
 import CodeField from "./CodeField";
 import { otpLength } from "@/marketplace/lib/env";
+import { waitMessage, dailyLimitMessage, quotaNote } from "./otpQuota";
 
 const MESSAGES = {
   BAD_CREDENTIALS: {
@@ -97,30 +98,11 @@ function GoogleMark() {
   );
 }
 
-
-/**
- * "Wait a moment" was a lie when the real answer was fourteen minutes.
- *
- * The action returns `wait` in seconds; ignoring it left someone pressing a
- * button every few seconds against a limit measured in quarter-hours. Rounded
- * up, because telling a person to wait 59 seconds and refusing them at 59
- * seconds is worse than saying a minute.
- */
-function waitMessage(seconds, locale) {
-  if (!seconds || seconds < 1) return null;
-  const isAr = locale === "ar";
-
-  if (seconds < 90) {
-    const s = Math.ceil(seconds);
-    return isAr
-      ? `انتظر ${s} ثانية قبل طلب رمز جديد.`
-      : `Wait ${s} seconds before asking for another code.`;
-  }
-
-  const m = Math.ceil(seconds / 60);
-  return isAr
-    ? `انتظر ${m} دقيقة قبل طلب رمز جديد.`
-    : `Wait ${m} minutes before asking for another code.`;
+/** A throttle error in words, with the exact wait when the server gave one. */
+function limitMessage(result, locale) {
+  if (result?.error === "DAILY_LIMIT") return dailyLimitMessage(result.wait, locale);
+  if (result?.error === "TOO_SOON") return waitMessage(result.wait, locale);
+  return null;
 }
 
 export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) {
@@ -154,14 +136,19 @@ export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) 
   const verify = useActionResult(verifySignupOtp, { ok: false, error: null }, {
     autoClearMs: 0,
   });
-  const resend = useActionResult(resendSignupOtp, { ok: false, error: null });
+  // No auto-clear: the "codes left today" count and a limit message must stay
+  // readable, not fade after four seconds.
+  const resend = useActionResult(resendSignupOtp, { ok: false, error: null }, {
+    autoClearMs: 0,
+  });
 
   const failed = action.result?.error ? action.result : google.result;
 
   const error = mismatch
     ? MESSAGES.PASSWORDS_DIFFER[locale] ?? MESSAGES.PASSWORDS_DIFFER.en
     : failed?.error
-      ? MESSAGES[failed.error]?.[locale] ??
+      ? limitMessage(failed, locale) ??
+        MESSAGES[failed.error]?.[locale] ??
         MESSAGES[failed.error]?.en ??
         t("حدث خطأ. حاول مرة أخرى.", "Something went wrong. Try again.")
       : null;
@@ -183,9 +170,17 @@ export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) 
         ? resend.result
         : null;
 
+    // Latest count the server reported: the resend's if there was one, else the
+    // sign-up's own send.
+    const remaining =
+      typeof resend.result?.remaining === "number"
+        ? resend.result.remaining
+        : action.result.remaining ?? null;
+    const outOfCodes = remaining === 0;
+
     // The throttle knows exactly how long to wait; say so instead of "a moment".
     const codeMessage = failedCode
-      ? (failedCode.error === "TOO_SOON" && waitMessage(failedCode.wait, locale)) ||
+      ? limitMessage(failedCode, locale) ||
         MESSAGES[failedCode.error]?.[locale] ||
         MESSAGES[failedCode.error]?.en ||
         null
@@ -227,18 +222,21 @@ export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) 
 
           {/* Its own form: resending must not carry the half-typed code, and
               must not be blocked by the code field being empty. */}
-          <form action={resend.formAction} className="text-center">
+          <form action={resend.formAction} className="flex flex-col items-center gap-1 text-center">
             <input type="hidden" name="locale" value={locale} />
             <input type="hidden" name="email" value={sentTo} />
             <button
               type="submit"
-              disabled={resend.pending}
-              className="text-sm text-muted-foreground underline-offset-4 hover:text-brand-primary hover:underline disabled:opacity-60"
+              disabled={resend.pending || outOfCodes}
+              className="text-sm text-muted-foreground underline-offset-4 hover:text-brand-primary hover:underline disabled:pointer-events-none disabled:opacity-60"
             >
-              {resend.result?.ok
-                ? t("أُرسل رمز جديد ✓", "New code sent ✓")
-                : t("لم يصلك الرمز؟ أرسله مرة أخرى", "Did not get it? Send another code")}
+              {outOfCodes
+                ? t("وصلت إلى حد الرموز اليومي", "Daily code limit reached")
+                : resend.result?.ok
+                  ? t("أُرسل رمز جديد ✓", "New code sent ✓")
+                  : t("لم يصلك الرمز؟ أرسله مرة أخرى", "Did not get it? Send another code")}
             </button>
+            <p className="text-xs text-muted-foreground">{quotaNote(remaining, locale)}</p>
           </form>
 
           <p className="text-center text-xs text-muted-foreground">
@@ -319,6 +317,12 @@ export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) 
                 dir="ltr"
                 required
               />
+              {isSignUp ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("سنرسل رمز تأكيد إلى بريدك. ", "We will email you a confirmation code. ")}
+                  {quotaNote(null, locale)}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2">

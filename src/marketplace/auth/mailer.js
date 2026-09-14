@@ -204,14 +204,14 @@ function codeHtml({ code, locale, purpose, minutes }) {
     </div>
   </div>
 
-  <div style="max-width:520px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(var(--brand-rgb),.10);">
+  <div style="max-width:520px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(11,107,58,.10);">
     <div style="padding:32px 28px;text-align:center;">
       <h1 style="margin:0 0 8px;font-size:22px;color:#1f2937;">${c.heading}</h1>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#6b7280;">${c.lead}</p>
 
       <!-- dir=ltr on the digits themselves: a code is a sequence, and an RTL
            page would otherwise present it back to front. -->
-      <div dir="ltr" style="display:inline-block;background:#faf5fb;border:1px solid #ead9ee;border-radius:12px;padding:18px 28px;margin-bottom:18px;">
+      <div dir="ltr" style="display:inline-block;background:#E8F5EE;border:1px solid #BFE0CC;border-radius:12px;padding:18px 28px;margin-bottom:18px;">
         <span style="font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:10px;color:${BRAND};">${code}</span>
       </div>
 

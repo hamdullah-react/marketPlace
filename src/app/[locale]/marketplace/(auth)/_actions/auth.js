@@ -123,14 +123,19 @@ export async function signUp(prevState, formData) {
    * only the postman changed.
    */
   const result = await registerAndSendCode({ email, password, fullName, locale });
-  if (result.error) return bad(result.error, { wait: result.wait ?? null });
+  if (result.error) {
+    return bad(result.error, { wait: result.wait ?? null, remaining: result.remaining ?? null });
+  }
 
   // No session, on purpose. The address is unconfirmed until the code is
   // entered, and handing out a session first would make the code decorative.
   // The email travels back so the code screen can address it and post it to
   // verifyOtp — Supabase needs the address alongside the digits, and asking the
   // user to retype it is asking them to make a typo.
-  return { ok: true, error: null, token: stamp(), confirmEmail: true, email };
+  return {
+    ok: true, error: null, token: stamp(), confirmEmail: true, email,
+    remaining: result.remaining ?? null,
+  };
 }
 
 /**
