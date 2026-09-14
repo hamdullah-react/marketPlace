@@ -18,7 +18,7 @@ export default async function GroupLayout({ children, params }) {
   return (
     <div
       dir={locale === 'ar' ? 'rtl' : 'ltr'}
-      className="marketplace-root flex min-h-screen flex-col bg-[#F6FBF8] text-neutral-900 dark:bg-[#0B0F0C] dark:text-neutral-100"
+      className="marketplace-root flex min-h-screen flex-col bg-[var(--app-bg)] text-neutral-900 dark:bg-[var(--app-bg-dark)] dark:text-neutral-100"
     >
       {/* The session read lives behind a boundary so the page around it can
           still be prerendered — see HeaderSkeleton. */}

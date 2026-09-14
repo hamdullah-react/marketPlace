@@ -85,7 +85,7 @@ export default function AddressBook({ locale = "ar", addresses = [] }) {
           {addresses.map((a) => (
             <div
               key={a.id}
-              className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-[#161616]"
+              className="raised-card rounded-xl p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">

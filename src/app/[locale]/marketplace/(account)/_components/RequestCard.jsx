@@ -117,7 +117,7 @@ export default function RequestCard({ row, locale = "ar" }) {
   };
 
   return (
-    <li className="rounded-2xl border border-gray-200 p-4 dark:border-white/10">
+    <li className="raised-card rounded-2xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           {title ? (
@@ -280,7 +280,7 @@ export default function RequestCard({ row, locale = "ar" }) {
         <form
           action={cancel.formAction}
           onSubmit={() => setGone(true)}
-          className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-white/10"
+          className="raised-card mt-3 rounded-xl p-3"
         >
           <input type="hidden" name="leadId" value={row.id} />
           <input type="hidden" name="locale" value={locale} />

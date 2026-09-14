@@ -725,7 +725,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
       />
       <div
         dir={isAr ? "rtl" : "ltr"}
-        className={`fixed bottom-0 top-0 z-100 flex w-[86%] max-w-[330px] flex-col bg-[#F6FBF8] shadow-2xl transition-transform duration-300 dark:bg-[#0B0F0C] lg:hidden ${
+        className={`fixed bottom-0 top-0 z-100 flex w-[86%] max-w-[330px] flex-col bg-[var(--app-bg)] shadow-2xl transition-transform duration-300 dark:bg-[var(--app-bg-dark)] lg:hidden ${
           isAr ? "right-0 rounded-l-[20px]" : "left-0 rounded-r-[20px]"
         } ${menuOpen ? "translate-x-0" : isAr ? "translate-x-full" : "-translate-x-full"}`}
       >

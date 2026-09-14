@@ -60,7 +60,10 @@ import {
   toggle as toggleWishlist,
 } from "./wishlistStore";
 import { toggleSavedListing } from "../(account)/_actions/account";
-import { nudgeSavedCount, publishSavedCount } from "./savedStore";
+import {
+  nudgeSavedCount, publishSavedCount,
+  subscribeSaved, getSavedOverrides, getServerSavedOverrides, markSaved,
+} from "./savedStore";
 
 /**
  * Where a saved car lives.
@@ -78,6 +81,28 @@ import { nudgeSavedCount, publishSavedCount } from "./savedStore";
  * compare shortlist has its own store: it is shared by every card on the page,
  * so no card may own a copy of it.
  */
+
+/**
+ * The card's links — or plain boxes, when the card is inside another control.
+ *
+ * `compact` means this card is being rendered INSIDE something interactive:
+ * the compare picker wraps each one in a <button> so the whole tile is the
+ * choice. HTML forbids interactive content inside interactive content, and a
+ * <button> (or an <a>) nested in a <button> is both a hydration error and a
+ * real accessibility failure — a screen reader announces a control that cannot
+ * be reached and a click lands on whichever the browser guessed.
+ *
+ * Module scope, not defined in the render: a component built during render is a
+ * new type every pass, which remounts everything under it.
+ */
+function CardLink({ compact, href, className, title, children }) {
+  if (compact) return <div className={className}>{children}</div>;
+  return (
+    <Link href={href} prefetch={false} className={className} title={title}>
+      {children}
+    </Link>
+  );
+}
 
 /** The icon row holds four. A fifth wraps and breaks the card's fixed height. */
 const MAX_FACTS = 4;
@@ -116,9 +141,18 @@ export default function ListingCard({
     subscribeWishlist, getWishlist, getServerWishlist
   );
 
-  /* Signed in: the server's answer, flipped optimistically by the toggle below
-     and corrected by what the action returns. */
-  const [savedHere, setSavedHere] = useState(Boolean(saved));
+  /* Signed in: the server's answer, overridden by anything this browser has
+     changed since. Shared, so the same car in two places on one page — or the
+     saved page and a grid in two tabs — cannot disagree. It used to be a local
+     useState, which is why removing a car from the saved page left every other
+     card still showing a filled heart. See savedStore.js. */
+  const savedOverrides = useSyncExternalStore(
+    subscribeSaved, getSavedOverrides, getServerSavedOverrides
+  );
+  const savedHere = savedOverrides.has(listing.id)
+    ? savedOverrides.get(listing.id)
+    : Boolean(saved);
+
   const [, startSaving] = useTransition();
 
   const isFavorite = signedIn ? savedHere : wishlist.includes(listing.id);
@@ -140,7 +174,7 @@ export default function ListingCard({
     // for a round trip feels broken on a slow connection, and the failure mode
     // — it flips back — is both rare and self-explanatory.
     const next = !isFavorite;
-    setSavedHere(next);
+    markSaved(listing.id, next);
 
     /* The header badge moves with the heart rather than after it. This is a
        guess for the length of one round trip; the action returns the real total
@@ -154,12 +188,12 @@ export default function ListingCard({
       const result = await toggleSavedListing(null, body);
 
       if (!result?.ok) {
-        setSavedHere(!next);
+        markSaved(listing.id, !next);
         nudgeSavedCount(-step);
         return;
       }
 
-      setSavedHere(Boolean(result.saved));
+      markSaved(listing.id, Boolean(result.saved));
 
       /* The count AFTER the write, which is not always the guess: a double tap
          that raced, or a car already saved in another tab, both end somewhere
@@ -257,6 +291,9 @@ export default function ListingCard({
           tooltip, so a screen reader and a hover both still say "View
           details" while the grid stays quiet.
           ------------------------------------------------------------- */}
+      {/* Dropped entirely under `compact` — the whole tile is already one
+          control there, and a second way in would be a link inside a button. */}
+      {compact ? null : (
       <Link
         href={href}
         prefetch={false}
@@ -266,6 +303,7 @@ export default function ListingCard({
         <Arrow className="h-3.5 w-3.5 transition-transform duration-300 group-hover:scale-110 md:h-4 md:w-4" />
         <span className="sr-only">{isEnglish ? "View details" : "عرض التفاصيل"}</span>
       </Link>
+      )}
 
       <div className="absolute start-4 top-4 z-30 flex items-center gap-1.5">
         {listing.offer?.label ? (
@@ -337,9 +375,9 @@ export default function ListingCard({
           ) : null}
 
           <h2 className="line-clamp-2 wrap-break-word text-[13px] font-bold leading-snug tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-brand-primary dark:text-neutral-50 dark:group-hover:text-white md:text-[15px]">
-            <Link href={href} prefetch={false}>
+            <CardLink compact={compact} href={href}>
               {listing.title}
-            </Link>
+            </CardLink>
           </h2>
 
           {/* The identity line, and the "Cash Price" caption folded into it.
@@ -373,9 +411,9 @@ export default function ListingCard({
           tile it read as a rendering artefact rather than as texture.
           ------------------------------------------------------------- */}
       <div className="relative mt-1.5 px-3 pb-1 md:mt-2">
-        <Link
+        <CardLink
+          compact={compact}
           href={href}
-          prefetch={false}
           className="relative z-10 block h-[130px] w-full transition-transform duration-500 group-hover:scale-105 md:h-[160px]"
         >
           {listing.image ? (
@@ -391,14 +429,18 @@ export default function ListingCard({
               {isEnglish ? "No image" : "لا توجد صورة"}
             </div>
           )}
-        </Link>
+        </CardLink>
 
         {/* ── Floating controls ─────────────────────────────────────────────
             The heart and the compare tick, stacked on the trailing edge. Both
             were already icon buttons; putting them together makes them read as
             one set of controls for this card rather than two unrelated marks
             at opposite ends of it. */}
-        <div className={`absolute end-3 top-0 z-20 flex flex-col gap-1 ${compact ? "hidden" : ""}`}>
+        {/* `hidden` was the bug: it took the buttons off screen and left them
+            in the DOM, so a compact card inside the compare picker really did
+            nest <button> in <button>. Not rendered at all now. */}
+        {compact ? null : (
+        <div className="absolute end-3 top-0 z-20 flex flex-col gap-1">
           <button
             onClick={toggleFavorite}
             className="raised flex h-8 w-8 items-center justify-center rounded-full md:h-9 md:w-9"
@@ -496,6 +538,7 @@ export default function ListingCard({
             ) : null}
           </button>
         </div>
+        )}
 
         {listing.city ? (
           <div className="absolute bottom-0 start-3 z-20">

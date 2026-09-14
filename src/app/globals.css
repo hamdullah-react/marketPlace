@@ -467,10 +467,21 @@
     --brand-ink: #06170E;
 
     /* Core Colors */
-    /* A green-tinted paper rather than pure white — the raised
-       surfaces are pale green, and on #fff they read as stains. A
-       ground with the same hue makes them read as lit instead. */
-    --color-background: #F6FBF8;
+    /*
+      The app's paper — green-tinted, not white.
+
+      The raised surfaces are pale green; on pure white they read as stains
+      rather than as lit panels. A ground sharing their hue is what makes the
+      lighting look deliberate.
+
+      --app-bg is the SINGLE definition. The four group layouts, the footer and
+      the mobile drawer all read it, because six copies of a hex is six chances
+      to change five of them — which is exactly what happened to --primary
+      earlier in this theme change.
+    */
+    --app-bg: #EAF4EE;
+    --app-bg-dark: #0B130E;
+    --color-background: var(--app-bg);
     --color-foreground: #1a1a1a;
     --color-background-secondary: #f8f9fa;
     --color-background-tertiary: #f1f3f5;

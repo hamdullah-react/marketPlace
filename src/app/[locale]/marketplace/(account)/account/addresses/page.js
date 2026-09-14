@@ -74,7 +74,7 @@ function BookSkeleton() {
   return (
     <div className="mt-6 space-y-3">
       {Array.from({ length: 2 }, (_, i) => (
-        <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-white/10">
+        <div key={i} className="raised-card rounded-xl p-4">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="mt-2 h-3 w-40" />
           <Skeleton className="mt-1.5 h-3 w-24" />

@@ -59,7 +59,7 @@ export default function MarketplaceFooter({ locale = "ar" }) {
   return (
     <footer
       dir={isAr ? "rtl" : "ltr"}
-      className="mt-16 border-t border-brand-primary/10 bg-[#F6FBF8] font-noto dark:border-white/10 dark:bg-[#0B0F0C]"
+      className="mt-16 border-t border-brand-primary/10 bg-[var(--app-bg)] font-noto dark:border-white/10 dark:bg-[var(--app-bg-dark)]"
     >
       <div className="mx-auto max-w-[1600px] px-4 py-12 sm:px-8 lg:px-20 xl:px-28">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">

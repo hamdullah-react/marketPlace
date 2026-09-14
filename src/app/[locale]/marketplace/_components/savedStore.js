@@ -136,3 +136,70 @@ export function useSavedCount(fallback = 0) {
 export function SavedCount({ fallback = 0 }) {
   return useSavedCount(fallback);
 }
+
+/* ── WHICH cars are saved ───────────────────────────────────────────────────
+
+   The count above answers "how many". This answers "is this one", and it exists
+   for the same reason: the answer is shared and nothing was sharing it.
+
+   A signed-in card used to keep its saved state in its own useState, seeded
+   from a server prop. That is fine for one card and wrong for a page, because
+   the same car appears in more than one place:
+
+     · the saved page and the cars grid, in two tabs
+     · the featured row and the "similar cars" strip on one page
+     · the saved page itself, where REMOVING a car takes the row away and left
+       every other card still showing a filled heart, because nothing told them
+
+   ── An override map, not a mirror of the table ─────────────────────────────
+
+   This holds only what CHANGED in this browser since the page was rendered —
+   `id -> true|false`. A card reads its own server prop and lets an override
+   win if there is one:
+
+       overrides.has(id) ? overrides.get(id) : Boolean(saved)
+
+   That is deliberately not a copy of saved_listings. Mirroring the table would
+   mean seeding it from every page that renders a card and keeping the two in
+   step for ever; an override map needs no seeding at all, and it is empty on
+   first paint, which is exactly when the server prop is freshest.
+
+   The map is REPLACED on each write rather than mutated: useSyncExternalStore
+   compares snapshots with Object.is, so a mutated Map would never look changed
+   and nothing would re-render.
+   -------------------------------------------------------------------------- */
+
+let overrides = new Map();
+const savedListeners = new Set();
+
+const EMPTY = new Map();
+
+export function subscribeSaved(notify) {
+  savedListeners.add(notify);
+  return () => savedListeners.delete(notify);
+}
+
+export function getSavedOverrides() {
+  return overrides;
+}
+
+/** The server renders no overrides — the props it sent ARE the truth. */
+export function getServerSavedOverrides() {
+  return EMPTY;
+}
+
+/**
+ * Record that a car is now saved, or is not.
+ *
+ * Called from an event handler or an action callback, never during render:
+ * writing to a store another component is reading mid-render is the "Cannot
+ * update a component while rendering a different component" error.
+ */
+export function markSaved(listingId, isSaved) {
+  if (!listingId) return;
+  if (overrides.get(listingId) === isSaved) return;
+
+  overrides = new Map(overrides);
+  overrides.set(listingId, Boolean(isSaved));
+  for (const notify of savedListeners) notify();
+}

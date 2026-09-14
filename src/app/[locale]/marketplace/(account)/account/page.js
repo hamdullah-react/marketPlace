@@ -83,7 +83,7 @@ export default async function AccountPage({ params }) {
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-12">
       {/* ── Who ────────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#161616] sm:p-6">
+      <div className="raised-card rounded-2xl p-5 sm:p-6">
         <div className="flex items-center gap-4">
           {viewer.avatarUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -120,7 +120,7 @@ export default async function AccountPage({ params }) {
 
           <Link
             href={`/${locale}/marketplace/complete-profile?next=${encodeURIComponent(`/${locale}/marketplace/account`)}`}
-            className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-brand-primary hover:text-brand-primary dark:border-white/10 dark:text-gray-300 sm:flex"
+            className="raised hidden shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold sm:flex"
           >
             <Pencil className="h-3.5 w-3.5" />
             {t('تعديل', 'Edit')}
@@ -157,7 +157,7 @@ export default async function AccountPage({ params }) {
 
       {/* ── Selling ────────────────────────────────────────────────────── */}
       <div className="mt-6 flex flex-col items-start gap-4 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 p-6 sm:flex-row sm:items-center">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white shadow-xs dark:bg-[#1c1c1c]">
+        <span className="raised flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
           <Store className="h-5 w-5 text-brand-primary" />
         </span>
         <div className="flex-1">
@@ -247,7 +247,7 @@ async function Overview({ viewer, locale, t, isAr }) {
           <Link
             key={key}
             href={`/${locale}${href}`}
-            className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-brand-primary/40 hover:shadow-xs dark:border-white/10 dark:bg-[#161616]"
+            className="raised-card flex items-center gap-3 rounded-xl p-4 transition-transform hover:-translate-y-0.5"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10">
               <Icon className="h-5 w-5 text-brand-primary" />
@@ -265,7 +265,7 @@ async function Overview({ viewer, locale, t, isAr }) {
       </div>
 
       {/* ── Saved cars ─────────────────────────────────────────────────── */}
-      <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#161616]">
+      <section className="raised-card mt-6 rounded-2xl p-5">
         {sectionHead(
           t('السيارات المحفوظة', 'Saved cars'),
           `/${locale}/marketplace/account/saved`,
@@ -291,7 +291,7 @@ async function Overview({ viewer, locale, t, isAr }) {
                 <Link
                   key={car.id}
                   href={`/${locale}${car.path}`}
-                  className="flex items-center gap-3 rounded-xl border border-transparent p-2 transition-colors hover:border-brand-primary/30 hover:bg-gray-50 dark:hover:bg-white/5"
+                  className="raised-hover flex items-center gap-3 rounded-xl p-2"
                 >
                   <span className="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-white/10">
                     {car.image ? (
@@ -325,7 +325,7 @@ async function Overview({ viewer, locale, t, isAr }) {
       </section>
 
       {/* ── Requests ───────────────────────────────────────────────────── */}
-      <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#161616]">
+      <section className="raised-card mt-4 rounded-2xl p-5">
         {sectionHead(
           t('طلباتي', 'My requests'),
           `/${locale}/marketplace/account/requests`,
@@ -351,7 +351,7 @@ async function Overview({ viewer, locale, t, isAr }) {
                 <Link
                   key={r.id}
                   href={`/${locale}/marketplace/account/requests`}
-                  className="flex items-start gap-3 rounded-xl border border-gray-100 p-3 transition-colors hover:border-brand-primary/30 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5"
+                  className="raised-hover flex items-start gap-3 rounded-xl p-3"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -384,7 +384,7 @@ async function Overview({ viewer, locale, t, isAr }) {
       {/* ── Addresses ──────────────────────────────────────────────────────
           Written out, not linked to. This is the block that used to be a row
           in the header's profile menu — see the note there. */}
-      <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#161616]">
+      <section className="raised-card mt-4 rounded-2xl p-5">
         {sectionHead(
           t('العناوين', 'Addresses'),
           `/${locale}/marketplace/account/addresses`,
@@ -494,7 +494,7 @@ function OverviewSkeleton() {
     <>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {Array.from({ length: 2 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 dark:border-white/10">
+          <div key={i} className="flex items-center gap-3 raised-card rounded-xl p-4">
             <Skeleton className="h-10 w-10 rounded-xl" />
             <div className="space-y-2">
               <Skeleton className="h-5 w-8" />
@@ -505,7 +505,7 @@ function OverviewSkeleton() {
       </div>
 
       {Array.from({ length: 3 }, (_, s) => (
-        <div key={s} className="mt-4 rounded-2xl border border-gray-200 p-5 dark:border-white/10">
+        <div key={s} className="raised-card mt-4 rounded-2xl p-5">
           <Skeleton className="mb-3 h-4 w-28" />
           <div className="space-y-2">
             {Array.from({ length: 2 }, (_, i) => (
