@@ -1,17 +1,31 @@
 "use client";
 
 /**
- * Marketplace header — fixed, 80px, same silhouette as the main site's Header
- * so the two feel like one company, but self-contained: its own nav model, its
- * own profile menu, no imports from @/MyComponents.
+ * Marketplace header — fixed, same silhouette as the main site's Header so the
+ * two feel like one company, but self-contained: its own nav model, its own
+ * profile menu, no imports from @/MyComponents.
+ *
+ * ── The bar's own height is responsive ──────────────────────────────────────
+ *
+ * 64px on a phone, 80px from sm. It was 80 everywhere, which spends a quarter
+ * of a small phone's visible height on a logo and four buttons — and because
+ * the bar is `fixed`, that quarter is gone at every scroll position, not only
+ * at the top.
+ *
+ * FIVE other places encode this number and all of them move with it: the
+ * `pt-16 sm:pt-20` in the (browse), (account), (commerce) and (info) layouts,
+ * and the compare page's sticky toolbar at `top-16 sm:top-20`. Change the
+ * height here and change those — the symptom otherwise is the first element of
+ * every page hiding behind the bar, which is easy to miss at desktop width
+ * because that is the size where nothing moved.
  *
  * ── Three layouts, not two ──────────────────────────────────────────────────
  *
- *   < 640  phone      hamburger + logo + search + language + profile, all
- *                     one step down — 28px logo, 32px controls, 20px glyphs.
- *                     At full size that row was the widest thing on a 320px
- *                     screen and the bar looked stuffed.
- *   < 1024 tablet     the same at full size, plus the saved-cars heart
+ *   < 640  phone      64px bar: hamburger + logo + search + language +
+ *                     profile, all one step down — 28px logo, 32px controls,
+ *                     20px glyphs. At full size that row was the widest thing
+ *                     on a 320px screen and the bar looked stuffed.
+ *   < 1024 tablet     80px bar, the same at full size, plus the saved heart
  *   ≥ 1024 desktop    the full nav bar, compact
  *   ≥ 1280 desktop    the full nav bar, roomy
  *
@@ -383,11 +397,11 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
     <>
       <header
         dir={isAr ? "rtl" : "ltr"}
-        className="fixed inset-x-0 top-0 z-50 h-20 w-full bg-white font-noto shadow-lg transition-colors duration-300 dark:bg-[#0f0f0f]"
+        className="fixed inset-x-0 top-0 z-50 h-16 w-full bg-linear-to-b from-[#F7FCF9] to-[#DCEFE4] font-noto shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_1px_0_rgba(var(--brand-rgb),0.14),0_6px_16px_-6px_rgba(var(--brand-rgb),0.28),0_16px_32px_-18px_rgba(0,0,0,0.28)] transition-colors duration-300 dark:from-[#1B4029] dark:to-[#12301F] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_32px_-18px_rgba(0,0,0,0.7)] sm:h-20"
       >
-        <div className="w-full border-b border-gray-200 bg-white transition-colors duration-300 dark:border-gray-800 dark:bg-[#0f0f0f]">
+        <div className="w-full bg-transparent transition-colors duration-300">
           <div className="mx-auto max-w-[1600px] px-4 sm:px-8 lg:px-20 xl:px-28">
-            <div className="flex h-20 items-center justify-between gap-2">
+            <div className="flex h-16 items-center justify-between gap-2 sm:h-20">
               {/* ── Logo ──────────────────────────────────────────────── */}
               <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
                 <button
@@ -414,7 +428,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   </div>
                   {/* Present on phones and tablets, gone at lg where the five
                       nav labels need every pixel, back at xl. */}
-                  <span className="hidden rounded-md bg-brand-primary/10 px-2 py-0.5 text-[10px] font-bold text-brand-primary dark:bg-brand-primary/20 sm:inline lg:hidden xl:inline">
+                  <span className="raised hidden rounded-md px-2 py-0.5 text-[10px] font-bold sm:inline lg:hidden xl:inline">
                     {t("السوق", "MARKET")}
                   </span>
                 </Link>
@@ -426,14 +440,26 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   const active = isActive(item.href);
                   const subs = menuFor(item);
 
-                  const triggerClass = `relative flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors xl:px-4 xl:text-sm ${
+                  /*
+                    The active item is a RAISED PILL, not an underline.
+
+                    Same light source as the filter card and the bar itself:
+                    a pale green face, a white lip along the top edge where the
+                    light lands, and a short green contact shadow under it. The
+                    underline it replaces said "you are here" in a way that had
+                    nothing to do with the rest of the surface treatment.
+
+                    Inactive items stay flat and gain the pill only on hover,
+                    so the row reads as one active item rather than five
+                    competing buttons.
+                  */
+                  const triggerClass = `relative flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-bold transition-all xl:px-4 xl:text-sm ${
                     active
-                      ? "text-brand-primary"
-                      : "text-gray-700 hover:text-brand-primary dark:text-gray-300 dark:hover:text-white"
+                      ? "raised"
+                      : "raised-hover text-gray-700 dark:text-gray-300"
                   }`;
-                  const underline = active ? (
-                    <span className="absolute inset-x-2.5 -bottom-0.5 h-0.5 rounded-full bg-brand-primary xl:inset-x-4" />
-                  ) : null;
+                  // The pill IS the indicator now.
+                  const underline = null;
 
                   if (!subs) {
                     return (
@@ -470,7 +496,12 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                         dir={isAr ? "rtl" : "ltr"}
                         align="start"
                         sideOffset={8}
-                        className="w-48 rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-[#1e1e1e]"
+                        /* raised-card, like the hero's filter panel — a menu
+                           floating over the page is the same kind of object as
+                           a card floating over it, and it should be lit the
+                           same way. The border and bg-white it replaces were
+                           doing that job flatly and in a different vocabulary. */
+                        className="raised-card w-48 rounded-xl p-1"
                       >
                         {subs.map((sub) => {
                           const subActive = isSubActive(sub.href);
@@ -478,10 +509,13 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                             <DropdownMenuItem key={sub.key} asChild>
                               <Link
                                 href={`/${locale}${sub.href}`}
-                                className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${
+                                /* Same two states as the nav row above it: the
+                                   current page is a raised pill, everything else
+                                   is flat until you point at it. */
+                                className={`cursor-pointer rounded-lg px-3 py-2 text-sm font-bold ${
                                   subActive
-                                    ? "bg-brand-primary/5 font-semibold text-brand-primary"
-                                    : "text-gray-700 dark:text-gray-300"
+                                    ? "raised"
+                                    : "raised-hover text-gray-700 dark:text-gray-300"
                                 }`}
                               >
                                 {t(sub.ar, sub.en)}
@@ -503,7 +537,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                     setSearchMounted(true);
                     setSearchOpen(true);
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 sm:h-10 sm:w-10"
+                  className="raised flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10"
                   aria-label={t("بحث", "Search")}
                 >
                   <Search className="h-[18px] w-[18px] text-brand-primary sm:h-5 sm:w-5" />
@@ -520,7 +554,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                     show them. See HeaderSlot. */}
                 <Link
                   href={`/${locale}/marketplace/account/saved`}
-                  className="relative hidden h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/5 dark:hover:bg-white/10 sm:flex"
+                  className="raised relative hidden h-10 w-10 items-center justify-center rounded-full sm:flex"
                   aria-label={
                     viewer && savedLive > 0
                       ? t(`المفضلة (${savedLive})`, `Saved (${savedLive})`)
@@ -534,7 +568,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   {viewer && savedLive > 0 ? (
                     /* 99+ rather than a fourth digit — a three-character badge
                        is as wide as the icon it sits on. */
-                    <span className="absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-bold leading-none text-white tabular-nums">
+                    <span className="raised-solid absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-bold leading-none text-white tabular-nums">
                       {savedLive > 99 ? "99+" : savedLive}
                     </span>
                   ) : null}
@@ -546,7 +580,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                 <div className="relative" ref={profileRef}>
                   <button
                     onClick={() => setProfileOpen((v) => !v)}
-                    className="flex h-8 items-center gap-1.5 rounded-full border border-gray-200 px-0.5 transition-colors hover:border-brand-primary dark:border-gray-700 sm:h-10 sm:pe-2 sm:ps-1"
+                    className="raised flex h-8 items-center gap-1.5 rounded-full px-0.5 sm:h-10 sm:pe-2 sm:ps-1"
                     aria-expanded={profileOpen}
                     aria-haspopup="menu"
                   >
@@ -559,7 +593,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   {profileOpen ? (
                     <div
                       role="menu"
-                      className={`absolute top-12 z-50 w-[min(88vw,15rem)] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-[#1a1a1a] ${isAr ? "left-0" : "right-0"}`}
+                      className={`raised-card absolute top-12 z-50 w-[min(88vw,15rem)] overflow-hidden rounded-xl ${isAr ? "left-0" : "right-0"}`}
                     >
                       <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
                         {viewer ? (
@@ -594,7 +628,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                           <Link
                             href={`/${locale}/marketplace/account`}
                             role="menuitem"
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-brand-primary dark:text-gray-200 dark:hover:bg-white/5"
+                            className="raised-hover flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200"
                           >
                             <User className="h-4 w-4" />
                             {t("حسابي", "My account")}
@@ -610,7 +644,7 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                                   key={href}
                                   href={`/${locale}${href}`}
                                   role="menuitem"
-                                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-brand-primary dark:text-gray-200 dark:hover:bg-white/5"
+                                  className="raised-hover flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
                                 >
                                   <Icon className="h-4 w-4" />
                                   <span className="flex-1 truncate">{t(ar, en)}</span>
@@ -650,14 +684,14 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                           <>
                             <Link
                               href={authHref("login")}
-                              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-brand-primary transition-colors hover:bg-brand-primary/5"
+                              className="raised flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium"
                             >
                               <LogIn className="h-4 w-4" />
                               {t("تسجيل الدخول", "Sign in")}
                             </Link>
                             <Link
                               href={authHref("signup")}
-                              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-brand-primary dark:text-gray-200 dark:hover:bg-white/5"
+                              className="raised-hover flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
                             >
                               <UserPlus className="h-4 w-4" />
                               {t("إنشاء حساب", "Create an account")}
@@ -691,12 +725,16 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
       />
       <div
         dir={isAr ? "rtl" : "ltr"}
-        className={`fixed bottom-0 top-0 z-100 flex w-[86%] max-w-[330px] flex-col bg-white shadow-2xl transition-transform duration-300 dark:bg-[#0f0f0f] lg:hidden ${
+        className={`fixed bottom-0 top-0 z-100 flex w-[86%] max-w-[330px] flex-col bg-[#F6FBF8] shadow-2xl transition-transform duration-300 dark:bg-[#0B0F0C] lg:hidden ${
           isAr ? "right-0 rounded-l-[20px]" : "left-0 rounded-r-[20px]"
         } ${menuOpen ? "translate-x-0" : isAr ? "translate-x-full" : "-translate-x-full"}`}
       >
-        <div className="flex min-h-[80px] shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-          <Image src="/alromaih/new logo.png" width={150} height={43} alt="Alromaih" loading="eager" />
+        <div className="flex min-h-16 shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700 sm:min-h-20">
+          {/* Lazy: this is the drawer's logo, and the drawer is translated off
+              screen until somebody opens it. Eager here was a second copy of
+              the header logo fetched on every page load for a panel most
+              visitors never see. */}
+          <Image src="/alromaih/new logo.png" width={150} height={43} alt="Alromaih" loading="lazy" />
           <button
             onClick={() => setMenuOpen(false)}
             className="rounded-full p-2 transition-colors hover:bg-gray-100 dark:hover:bg-white/10"
@@ -718,10 +756,10 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   key={item.key}
                   href={`/${locale}${item.href}`}
                   onClick={closeDrawer}
-                  className={`block rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`block rounded-lg px-4 py-3 text-sm font-bold transition-colors ${
                     active
-                      ? "bg-brand-primary/5 text-brand-primary"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                      ? "raised"
+                      : "raised-hover text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   {t(item.ar, item.en)}
@@ -739,10 +777,10 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   type="button"
                   onClick={() => setOpenSection(open ? null : item.key)}
                   aria-expanded={open}
-                  className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-sm font-bold transition-colors ${
                     active
-                      ? "bg-brand-primary/5 text-brand-primary"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+                      ? "raised"
+                      : "raised-hover text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <span>{t(item.ar, item.en)}</span>
@@ -764,10 +802,10 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                           key={sub.key}
                           href={`/${locale}${sub.href}`}
                           onClick={closeDrawer}
-                          className={`block rounded-lg px-5 py-2.5 text-sm ${
+                          className={`block rounded-lg px-5 py-2.5 text-sm font-bold ${
                             subActive
-                              ? "bg-brand-primary/5 font-semibold text-brand-primary"
-                              : "text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5"
+                              ? "raised"
+                              : "raised-hover text-gray-600 dark:text-gray-400"
                           }`}
                         >
                           {t(sub.ar, sub.en)}
@@ -799,14 +837,14 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
             <Link
               href={authHref("login")}
               onClick={closeDrawer}
-              className="block rounded-lg bg-brand-primary px-4 py-3 text-center text-sm font-medium text-white"
+              className="raised-solid block rounded-lg bg-brand-primary px-4 py-3 text-center text-sm font-medium text-white"
             >
               {t("تسجيل الدخول", "Sign in")}
             </Link>
             <Link
               href={authHref("signup")}
               onClick={closeDrawer}
-              className="block rounded-lg border border-gray-200 px-4 py-3 text-center text-sm font-medium text-brand-primary dark:border-gray-700"
+              className="raised block rounded-lg px-4 py-3 text-center text-sm font-bold"
             >
               {t("إنشاء حساب", "Create an account")}
             </Link>

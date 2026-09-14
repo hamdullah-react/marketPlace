@@ -244,7 +244,7 @@ export default function ResultsHeader({
   return (
     <>
       {/* ── The header card ──────────────────────────────────────────────── */}
-      <Card className="mb-6 rounded-2xl border-0 shadow-lg dark:bg-[#1a1a1a]">
+      <Card className="raised-card mb-6 rounded-2xl border-0">
         <CardContent className="flex flex-col items-start justify-between p-5 md:flex-row md:items-center">
           <h2 className="mb-2 flex items-center gap-2 text-xl font-bold text-brand-primary md:mb-0">
             <span>{t("السيارات المتاحة", "Available Cars")}</span>
@@ -271,19 +271,19 @@ export default function ResultsHeader({
             >
               <SelectTrigger
                 aria-label={t("ترتيب", "Sort")}
-                className="w-auto min-w-[180px] gap-2 rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm hover:border-brand-primary focus:ring-brand-primary/20 dark:border-white/15"
+                className="raised w-auto min-w-[180px] gap-2 rounded-xl border-0 px-4 py-2.5 text-sm font-bold focus:ring-brand-primary/20"
               >
                 <SelectValue placeholder={t("ترتيب حسب", "Sort by")} />
               </SelectTrigger>
               <SelectContent
                 dir={isAr ? "rtl" : "ltr"}
-                className="rounded-xl border border-gray-100 shadow-xl dark:border-white/10"
+                className="raised-card rounded-xl border-0"
               >
                 {SORT_OPTIONS.map((o) => (
                   <SelectItem
                     key={o.value}
                     value={o.value}
-                    className="cursor-pointer rounded-lg focus:bg-brand-primary/10 focus:text-brand-primary"
+                    className="raised-hover cursor-pointer rounded-lg font-bold"
                   >
                     <span className="flex items-center gap-2">
                       <o.Icon
@@ -306,7 +306,7 @@ export default function ResultsHeader({
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Button
             onClick={clearAll}
-            className="h-9 gap-1 rounded-[5px] bg-brand-primary px-4 text-white hover:bg-brand-dark dark:border dark:border-white dark:bg-[#1e1e1e] dark:hover:bg-[#2a2a2a]"
+            className="raised-solid h-9 gap-1 rounded-[5px] bg-brand-primary px-4 text-white hover:bg-brand-dark dark:border dark:border-white dark:bg-[#1e1e1e] dark:hover:bg-[#2a2a2a]"
           >
             <RefreshCw className="h-4 w-4" />
             {t("مسح الكل", "Clear All")}

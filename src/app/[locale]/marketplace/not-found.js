@@ -7,7 +7,7 @@ export default function MarketplaceNotFound() {
       <h2 className="text-xl font-bold">الصفحة غير موجودة / Page not found</h2>
       <Link
         href="/marketplace"
-        className="rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+        className="raised-solid rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white"
       >
         العودة للسوق / Back to Marketplace
       </Link>

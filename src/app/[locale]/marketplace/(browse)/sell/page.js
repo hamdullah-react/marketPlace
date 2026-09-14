@@ -143,7 +143,7 @@ export default async function SellPage({ params }) {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href={cta.href}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+            className="raised-solid inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white"
           >
             {t(cta.ar, cta.en)}
             <ArrowRight className={`h-4 w-4 ${isAr ? 'rotate-180' : ''}`} />
@@ -167,7 +167,7 @@ export default async function SellPage({ params }) {
         {SELLING_POINTS.map(({ icon: Icon, ar, en, bodyAr, bodyEn }) => (
           <div
             key={en}
-            className="rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:border-brand-primary/30 dark:border-white/10 dark:bg-[#161616]"
+            className="raised-card rounded-xl p-5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10">
               <Icon className="h-5 w-5 text-brand-primary" />
@@ -244,7 +244,7 @@ export default async function SellPage({ params }) {
         <div className="mt-8">
           <Link
             href={cta.href}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+            className="raised-solid inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white"
           >
             {t(cta.ar, cta.en)}
             <ArrowRight className={`h-4 w-4 ${isAr ? 'rotate-180' : ''}`} />

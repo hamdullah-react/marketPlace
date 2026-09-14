@@ -260,7 +260,7 @@ export default function LeadWorkspace({ locale = "ar", vendorId, lead, answers =
           <button
             type="submit"
             disabled={details.pending}
-            className="flex items-center justify-center gap-2 rounded-xl bg-brand-primary py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="raised-solid flex items-center justify-center gap-2 rounded-xl bg-brand-primary py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
           >
             {details.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {details.result?.ok ? <Check className="h-4 w-4" /> : null}

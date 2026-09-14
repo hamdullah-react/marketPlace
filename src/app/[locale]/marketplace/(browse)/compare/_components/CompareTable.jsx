@@ -380,7 +380,7 @@ export default function CompareTable({
           <button
             type="button"
             onClick={share}
-            className="flex items-center gap-1.5 rounded-xl bg-brand-primary px-3 py-2 text-white transition-all hover:bg-brand-dark md:gap-2 md:px-4 md:py-2.5 lg:absolute lg:end-0"
+            className="raised-solid flex items-center gap-1.5 rounded-xl bg-brand-primary px-3 py-2 text-white transition-all hover:bg-brand-dark md:gap-2 md:px-4 md:py-2.5 lg:absolute lg:end-0"
           >
             {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
             <span className="text-xs font-medium md:text-sm">
@@ -443,7 +443,7 @@ export default function CompareTable({
                 onClick={() => carouselApi?.scrollPrev()}
                 disabled={activeCar === 0}
                 aria-label={t("السابق", "Previous")}
-                className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-md transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-30 dark:border-white/10 dark:bg-white/5"
+                className="raised rounded-xl p-2.5 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 {isAr ? (
                   <ChevronRight className="h-5 w-5 text-brand-primary" />
@@ -456,7 +456,7 @@ export default function CompareTable({
                 onClick={() => carouselApi?.scrollNext()}
                 disabled={activeCar === cars.length - 1}
                 aria-label={t("التالي", "Next")}
-                className="rounded-xl border border-gray-200 bg-white p-2.5 shadow-md transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-30 dark:border-white/10 dark:bg-white/5"
+                className="raised rounded-xl p-2.5 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 {isAr ? (
                   <ChevronLeft className="h-5 w-5 text-brand-primary" />
@@ -557,7 +557,7 @@ export default function CompareTable({
         {/* ── Key Specifications ───────────────────────────────────────────── */}
         {visibleOverview.length || visibleKeySpecs.length ? (
           <div className="mb-4 md:mb-8">
-            <div className="mb-3 flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-white shadow-xs md:mb-6 md:px-6 md:py-4">
+            <div className="raised-solid mb-3 flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-3 text-white shadow-xs md:mb-6 md:px-6 md:py-4">
               <Sparkles className="h-4 w-4 md:h-5 md:w-5" />
               <h2 className="text-base font-bold md:text-lg">
                 {t("المواصفات الرئيسية", "Key Specifications")}
@@ -593,7 +593,7 @@ export default function CompareTable({
 
         {/* ── Specifications, by category ──────────────────────────────────── */}
         {visibleGroups.length ? (
-          <div className="mb-3 rounded-xl bg-brand-primary px-4 py-3 text-white shadow-xs md:mb-6 md:px-6 md:py-4">
+          <div className="raised-solid mb-3 rounded-xl bg-brand-primary px-4 py-3 text-white shadow-xs md:mb-6 md:px-6 md:py-4">
             <h2 className="text-base font-bold md:text-lg">
               {t("المواصفات", "Specifications")}
             </h2>
@@ -605,7 +605,7 @@ export default function CompareTable({
           return (
             <div
               key={group.key}
-              className="mb-3 overflow-hidden rounded-xl bg-white shadow-xs dark:bg-[#141414] md:mb-6"
+              className="raised-card mb-3 overflow-hidden rounded-xl md:mb-6"
             >
               <button
                 type="button"
@@ -691,7 +691,7 @@ export default function CompareTable({
                   className="h-24 w-full rounded-xl object-contain"
                 />
               ) : (
-                <div className="h-24 w-24 animate-pulse rounded-xl bg-gray-200 dark:bg-white/10" />
+                <div className="h-24 w-24 animate-pulse rounded-xl bg-brand-primary/10 dark:bg-white/10" />
               )}
 
               <div className="w-full text-center">
@@ -860,7 +860,7 @@ export default function CompareTable({
                     which is what keeps this a chooser and not a way out. */}
                 <span className="absolute inset-0 z-20 rounded-xl" />
                 <span className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl bg-brand-primary/0 opacity-0 transition-all group-hover/pick:bg-brand-primary/10 group-hover/pick:opacity-100">
-                  <span className="flex items-center gap-1.5 rounded-full bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
+                  <span className="raised-solid flex items-center gap-1.5 rounded-full bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white shadow-lg">
                     <Plus className="h-3.5 w-3.5" />
                     {t("أضف", "Add")}
                   </span>

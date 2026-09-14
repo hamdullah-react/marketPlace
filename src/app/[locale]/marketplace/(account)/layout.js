@@ -18,7 +18,7 @@ export default async function GroupLayout({ children, params }) {
   return (
     <div
       dir={locale === 'ar' ? 'rtl' : 'ltr'}
-      className="marketplace-root flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-[#0f0f0f] dark:text-neutral-100"
+      className="marketplace-root flex min-h-screen flex-col bg-[#F6FBF8] text-neutral-900 dark:bg-[#0B0F0C] dark:text-neutral-100"
     >
       {/* The session read lives behind a boundary so the page around it can
           still be prerendered — see HeaderSkeleton. */}
@@ -26,7 +26,10 @@ export default async function GroupLayout({ children, params }) {
         <HeaderSlot locale={locale} />
       </Suspense>
       {/* Offsets the fixed 80px header. */}
-      <div className="flex-1 pt-20">{children}</div>
+      {/* Offsets the fixed header, which is 64px on a phone and 80px from
+          sm. The two have to move together or the first thing on every
+          page sits under the bar. */}
+      <div className="flex-1 pt-16 sm:pt-20">{children}</div>
       <MarketplaceFooter locale={locale} />
     </div>
   );

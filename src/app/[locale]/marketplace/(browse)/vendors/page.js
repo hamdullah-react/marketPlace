@@ -34,7 +34,7 @@ export default async function VendorsPage({ params, searchParams }) {
         <h1 className="text-3xl font-bold text-brand-primary sm:text-4xl">
           {t('المعارض', 'Showrooms')}
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 dark:text-gray-400">
+        <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 dark:text-gray-400"raised-solid >
           {t(
             'المعارض والتجّار على سوق الرميح. اختر معرضاً لتصفّح سياراته والتواصل معه مباشرة.',
             'The dealers and showrooms on Alromaih Marketplace. Pick one to browse its cars and get in touch directly.'
@@ -76,7 +76,7 @@ async function CityBar({ searchParams, locale, t }) {
     `/${locale}/marketplace/vendors${city ? `?city=${encodeURIComponent(city)}` : ''}`;
 
   const pill = (on) =>
-    `rounded-lg px-3 py-1.5 text-sm transition-colors ${
+    `rounded-lg px-3 py-1.5 text-sm ${
       on
         ? 'bg-brand-primary text-white'
         : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
@@ -159,7 +159,7 @@ async function Grid({ searchParams, locale, t }) {
         </p>
         <Link
           href={`/${locale}/marketplace/sell`}
-          className="mt-5 inline-block rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+          className="raised-solid mt-5 inline-block rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white"
         >
           {t('افتح معرضك', 'Open your showroom')}
         </Link>
@@ -176,7 +176,7 @@ async function Grid({ searchParams, locale, t }) {
           <Link
             key={v.id}
             href={`/${locale}/marketplace/vendors/${v.slug}`}
-            className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-all hover:border-brand-primary/40 hover:shadow-md dark:border-white/10 dark:bg-[#161616]"
+            className="raised-card group overflow-hidden rounded-xl transition-transform duration-300 hover:-translate-y-0.5"
           >
             {/* The banner doubles as the card's colour. A showroom without one
                 keeps the same footprint, so rows never change height. */}

@@ -188,7 +188,7 @@ const EXPIRY = {
   en: (m) => `This code expires in ${m} minutes.`,
 };
 
-const BRAND = '#46194F';
+const BRAND = '#0B6B3A';
 
 function codeHtml({ code, locale, purpose, minutes }) {
   const isAr = locale === 'ar';
@@ -198,13 +198,13 @@ function codeHtml({ code, locale, purpose, minutes }) {
 <html dir="${isAr ? 'rtl' : 'ltr'}" lang="${isAr ? 'ar' : 'en'}">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
-  <div style="background:linear-gradient(135deg,${BRAND} 0%,#1f0c23 100%);padding:36px 20px;text-align:center;">
+  <div style="background:linear-gradient(135deg,${BRAND} 0%,#06170E 100%);padding:36px 20px;text-align:center;">
     <div style="display:inline-block;background:#ffffff;padding:12px 26px;border-radius:12px;">
       <span style="color:${BRAND};font-size:20px;font-weight:bold;letter-spacing:1px;">AL ROMAIH</span>
     </div>
   </div>
 
-  <div style="max-width:520px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(70,25,79,.10);">
+  <div style="max-width:520px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(var(--brand-rgb),.10);">
     <div style="padding:32px 28px;text-align:center;">
       <h1 style="margin:0 0 8px;font-size:22px;color:#1f2937;">${c.heading}</h1>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#6b7280;">${c.lead}</p>

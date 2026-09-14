@@ -47,11 +47,11 @@
 /** Six hex digits with a hash. Anything else is not a colour we will store. */
 export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-export const DEFAULT_ACCENT = '#46194f';
+export const DEFAULT_ACCENT = '#0B6B3A';
 
 /** Quick swatches for the accent. The picker is there for everything else. */
 export const ACCENT_PRESETS = [
-  { hex: '#46194f', swatch: 'bg-[#46194f]', ar: 'لون المتجر', en: 'Store colour' },
+  { hex: '#0B6B3A', swatch: 'bg-[var(--brand-primary)]', ar: 'لون المتجر', en: 'Store colour' },
   { hex: '#2563eb', swatch: 'bg-[#2563eb]', ar: 'أزرق', en: 'Blue' },
   { hex: '#059669', swatch: 'bg-[#059669]', ar: 'أخضر', en: 'Green' },
   { hex: '#b45309', swatch: 'bg-[#b45309]', ar: 'كهرماني', en: 'Amber' },

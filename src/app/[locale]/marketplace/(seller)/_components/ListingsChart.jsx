@@ -20,7 +20,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
-const BRAND = "#46194f";
+const BRAND = "#0B6B3A";
 
 export default function ListingsChart({ locale = "ar", listings = [] }) {
   const isAr = locale === "ar";

@@ -236,10 +236,10 @@ async function ModelTrimPills({ locale, brandId, scopeKey }) {
 function PillsSkeleton() {
   return (
     <div className="mt-5 animate-pulse border-t border-gray-100 pt-5 dark:border-white/10">
-      <div className="mb-2 h-3 w-12 rounded bg-gray-200 dark:bg-white/10" />
+      <div className="mb-2 h-3 w-12 rounded bg-brand-primary/10 dark:bg-white/10" />
       <div className="flex gap-2">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="h-8 w-24 rounded-full bg-gray-200 dark:bg-white/10" />
+          <div key={i} className="h-8 w-24 rounded-full bg-brand-primary/10 dark:bg-white/10" />
         ))}
       </div>
     </div>

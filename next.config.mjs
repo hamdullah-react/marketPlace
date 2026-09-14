@@ -52,6 +52,12 @@ const nextConfig = {
       { protocol: 'https', hostname: 'cdn.alromaihcars.com' },
       { protocol: 'https', hostname: 'alromaih.b-cdn.net' },
       { protocol: 'https', hostname: 'alromaih-cdn.b-cdn.net' },
+      // PLACEHOLDER ART ONLY — the hero carousel's stand-in photography.
+      // Delete this line together with the stock URLs in
+      // (browse)/_components/heroSlides.js, the day the admin supplies real
+      // hero images. An allowlisted host is a standing permission to optimise
+      // and serve anything from it, so it should not outlive what it was for.
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
 };

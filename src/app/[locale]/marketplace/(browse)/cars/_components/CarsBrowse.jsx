@@ -3,7 +3,7 @@ import { Fragment, Suspense } from 'react';
 import { X } from 'lucide-react';
 import { getCarsFacets, getCarsResults } from '../_apicalls/carsPageApi';
 import {
-  FilterSidebarSkeleton, MobileFilterButtonSkeleton, ResultsHeaderSkeleton, CarGridSkeleton,
+  FilterSidebarSkeleton, MobileFilterButtonSkeleton, ResultsHeaderSkeleton,
 } from '../../../_components/Skeletons';
 import FilterSidebar, { MobileFilters } from './FilterSidebar';
 import ResultsHeader from './ResultsHeader';
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/pagination';
 import { getSavedIds } from '@/marketplace/db/queries/account';
 import { getUser } from '@/marketplace/auth/session';
+import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 
 /**
  * The browse grid — rail on the left, results on the right — for every page
@@ -151,7 +152,7 @@ export default async function CarsBrowse({
             fallback={
               <>
                 <ResultsHeaderSkeleton />
-                <CarGridSkeleton count={9} />
+                <ListingCardGridSkeleton count={9} />
               </>
             }
           >
@@ -205,7 +206,24 @@ async function Results({ searchParams, locale, t, lock, scopeKey, basePath, show
    * signed-out visitor — that null is what tells ListingCard to fall back to
    * localStorage instead of posting to a table it has no user for.
    */
-  const savedIds = user ? await getSavedIds(user.id).catch(() => null) : null;
+  /**
+   * An EMPTY SET on failure, never null.
+   *
+   * `saved={null}` is how a card is told "nobody is signed in", and it answers
+   * that by falling back to the localStorage wishlist. So a lookup that failed
+   * for a SIGNED-IN visitor used to hand back null and quietly turn their cards
+   * back into signed-out ones — hearts lit from a list they built before they
+   * ever had an account, while /account/saved read the database and showed
+   * nothing. Two sources disagreeing, with no error anywhere to explain it.
+   *
+   * A signed-in visitor now always gets a Set. Empty means "nothing saved",
+   * which is the safe direction to fail: a heart that is wrongly empty is
+   * corrected by one tap, and a heart that is wrongly full is a lie about their
+   * account that the saved page contradicts.
+   */
+  const savedIds = user
+    ? await getSavedIds(user.id).catch(() => new Set())
+    : null;
 
   // Preserve every active filter when paging — rebuilding the query string from
   // scratch would silently drop the user's filters on page 2.

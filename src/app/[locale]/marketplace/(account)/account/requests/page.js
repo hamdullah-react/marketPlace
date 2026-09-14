@@ -92,7 +92,7 @@ async function RequestList({ locale, t }) {
           </p>
           <Link
             href={`/${locale}/marketplace/cars`}
-            className="mt-4 inline-block rounded-2xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white"
+            className="raised-solid mt-4 inline-block rounded-2xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white"
           >
             {t('تصفّح السيارات', 'Browse cars')}
           </Link>

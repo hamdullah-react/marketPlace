@@ -73,7 +73,7 @@ async function BrandsGrid({ locale }) {
       </Breadcrumb>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="mb-6 rounded-2xl bg-linear-to-r from-[#46194f] to-[#5a1f63] p-6 text-white shadow-lg sm:p-8">
+      <div className="mb-6 rounded-2xl bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-6 text-white shadow-lg sm:p-8">
         <h1 className="text-2xl font-bold sm:text-3xl">{t('الماركات', 'Car Brands')}</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/80">
           {t(
@@ -112,7 +112,7 @@ async function BrandsGrid({ locale }) {
             <Link
               key={b.id}
               href={`/${locale}/marketplace/brands/${b.slug}`}
-              className="group overflow-hidden rounded-2xl bg-white shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:bg-[#1a1a1a]"
+              className="raised-card group overflow-hidden rounded-2xl transition-transform duration-300 hover:-translate-y-1"
             >
               <div className="relative flex aspect-square items-center justify-center bg-linear-to-br from-gray-50 to-white p-6 dark:from-white/5 dark:to-transparent">
                 {b.logoUrl ? (
@@ -131,7 +131,7 @@ async function BrandsGrid({ locale }) {
                   <Car className="h-16 w-16 text-gray-300" />
                 )}
 
-                <span className="absolute end-2 top-2 rounded-full bg-brand-primary px-2 py-0.5 text-[11px] font-semibold text-white">
+                <span className="raised-solid absolute end-2 top-2 rounded-full bg-brand-primary px-2 py-0.5 text-[11px] font-semibold text-white">
                   {b.count}
                 </span>
               </div>
@@ -158,17 +158,17 @@ async function BrandsGrid({ locale }) {
 function BrandsSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="mb-4 h-5 w-48 rounded bg-gray-200 dark:bg-white/10" />
-      <div className="mb-6 h-40 rounded-2xl bg-gray-200 dark:bg-white/10" />
+      <div className="mb-4 h-5 w-48 rounded bg-brand-primary/10 dark:bg-white/10" />
+      <div className="mb-6 h-40 rounded-2xl bg-brand-primary/10 dark:bg-white/10" />
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: 10 }, (_, i) => (
-          <div key={i} className="overflow-hidden rounded-2xl bg-white shadow-md dark:bg-[#1a1a1a]">
+          <div key={i} className="raised-card overflow-hidden rounded-2xl">
             <div className="flex aspect-square items-center justify-center bg-gray-50 dark:bg-white/5">
-              <div className="h-20 w-20 rounded-full bg-gray-200 dark:bg-white/10" />
+              <div className="h-20 w-20 rounded-full bg-brand-primary/10 dark:bg-white/10" />
             </div>
             <div className="flex flex-col items-center gap-2 border-t border-gray-100 p-4 dark:border-white/10">
-              <div className="h-5 w-20 rounded bg-gray-200 dark:bg-white/10" />
-              <div className="h-3 w-24 rounded bg-gray-200 dark:bg-white/10" />
+              <div className="h-5 w-20 rounded bg-brand-primary/10 dark:bg-white/10" />
+              <div className="h-3 w-24 rounded bg-brand-primary/10 dark:bg-white/10" />
             </div>
           </div>
         ))}

@@ -300,7 +300,7 @@ export default function SpecEditor({ locale = "ar", groups = [], values = {}, on
                                         : [...chosen, opt.id];
                                       return next.length ? set(item.id, next) : clear(item.id);
                                     }}
-                                    className="h-3.5 w-3.5 accent-[#46194F]"
+                                    className="h-3.5 w-3.5 accent-[var(--brand-primary)]"
                                   />
                                   <span className="text-gray-700 dark:text-gray-300">
                                     {localized(opt.name, locale)}

@@ -177,7 +177,7 @@ export default function CompleteProfileForm({
         <button
           type="submit"
           disabled={save.pending}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="raised-solid mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
         >
           {save.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {t("حفظ ومتابعة", "Save and continue")}

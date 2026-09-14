@@ -293,7 +293,7 @@ export default function SearchModal({ open, onClose, locale = "ar" }) {
                 <div
                   key={i}
                   style={{ width: w }}
-                  className="h-[30px] shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-white/10"
+                  className="h-[30px] shrink-0 animate-pulse rounded-full bg-brand-primary/10 dark:bg-white/10"
                 />
               ))}
             </div>
@@ -354,7 +354,7 @@ export default function SearchModal({ open, onClose, locale = "ar" }) {
                 <button
                   type="button"
                   onClick={submit}
-                  className="mt-4 w-full rounded-xl bg-brand-primary py-3 text-sm font-bold text-white transition-colors hover:bg-brand-dark"
+                  className="raised-solid mt-4 w-full rounded-xl bg-brand-primary py-3 text-sm font-bold text-white hover:bg-brand-dark"
                 >
                   {t(
                     `عرض كل النتائج (${total}) ←`,
@@ -447,12 +447,12 @@ function RowSkeleton({ count = 3 }) {
     <div className="space-y-1">
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="flex animate-pulse items-center gap-3 p-2">
-          <div className="h-14 w-20 shrink-0 rounded-lg bg-gray-200 dark:bg-white/10" />
+          <div className="h-14 w-20 shrink-0 rounded-lg bg-brand-primary/10 dark:bg-white/10" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3.5 rounded bg-gray-200 dark:bg-white/10" style={{ width: widths[i % widths.length] }} />
-            <div className="h-2.5 w-2/5 rounded bg-gray-200 dark:bg-white/10" />
+            <div className="h-3.5 rounded bg-brand-primary/10 dark:bg-white/10" style={{ width: widths[i % widths.length] }} />
+            <div className="h-2.5 w-2/5 rounded bg-brand-primary/10 dark:bg-white/10" />
           </div>
-          <div className="h-4 w-16 shrink-0 rounded bg-gray-200 dark:bg-white/10" />
+          <div className="h-4 w-16 shrink-0 rounded bg-brand-primary/10 dark:bg-white/10" />
         </div>
       ))}
     </div>

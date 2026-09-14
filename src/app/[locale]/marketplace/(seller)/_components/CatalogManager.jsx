@@ -342,7 +342,7 @@ export default function CatalogManager({
         <button
           type="button"
           onClick={() => setEditing({})}
-          className="flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+          className="raised-solid flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white"
         >
           <Plus className="h-4 w-4" />
           {t("إضافة", "Add")}
@@ -501,7 +501,7 @@ export default function CatalogManager({
                     <TableHead className="w-10">
                       <input type="checkbox" checked={allChecked} onChange={toggleAll}
                         aria-label={t("تحديد الكل", "Select all")}
-                        className="h-4 w-4 accent-[#46194F]" />
+                        className="h-4 w-4 accent-[var(--brand-primary)]" />
                     </TableHead>
                     <TableHead className="text-start">{t("الاسم", "Name")}</TableHead>
                     {entity.parent ? (
@@ -525,7 +525,7 @@ export default function CatalogManager({
                         <input type="checkbox" checked={selected.has(row.id)}
                           onChange={() => toggleRow(row.id)}
                           aria-label={displayName(row)}
-                          className="h-4 w-4 accent-[#46194F]" />
+                          className="h-4 w-4 accent-[var(--brand-primary)]" />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
@@ -886,7 +886,7 @@ export default function CatalogManager({
                   ) : x.type === "boolean" ? (
                     <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border p-3 text-sm">
                       <input type="checkbox" name={x.key} defaultChecked={!!editing[x.key]}
-                        className="h-4 w-4 accent-[#46194F]" />
+                        className="h-4 w-4 accent-[var(--brand-primary)]" />
                       {t(x.ar, x.en)}
                     </label>
                   ) : x.type === "select" ? (
@@ -911,10 +911,10 @@ export default function CatalogManager({
                     <>
                       <label className={label}>{t(x.ar, x.en)}</label>
                       <div className="flex gap-2">
-                        <input type="color" name={x.key} defaultValue={editing[x.key] || "#46194f"}
+                        <input type="color" name={x.key} defaultValue={editing[x.key] || "#0B6B3A"}
                           className="h-10 w-14 rounded-lg border bg-background" />
                         <input defaultValue={editing[x.key] ?? ""} readOnly
-                          className={`${field} font-mono text-xs`} placeholder="#46194f" />
+                          className={`${field} font-mono text-xs`} placeholder="#0B6B3A" />
                       </div>
                     </>
                   ) : (
@@ -1004,7 +1004,7 @@ export default function CatalogManager({
                   {entity.hasActive ? (
                     <label className="flex cursor-pointer items-end gap-2.5 pb-2 text-sm">
                       <input type="checkbox" name="active" defaultChecked={editing.id ? !!editing.active : true}
-                        className="h-4 w-4 accent-[#46194F]" />
+                        className="h-4 w-4 accent-[var(--brand-primary)]" />
                       {t("مفعّل", "Active")}
                     </label>
                   ) : null}
@@ -1114,7 +1114,7 @@ export default function CatalogManager({
                   {t("إلغاء", "Cancel")}
                 </Button>
                 <Button type="submit" disabled={save.pending}
-                  className="gap-2 bg-brand-primary hover:bg-[#5a2363]">
+                  className="gap-2 bg-brand-primary hover:bg-[var(--brand-dark)]">
                   {save.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   {t("حفظ", "Save")}
                 </Button>

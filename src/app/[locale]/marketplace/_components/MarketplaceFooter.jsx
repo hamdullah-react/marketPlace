@@ -59,7 +59,7 @@ export default function MarketplaceFooter({ locale = "ar" }) {
   return (
     <footer
       dir={isAr ? "rtl" : "ltr"}
-      className="mt-16 border-t border-gray-200 bg-white font-noto dark:border-gray-800 dark:bg-[#0f0f0f]"
+      className="mt-16 border-t border-brand-primary/10 bg-[#F6FBF8] font-noto dark:border-white/10 dark:bg-[#0B0F0C]"
     >
       <div className="mx-auto max-w-[1600px] px-4 py-12 sm:px-8 lg:px-20 xl:px-28">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
@@ -82,16 +82,47 @@ export default function MarketplaceFooter({ locale = "ar" }) {
               )}
             </p>
 
-            <div className="mt-6 flex items-center gap-5">
+            <div className="mt-6 flex items-center gap-2.5">
               {SOCIAL.map((s) => (
-                <Link key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label}>
-                  <Image
-                    src={s.src}
-                    alt={s.label}
-                    width={22}
-                    height={22}
-                    className="h-[22px] w-[22px] object-contain transition-opacity hover:opacity-70 dark:invert"
-                    loading="lazy"
+                <Link
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={s.label}
+                  className="group/social raised flex h-9 w-9 items-center justify-center rounded-full"
+                >
+                  {/*
+                    MASKED, not drawn.
+
+                    These were <Image> tags pointing at flat black SVGs, with
+                    `dark:invert` to make them white again — which is the whole
+                    reason they could not take the brand colour: an <img> is a
+                    picture, and nothing in CSS can recolour its pixels.
+
+                    Using the same file as a MASK inverts the relationship. The
+                    artwork supplies the shape, the background supplies the
+                    colour, and the colour is a brand token — so these follow
+                    the theme like every other mark on the page instead of
+                    being two hardcoded states (black, and inverted black).
+
+                    Same five files, no new assets, and the alt text moves to
+                    the link's aria-label where it belongs — the icon is now
+                    decoration and the link is the thing being labelled.
+                  */}
+                  <span
+                    aria-hidden="true"
+                    className="block h-[17px] w-[17px] bg-brand-primary transition-colors duration-300 group-hover/social:bg-brand-dark dark:bg-brand-on-dark dark:group-hover/social:bg-white"
+                    style={{
+                      maskImage: `url(${s.src})`,
+                      WebkitMaskImage: `url(${s.src})`,
+                      maskSize: "contain",
+                      WebkitMaskSize: "contain",
+                      maskRepeat: "no-repeat",
+                      WebkitMaskRepeat: "no-repeat",
+                      maskPosition: "center",
+                      WebkitMaskPosition: "center",
+                    }}
                   />
                 </Link>
               ))}
@@ -107,7 +138,11 @@ export default function MarketplaceFooter({ locale = "ar" }) {
                   <li key={l.href}>
                     <Link
                       href={`/${locale}${l.href}`}
-                      className="text-sm text-gray-600 transition-colors hover:text-brand-primary dark:text-gray-400 dark:hover:text-white"
+                      /* raised-hover: flat at rest, lifted on hover, pressed on
+                         click. Flat at rest because a column of twelve
+                         permanently-raised chips reads as a keypad, not a list
+                         of links. See globals.css. */
+                      className="raised-hover -mx-2 inline-block rounded-lg px-2 py-1 text-sm font-bold text-gray-600 dark:text-gray-400"
                     >
                       {t(l.ar, l.en)}
                     </Link>
@@ -141,7 +176,7 @@ export default function MarketplaceFooter({ locale = "ar" }) {
       </div>
 
       {/* ── Legal bar ─────────────────────────────────────────────────── */}
-      <div className="border-t border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-[#0a0a0a]">
+      <div className="border-t border-brand-primary/10 bg-brand-primary/[0.04] dark:border-white/10 dark:bg-white/[0.03]">
         <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:px-8 lg:px-20 xl:px-28">
           <p>
             © {year} {t("شركة الرميح للسيارات. جميع الحقوق محفوظة.", "Alromaih Cars. All rights reserved.")}

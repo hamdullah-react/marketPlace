@@ -187,7 +187,7 @@ export default function OffersManager({
             type="button"
             onClick={() => openForm(null)}
             disabled={!listings.length}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="raised-solid inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             {t("عرض جديد", "New offer")}
@@ -413,7 +413,7 @@ export default function OffersManager({
             <button
               type="submit"
               disabled={save.pending}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="raised-solid inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
             >
               {save.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {current ? t("حفظ التغييرات", "Save changes") : t("تشغيل العرض", "Start the offer")}

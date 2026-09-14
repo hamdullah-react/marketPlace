@@ -94,7 +94,7 @@ export default async function HelpPage({ params }) {
           </p>
           <Link
             href={`/${locale}/contact-us`}
-            className="mt-4 inline-block rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+            className="raised-solid mt-4 inline-block rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white"
           >
             {t('تواصل معنا', 'Contact us')}
           </Link>

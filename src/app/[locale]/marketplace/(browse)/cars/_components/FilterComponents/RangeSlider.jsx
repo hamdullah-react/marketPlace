@@ -83,7 +83,7 @@ export default function RangeSlider({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-5 w-5 items-center justify-center rounded-xl border-2 border-brand-primary bg-white shadow-xs transition-all duration-75 hover:scale-105 hover:bg-brand-primary/10 hover:shadow-md dark:bg-[#1a1a1a]"
+      className="raised flex h-5 w-5 items-center justify-center rounded-full"
     >
       {children}
     </button>
@@ -102,7 +102,7 @@ export default function RangeSlider({
   return (
     <div
       dir={isAr ? "rtl" : "ltr"}
-      className="rounded-2xl bg-white p-4 shadow-[0_4px_16px_rgba(70,25,79,0.08)] dark:bg-[#1a1a1a]"
+      className="raised-card rounded-2xl p-4"
     >
       <div className="relative mb-4 h-10">
         <div className="absolute inset-x-0 top-5">

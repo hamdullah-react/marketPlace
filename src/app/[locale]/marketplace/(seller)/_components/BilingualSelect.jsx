@@ -170,7 +170,7 @@ export default function BilingualSelect({
               </div>
 
               <DialogClose asChild>
-                <Button type="button" className="w-full bg-brand-primary hover:bg-[#5a2363]">
+                <Button type="button" className="w-full bg-brand-primary hover:bg-[var(--brand-dark)]">
                   {t("تم", "Done")}
                 </Button>
               </DialogClose>

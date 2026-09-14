@@ -198,12 +198,12 @@ export default async function ComparePage({ params }) {
           spec tables scroll, so the title of what is being compared is never
           off screen.
 
-          top-20, not top-0. The marketplace header is `fixed h-20` above
+          top-16/sm:top-20, not top-0. The marketplace header is fixed and
           everything, so a bar stuck to the top of the viewport would slide
           underneath it and disappear; this one stops exactly where that one
           ends. The layout's own pt-20 keeps the two from overlapping at rest.
           ---------------------------------------------------------------- */}
-      <div className="sticky top-20 z-30 border-b border-neutral-200 bg-white shadow-xs dark:border-neutral-800 dark:bg-[#141414]">
+      <div className="sticky top-16 z-30 raised-card sm:top-20">
         <div className="mx-auto w-full max-w-[1600px] px-3 py-2.5 sm:px-8 md:py-4 lg:px-20 xl:px-28">
           <div className="flex min-w-0 items-center gap-2 md:gap-4">
             {/* The way back, as an arrow rather than a crumb trail — this is a

@@ -483,7 +483,7 @@ function LiveDot({ live, reason, isAr }) {
 function Badge({ n }) {
   if (!n) return null;
   return (
-    <span className="ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-semibold tabular-nums text-white">
+    <span className="raised-solid ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-semibold tabular-nums text-white">
       {n > 99 ? "99+" : n}
     </span>
   );

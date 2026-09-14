@@ -390,7 +390,7 @@ export default function FormBuilder({
               <button
                 type="submit"
                 disabled={theming.pending}
-                className="flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="raised-solid flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {theming.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {theming.result?.ok ? <Check className="h-4 w-4" /> : null}
@@ -534,7 +534,7 @@ export default function FormBuilder({
               <button
                 type="submit"
                 disabled={reorder.pending}
-                className="ms-auto flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                className="raised-solid ms-auto flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
               >
                 {reorder.pending
                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -945,7 +945,7 @@ function Editor({ field, vendorId, action, onCancel, t, msg }) {
 
       <div className="mt-4 flex gap-2">
         <button type="submit" disabled={action.pending}
-          className="flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          className="raised-solid flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
           {action.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {t("حفظ", "Save")}
         </button>
@@ -1084,7 +1084,7 @@ function TemplateButton({ action, vendorId, pending, t, primary = false }) {
         disabled={pending}
         className={
           primary
-            ? "inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            ? "raised-solid inline-flex items-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
             : "inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-brand-primary hover:text-brand-primary disabled:opacity-50 dark:border-white/10"
         }
       >

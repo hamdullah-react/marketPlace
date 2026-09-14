@@ -45,6 +45,177 @@
   fill: var(--brand-primary);
 }
 
+/* ============================================================================
+   RAISED SURFACES
+
+   The marketplace's chrome is lit from a single source ABOVE. Anything meant to
+   sit proud of the page wears one of the three utilities below, and each layer
+   of them has exactly one job:
+
+     gradient       lighter at the top, deeper at the foot — a face catching
+                    light, rather than a flat swatch of colour
+     inset top      a 1px white lip: the edge nearest the light
+     inset ring     a hairline that keeps the face from bleeding into whatever
+                    is behind it (written as a shadow rather than a border, so
+                    it costs no layout and never shifts anything by 1px)
+     short shadow   the contact shadow — tight, green-tinted, close to the
+                    element, saying WHERE it touches the page
+     long shadow    the ambient one — soft and wide, saying HOW FAR above
+
+   Two shadows rather than one because a single large blur reads as fog: the
+   tight one says where it meets the page, the wide one says how high it floats.
+
+   ── Why CSS utilities and not a shared JS string ───────────────────────────
+
+   An exported constant only reaches files that can import it, which rules out
+   plain CSS, and it has to be threaded through every component that wants the
+   look. These are available everywhere the stylesheet is — server components,
+   client components, the seller dashboard, the admin — by name, with no import.
+
+   They are also the single definition of "raised". The moment two surfaces
+   drift apart the page stops reading as one object lit one way, and a constant
+   copied into four files is how that drift starts.
+
+   ── Using them ─────────────────────────────────────────────────────────────
+
+     raised        a control: button, icon, chip. Hover deepens it, :active
+                   drops it a pixel and inverts the shadow, so pressing it
+                   looks like pressing it.
+     raised-card   a panel: the hero's filter bar, a dialog, a stat tile.
+                   Bigger shadows, no interaction — a card is not a button.
+     raised-hover  flat at rest, `raised` on hover. For rows of links, where a
+                   column of permanently-raised chips reads as a keypad.
+
+   Each supplies COLOUR, LIGHTING and PRESS only. Size, radius and layout stay
+   with the caller, so `raised` works on a 32px circle and a full-width bar
+   without knowing about either.
+   ========================================================================== */
+
+@utility raised {
+  background-image: linear-gradient(to bottom, #fcfefd, #eaf6ef);
+  color: var(--brand-primary);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    inset 0 0 0 1px rgb(255 255 255 / 0.55),
+    0 1px 2px rgba(var(--brand-rgb), 0.10),
+    0 3px 6px -3px rgba(var(--brand-rgb), 0.16);
+  transition: background-image 200ms, box-shadow 200ms, transform 200ms;
+
+  &:hover {
+    background-image: linear-gradient(to bottom, #ffffff, #e0f0e7);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.8),
+      inset 0 0 0 1px rgb(255 255 255 / 0.55),
+      0 2px 4px rgba(var(--brand-rgb), 0.13),
+      0 6px 12px -5px rgba(var(--brand-rgb), 0.20);
+  }
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 3px rgba(var(--brand-rgb), 0.18);
+  }
+
+  .dark & {
+    background-image: linear-gradient(to bottom, #1b4029, #12301f);
+    color: var(--brand-on-dark);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px rgb(255 255 255 / 0.10),
+      0 4px 8px -3px rgb(0 0 0 / 0.55);
+  }
+
+  .dark &:hover {
+    background-image: linear-gradient(to bottom, #214d32, #163925);
+  }
+}
+
+@utility raised-card {
+  background-image: linear-gradient(to bottom, #fbfefc, #edf7f1);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    inset 0 -1px 0 rgba(var(--brand-rgb), 0.06),
+    inset 0 0 0 1px rgb(255 255 255 / 0.55),
+    0 1px 3px rgba(var(--brand-rgb), 0.09),
+    0 8px 16px -8px rgba(var(--brand-rgb), 0.16),
+    0 28px 56px -16px rgb(0 0 0 / 0.45);
+
+  .dark & {
+    background-image: linear-gradient(to bottom, #163925, #0e2517);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px rgb(255 255 255 / 0.10),
+      0 28px 56px -16px rgb(0 0 0 / 0.7);
+  }
+}
+
+@utility raised-solid {
+  /*
+    The PRIMARY action: brand-filled, not pale.
+
+    `raised` would be wrong on these. Its face is a light tint, and a page where
+    the confirm button and the icon buttons share one surface has no hierarchy
+    left — everything looks equally important, which means nothing does. This
+    keeps the solid brand fill and borrows only the LIGHTING: a lit top edge, a
+    shadow the colour of the button rather than a generic grey, and the same
+    one-pixel press.
+
+    The fill stays `background-color` from bg-brand-primary so the button still
+    follows the theme token; only the highlight and shadows live here.
+  */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 1px 2px rgba(var(--brand-rgb), 0.30),
+    0 6px 12px -5px rgba(var(--brand-rgb), 0.40);
+  transition: box-shadow 200ms, transform 200ms, filter 200ms;
+
+  &:hover {
+    filter: brightness(1.06);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.22),
+      0 2px 4px rgba(var(--brand-rgb), 0.34),
+      0 10px 20px -6px rgba(var(--brand-rgb), 0.45);
+  }
+
+  &:active {
+    transform: translateY(1px);
+    filter: brightness(0.97);
+    box-shadow: inset 0 1px 4px rgb(0 0 0 / 0.28);
+  }
+
+  &:disabled {
+    box-shadow: none;
+    transform: none;
+    filter: none;
+  }
+}
+
+@utility raised-hover {
+  transition: background-image 200ms, box-shadow 200ms, transform 200ms, color 200ms;
+
+  &:hover {
+    background-image: linear-gradient(to bottom, #f7fcf9, #eaf6ef);
+    color: var(--brand-primary);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.8),
+      inset 0 0 0 1px rgb(255 255 255 / 0.55),
+      0 1px 2px rgba(var(--brand-rgb), 0.10),
+      0 3px 6px -3px rgba(var(--brand-rgb), 0.15);
+  }
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 3px rgba(var(--brand-rgb), 0.16);
+  }
+
+  .dark &:hover {
+    background-image: linear-gradient(to bottom, #1b4029, #12301f);
+    color: var(--brand-on-dark);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      inset 0 0 0 1px rgb(255 255 255 / 0.10);
+  }
+}
+
 /* ============================================ */
 /* Theme-Aware Utility Classes */
 /* ============================================ */
@@ -161,7 +332,7 @@
   &:focus {
     border-color: var(--color-ring);
     outline: none;
-    box-shadow: 0 0 0 2px rgba(70, 25, 79, 0.2);
+    box-shadow: 0 0 0 2px rgba(var(--brand-rgb), 0.2);
   }
 }
 
@@ -190,6 +361,26 @@
   body {
     overflow-x: hidden; /* Safari < 16 fallback */
     overflow-x: clip;
+  }
+
+  /*
+    Stop the page jumping sideways when a dropdown or dialog opens.
+
+    Radix locks body scroll while a Select, Dialog or Popover is open. On a
+    desktop browser with a classic scrollbar that removes the scrollbar, the
+    viewport gets ~15px wider, and every centred thing on the page slides as the
+    menu appears — and slides back when it closes. It reads as the page
+    flinching away from the click.
+
+    `scrollbar-gutter: stable` reserves that strip permanently, so there is
+    nothing to reclaim and nothing moves. One line here fixes it for every
+    overlay in the app rather than each one compensating with padding.
+
+    Harmless where it does not apply: browsers with overlay scrollbars (all of
+    mobile, and macOS by default) reserve nothing, because there is no gutter.
+  */
+  html {
+    scrollbar-gutter: stable;
   }
 
   /* Hero carousel containment.
@@ -250,14 +441,36 @@
   :root,
   .light {
     /* Brand Colors */
-    --brand-primary: #46194f;
-    --brand-light: #f5e8fa;
-    --brand-dark: #4a1d6e;
-    --gold: #ffbf00;
-    --gold-light: #e8cc6e;
+    --brand-primary: #0B6B3A;
+    --brand-light: #E8F5EE;
+    --brand-dark: #095A30;
+    --gold: #D4AF37;
+    --gold-light: #E8CC6E;
+
+    /*
+      The brand as it appears ON a dark ground, and as a bare RGB triplet.
+
+      --brand-on-dark exists because the brand colour cannot simply be reused
+      in dark mode: #0B6B3A on #0a0a0a is unreadable, so every `dark:` rule in
+      the tree had a lighter tint (#4CC08A) typed into it by hand. That made a
+      theme change a find-and-replace across 33 files instead of an edit here.
+
+      --brand-rgb is the same colour as three numbers, because a tinted shadow
+      needs `rgba(r, g, b, .1)` and CSS cannot pull the channels back out of a
+      hex. Keep the two in step: they are one colour written twice.
+    */
+    --brand-on-dark: #4CC08A;
+    --brand-rgb: 11, 107, 58;
+    /* The near-black the dark surfaces use - a green-black rather than a
+       neutral one, so a dark card reads as part of this theme rather than
+       as an absence of it. */
+    --brand-ink: #06170E;
 
     /* Core Colors */
-    --color-background: #ffffff;
+    /* A green-tinted paper rather than pure white — the raised
+       surfaces are pale green, and on #fff they read as stains. A
+       ground with the same hue makes them read as lit instead. */
+    --color-background: #F6FBF8;
     --color-foreground: #1a1a1a;
     --color-background-secondary: #f8f9fa;
     --color-background-tertiary: #f1f3f5;
@@ -269,10 +482,10 @@
     --color-card-border: #e9ecef;
 
     /* Primary (Brand Purple) */
-    --color-primary: #46194f;
+    --color-primary: #0B6B3A;
     --color-primary-foreground: #ffffff;
-    --color-primary-hover: #5a2066;
-    --color-primary-muted: #f5e8fa;
+    --color-primary-hover: #095A30;
+    --color-primary-muted: #E8F5EE;
 
     /* Secondary */
     --color-secondary: #f1f3f5;
@@ -280,7 +493,7 @@
     --color-secondary-hover: #e9ecef;
 
     /* Accent */
-    --color-accent: #46194f;
+    --color-accent: #0B6B3A;
     --color-accent-foreground: #ffffff;
 
     /* Muted */
@@ -294,7 +507,7 @@
     --color-input-border: #ced4da;
 
     /* Ring (Focus) */
-    --color-ring: #46194f;
+    --color-ring: #0B6B3A;
 
     /* Text Colors */
     --color-text-primary: #1a1a1a;
@@ -321,8 +534,8 @@
 
     /* Scrollbar */
     --scrollbar-track: rgba(113, 48, 138, 0.05);
-    --scrollbar-thumb: #46194f;
-    --scrollbar-thumb-hover: #5a2066;
+    --scrollbar-thumb: #0B6B3A;
+    --scrollbar-thumb-hover: #095A30;
 
     /* Radius */
     --radius: 0.5rem;
@@ -330,10 +543,26 @@
 
   /* ==================== DARK THEME ==================== */
   .dark {
-    /* Brand Colors - White for dark mode */
-    --brand-primary: #ffffff;
-    --brand-light: #333333;
-    --brand-dark: #e0e0e0;
+    /*
+      Brand Colors — the GREEN, lightened, not white.
+
+      This said "White for dark mode" and set #ffffff, which was a reasonable
+      dodge while the brand was a deep purple that no amount of lightening
+      keeps recognisable. Green does survive it: #4CC08A is the same hue at a
+      luminance that reads on near-black, so dark mode can carry the brand
+      instead of dropping it and going monochrome.
+
+      --brand-primary and --brand-on-dark are deliberately the same value here.
+      In light mode they differ — one is the brand, the other is its dark-ground
+      variant — but on a dark ground there is only one answer, and having both
+      names resolve to it means a component written with either works.
+    */
+    --brand-primary: #4CC08A;
+    --brand-light: #12301F;
+    --brand-dark: #7FD4A8;
+    --brand-on-dark: #4CC08A;
+    --brand-rgb: 76, 192, 138;
+    --brand-ink: #06170E;
 
     /* Core Colors */
     --color-background: #0f0f0f;
@@ -464,7 +693,7 @@
     box-shadow:
       0 0 15px rgba(255, 191, 0, 0.2),
       0 0 30px rgba(255, 191, 0, 0.1),
-      0 8px 24px rgba(70, 25, 79, 0.25);
+      0 8px 24px rgba(var(--brand-rgb), 0.25);
     transition:
       box-shadow 0.3s,
       border-color 0.3s;
@@ -475,7 +704,7 @@
     box-shadow:
       0 0 20px rgba(255, 191, 0, 0.3),
       0 0 40px rgba(255, 191, 0, 0.15),
-      0 16px 40px rgba(70, 25, 79, 0.35);
+      0 16px 40px rgba(var(--brand-rgb), 0.35);
   }
 
   /* Custom shimmer animation */
@@ -529,7 +758,7 @@
     margin-left: auto;
     margin-right: auto;
     overflow: hidden;
-    border: 1px solid #46194f;
+    border: 1px solid #0B6B3A;
     font-family: var(--font-almarai), 'Almarai', sans-serif;
     font-weight: 300;
     transition: 0.5s;
@@ -539,7 +768,7 @@
 
   .mask-text {
     position: absolute;
-    color: #46194f;
+    color: #0B6B3A;
     text-align: center;
     width: 100%;
     height: 100%;
@@ -560,7 +789,7 @@
     padding: 0 16px;
     font-size: 15px;
     letter-spacing: 1px;
-    background: #46194f;
+    background: #0B6B3A;
     -webkit-mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
     mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
     -webkit-mask-size: 2300% 100%;
@@ -588,7 +817,7 @@
     width: 100%;
     height: 45px;
     overflow: hidden;
-    border: 1px solid #46194f;
+    border: 1px solid #0B6B3A;
     font-family: var(--font-almarai), 'Almarai', sans-serif;
     font-weight: 300;
     transition: 0.5s;
@@ -598,7 +827,7 @@
 
   .mask-text-mobile {
     position: absolute;
-    color: #46194f;
+    color: #0B6B3A;
     text-align: center;
     width: 100%;
     height: 100%;
@@ -618,7 +847,7 @@
     font-weight: 500;
     font-size: 16px;
     letter-spacing: 1px;
-    background: #46194f;
+    background: #0B6B3A;
     -webkit-mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
     mask: url('https://raw.githubusercontent.com/robin-dela/css-mask-animation/master/img/nature-sprite.png');
     -webkit-mask-size: 2300% 100%;
@@ -684,7 +913,7 @@
   }
 
   .scrollbar-thumb-purple-200 {
-    scrollbar-color: rgba(70, 25, 79, 0.2) transparent;
+    scrollbar-color: rgba(var(--brand-rgb), 0.2) transparent;
   }
 
   .scrollbar-track-transparent {
@@ -701,7 +930,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgba(70, 25, 79, 0.2);
+    background-color: rgba(var(--brand-rgb), 0.2);
     border-radius: 20px;
   }
   /* 
@@ -738,7 +967,7 @@
   /* Custom scrollbar for search modal */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: #46194f transparent;
+    scrollbar-color: #0B6B3A transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -750,14 +979,14 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #46194f;
+    background: #0B6B3A;
     border-radius: 20px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #1f0c23;
+    background: #06170E;
     border: 2px solid transparent;
     background-clip: content-box;
   }
@@ -1436,7 +1665,7 @@
 /* Brand colors - White in dark mode */
 /* Focus indicators for accessibility */
 :focus-visible {
-  outline: 2px solid #46194f;
+  outline: 2px solid #0B6B3A;
   outline-offset: 2px;
 }
 
@@ -1445,7 +1674,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #46194f;
+  outline: 2px solid #0B6B3A;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -1516,7 +1745,7 @@ input[cmdk-input]:focus-visible {
    shadcn token aliases.
 
    tailwind.config.mjs resolves these as `hsl(var(--primary))`, but globals.css
-   only ever defined `--color-primary: #46194f` — a different NAME and an
+   only ever defined `--color-primary: #0B6B3A` — a different NAME and an
    incompatible FORMAT (hex cannot go inside hsl()). So every shadcn utility
    that reads a token — bg-primary, bg-background, border-border — resolved to
    nothing.
@@ -1526,7 +1755,12 @@ input[cmdk-input]:focus-visible {
    dashboard block is the first thing that does.
 
    Values are HSL CHANNELS (no hsl() wrapper) because the config adds it.
-   --primary tracks the brand: #46194f = hsl(290 52% 20%).
+   --primary tracks the brand: #0B6B3A = hsl(149 81% 23%).
+   These are the shadcn tokens every <Button>, <Badge> and focus ring
+   resolves through. They were left at the old purple hue when the theme
+   changed — the hex in this comment was updated and the numbers under it
+   were not, so every shadcn Button stayed purple while the hand-written
+   ones went green.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   --background: 0 0% 100%;
@@ -1535,7 +1769,7 @@ input[cmdk-input]:focus-visible {
   --card-foreground: 0 0% 10%;
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 10%;
-  --primary: 290 52% 20%;
+  --primary: 149 81% 23%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 17% 95%;
   --secondary-foreground: 0 0% 10%;
@@ -1547,7 +1781,7 @@ input[cmdk-input]:focus-visible {
   --destructive-foreground: 0 0% 100%;
   --border: 210 14% 89%;
   --input: 210 14% 89%;
-  --ring: 290 52% 20%;
+  --ring: 149 81% 23%;
 }
 
 .dark {
@@ -1558,8 +1792,8 @@ input[cmdk-input]:focus-visible {
   --popover: 0 0% 10%;
   --popover-foreground: 0 0% 98%;
   /* The lighter brand tint the marketplace already uses on dark grounds. */
-  --primary: 285 40% 74%;
-  --primary-foreground: 290 60% 8%;
+  --primary: 152 48% 53%;
+  --primary-foreground: 150 60% 6%;
   --secondary: 0 0% 16%;
   --secondary-foreground: 0 0% 98%;
   --muted: 0 0% 16%;
@@ -1570,5 +1804,5 @@ input[cmdk-input]:focus-visible {
   --destructive-foreground: 0 0% 98%;
   --border: 0 0% 20%;
   --input: 0 0% 20%;
-  --ring: 285 40% 74%;
+  --ring: 152 48% 53%;
 }

@@ -70,7 +70,7 @@ export function MobileFilters({ facets, locale = "ar", total = 0 }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="mb-4 flex w-full items-center justify-center gap-2 rounded-[5px] bg-brand-primary px-4 py-3 text-white hover:bg-[#5a1f63] dark:border dark:border-white dark:bg-[#1e1e1e] dark:hover:bg-[#2a2a2a] lg:hidden">
+        <Button className="raised mb-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-bold lg:hidden">
           <SlidersHorizontal className="h-5 w-5" />
           <span>{t("فلترة النتائج", "Filter Results")}</span>
           {activeCount > 0 ? (
@@ -244,9 +244,9 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
   const priceHi = Math.ceil(facets.priceRange?.[1] ?? 0);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl">
+    <div className="raised-card flex h-full flex-col overflow-hidden rounded-xl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-b border-gray-200 bg-linear-to-r from-[#46194f] to-[#5a1f63] p-4 dark:border-white/10">
+      <div className="shrink-0 bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-4">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Filter className="h-5 w-5 text-white" />
@@ -511,7 +511,7 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
         <div className="sticky bottom-0 shrink-0 border-t border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-[#0f0f0f]">
           <Button
             onClick={onClose}
-            className="w-full gap-2 rounded-[5px] bg-linear-to-r from-[#46194f] to-[#5a1f63] py-6 text-base font-semibold text-white shadow-lg hover:from-[#5a1f63] hover:to-[#46194f]"
+            className="w-full gap-2 rounded-lg bg-linear-to-b from-[var(--brand-primary)] to-[#095A30] py-6 text-base font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(var(--brand-rgb),0.35),0_8px_16px_-5px_rgba(var(--brand-rgb),0.45)] transition-all active:translate-y-px active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
           >
             {isPending ? (
               <>

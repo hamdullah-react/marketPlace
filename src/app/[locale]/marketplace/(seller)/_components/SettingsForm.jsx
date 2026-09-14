@@ -106,7 +106,7 @@ function Pair({ id, labelText, ar, en, textarea, rows = 3, phAr = "", phEn = "",
 function Toggle({ name, defaultChecked, labelText, note }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="mt-0.5 h-4 w-4 accent-[#46194F]" />
+      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="mt-0.5 h-4 w-4 accent-[var(--brand-primary)]" />
       <span className="flex-1">
         <span className="block text-sm font-medium">{labelText}</span>
         {note ? <span className="mt-0.5 block text-xs text-muted-foreground">{note}</span> : null}
@@ -131,7 +131,7 @@ function SaveBar({ state, pending }) {
         ) : null}
       </span>
       <button type="submit" disabled={pending}
-        className="flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363] disabled:opacity-60">
+        className="raised-solid flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         {t("حفظ", "Save")}
       </button>
@@ -269,7 +269,7 @@ export default function SettingsForm({
           <form action={a.formAction}>
             {vid}
             <button type="submit" disabled={a.pending}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#5a2363] disabled:opacity-60">
+              className="raised-solid flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-60">
               {a.pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
               {t("إعادة التفعيل", "Reactivate")}
             </button>
@@ -627,7 +627,7 @@ export default function SettingsForm({
                     placeholder={t("قبل حذف الإعلانات القديمة", "Before clearing old listings")} />
                 </div>
                 <button type="submit" disabled={k.pending}
-                  className="flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363] disabled:opacity-60">
+                  className="raised-solid flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
                   {k.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                   {t("إنشاء نسخة", "Create backup")}
                 </button>
@@ -757,7 +757,7 @@ export default function SettingsForm({
                   />
                 </div>
                 <button type="submit" disabled={r.pending}
-                  className="flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363] disabled:opacity-60">
+                  className="raised-solid flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
                   {r.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   {t("استيراد", "Import")}
                 </button>

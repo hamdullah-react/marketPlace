@@ -13,16 +13,12 @@
 
 import { useState, useTransition, Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTheme } from 'next-themes';
 import Image from 'next/image';
-import { useHydrated } from '@/hooks/use-hydrated';
 
 function LanguageSwitcherInternal() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { theme } = useTheme();
-  const mounted = useHydrated();
 
   /**
    * The URL is the language. The state below is only the OPTIMISM.
@@ -44,12 +40,20 @@ function LanguageSwitcherInternal() {
   const [switching, startSwitching] = useTransition();
   const lang = switching && pendingLang ? pendingLang : currentLang;
 
-  const buttonStyle = () => {
-    if (!mounted) return 'bg-white border border-gray-200';
-    return theme === 'dark'
-      ? 'bg-slate-800 hover:bg-slate-700 border border-slate-600'
-      : 'bg-white hover:bg-gray-100 border border-gray-200';
-  };
+  /**
+   * The brand, through CSS rather than through JS.
+   *
+   * This used to read `theme` from next-themes and pick one of three class
+   * strings — which meant the control could not be styled until the client had
+   * mounted, so it rendered plain white on the server and changed underneath
+   * the visitor a frame later. It also made the switcher the only reason the
+   * component needed `useTheme` and a hydration guard at all.
+   *
+   * `dark:` variants do the same job in the stylesheet, where it is free and
+   * correct on the first paint. The colours are the brand tokens, so the
+   * control follows the theme instead of sitting in it as a white circle.
+   */
+  const buttonStyle = 'raised';
 
   const toggleLanguage = () => {
     const newLang = lang === 'ar' ? 'en' : 'ar';
@@ -70,7 +74,7 @@ function LanguageSwitcherInternal() {
       /* 32px on a phone, 40px from sm. The header's controls sit in a fixed
          80px bar next to a logo, and at 40px each the row of them was the
          widest thing on a 320px screen. */
-      className={`flex h-8 w-8 items-center justify-center rounded-full shadow-xs transition-all duration-300 sm:h-10 sm:w-10 ${buttonStyle()}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10 ${buttonStyle}`}
       /* Written in the language currently on screen, not the one being
          switched to — these were the wrong way round, so an English UI
          announced an Arabic label to screen readers and vice versa. */
@@ -93,7 +97,7 @@ export default function LanguageSwitcher() {
       fallback={
         /* Same box as the real button at both sizes — a fallback that is a
            different size is a layout shift on hydration. */
-        <button className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-xs sm:h-10 sm:w-10">
+        <button className="raised flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10">
           <Image
             src="/english.svg"
             width={22}

@@ -37,7 +37,7 @@ export default function FilterSection({
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xs dark:border-white/10 dark:bg-[#1a1a1a]">
+      <div className="raised-card overflow-hidden rounded-xl">
         <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="shrink-0 rounded-[5px] bg-brand-primary/10 p-1.5">

@@ -458,7 +458,7 @@ export default function MediaGallery({
           ))}
 
           {folders.length || loadingFolders ? (
-            <span className="mx-1 h-5 w-px bg-gray-200 dark:bg-white/10" />
+            <span className="mx-1 h-5 w-px bg-brand-primary/10 dark:bg-white/10" />
           ) : null}
 
           {/* Tab-shaped, not a spinner: the row is about to be this wide, so
@@ -620,7 +620,7 @@ export default function MediaGallery({
             type="button"
             onClick={saveFolder}
             disabled={busy || !draftName.trim()}
-            className="h-9 rounded-lg bg-brand-primary px-4 text-sm font-medium text-white disabled:opacity-50"
+            className="raised-solid h-9 rounded-lg bg-brand-primary px-4 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t("حفظ", "Save")}
           </button>
@@ -750,7 +750,7 @@ export default function MediaGallery({
 
                 {/* The first pick is the main photo — say so, don't make them guess. */}
                 {picked ? (
-                  <span className="absolute inset-s-1.5 top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-bold text-white">
+                  <span className="raised-solid absolute inset-s-1.5 top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-bold text-white">
                     {order === 1 ? <Check className="h-3.5 w-3.5" /> : order}
                   </span>
                 ) : null}

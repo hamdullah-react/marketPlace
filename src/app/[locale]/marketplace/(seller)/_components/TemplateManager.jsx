@@ -196,7 +196,7 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
                   <button
                     type="submit"
                     disabled={pending}
-                    className="flex items-center gap-1.5 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#5a2363] disabled:opacity-60"
+                    className="raised-solid flex items-center gap-1.5 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                   >
                     {pending && install.pending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

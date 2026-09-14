@@ -138,7 +138,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
                   className="premium-card flex flex-col items-center rounded-xl border border-brand-primary/5 bg-linear-to-br from-white to-brand-light/20 p-3 text-center shadow-xs transition-all hover:border-brand-primary/20 hover:shadow-md sm:p-4 dark:border-white/5 dark:from-[#1c1c1c] dark:to-[#221a26]"
                 >
                   {item.icon ? (
-                    <div className="mb-2 shrink-0 rounded-xl border border-gray-100 bg-white p-2 shadow-xs sm:mb-3 sm:p-3 dark:border-white/10 dark:bg-[#252525]">
+                    <div className="raised-card mb-2 shrink-0 rounded-xl p-2 sm:mb-3 sm:p-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.icon}
@@ -172,7 +172,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
       ) : null}
 
       {/* ── Car Specifications ──────────────────────────────────────────── */}
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xs dark:border-white/10 dark:bg-[#161616]">
+      <div className="raised-card overflow-hidden rounded-xl">
         <div className="pb-6 pt-6">
           <div className="mb-5 px-4 sm:mb-6 sm:px-6">
             <h2 className="flex items-center text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -189,7 +189,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
               return (
                 <div
                   key={group.key}
-                  className="h-fit overflow-hidden rounded-xl border border-gray-200 transition-all hover:border-brand-primary/30 dark:border-white/10"
+                  className="raised-card h-fit overflow-hidden rounded-xl"
                 >
                   <button
                     type="button"
@@ -239,7 +239,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
                   </button>
 
                   {isExpanded ? (
-                    <div className="border-t border-gray-100 bg-white dark:border-white/10 dark:bg-[#161616]">
+                    <div className="raised-card border-t-0">
                       <div className="grid grid-cols-1 gap-2 px-3 py-3 sm:grid-cols-2 sm:gap-3 sm:px-4 sm:py-4 md:px-6">
                         {group.items.map((item) => {
                           const yesNo = isYesNo(item);
@@ -256,7 +256,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
                                   read as a contradiction. Same rule as the main
                                   site. */}
                               {!yesNo && item.icon ? (
-                                <div className="flex shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-white p-2 shadow-xs dark:border-white/10 dark:bg-[#252525]">
+                                <div className="raised-card flex shrink-0 items-center justify-center rounded-xl p-2">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={item.icon}

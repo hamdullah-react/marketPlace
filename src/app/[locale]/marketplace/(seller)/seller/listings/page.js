@@ -69,7 +69,7 @@ export default async function SellerListingsPage({ params, searchParams }) {
 
           <Link
             href={`/${locale}/marketplace/seller/listings/new`}
-            className="flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+            className="raised-solid flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white"
           >
             <Plus className="h-4 w-4" />
             {t('إضافة سيارة', 'Add a car')}
@@ -143,12 +143,12 @@ async function StateTabs({ searchParams, locale, t }) {
   };
 
   return (
-    <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-700">
+    <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-700"raised-solid >
       {STATES.map((s) => (
         <Link
           key={s.value || 'all'}
           href={tabHref(s.value)}
-          className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+          className={`rounded-lg px-3 py-1.5 text-sm ${
             activeState === s.value
               ? 'bg-brand-primary text-white'
               : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
@@ -214,7 +214,7 @@ async function ListingsSection({ searchParams, locale, isAr, t }) {
                     type="checkbox"
                     data-select-all=""
                     aria-label={t('تحديد الكل', 'Select all')}
-                    className="h-4 w-4 cursor-pointer accent-[#46194F] align-middle"
+                    className="h-4 w-4 cursor-pointer accent-[var(--brand-primary)] align-middle"
                   />
                 </th>
                 <th className="w-16 px-4 py-3 text-start font-medium">
@@ -236,7 +236,7 @@ async function ListingsSection({ searchParams, locale, isAr, t }) {
                       name="listingIds"
                       value={l.id}
                       aria-label={l.title}
-                      className="h-4 w-4 cursor-pointer accent-[#46194F] align-middle"
+                      className="h-4 w-4 cursor-pointer accent-[var(--brand-primary)] align-middle"
                     />
                   </td>
                   {/* The photo, second — it is how a seller recognises their own

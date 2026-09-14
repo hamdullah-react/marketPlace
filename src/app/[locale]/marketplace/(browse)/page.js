@@ -2,13 +2,18 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import { Search, ShieldCheck, ArrowRight, Star, Store } from 'lucide-react';
-import { getHomeCategories, getHomeFeatured, getHomeVendors } from './_apicalls/homeApi';
+import { getHomeFeatured, getHomeVendors } from './_apicalls/homeApi';
 import {
-  CategoryRailSkeleton, CarGridSkeleton, VendorGridSkeleton,
+  VendorGridSkeleton,
 } from '../_components/Skeletons';
 import ListingCard from '../_components/ListingCard';
 import { getSavedIds } from '@/marketplace/db/queries/account';
 import { getUser } from '@/marketplace/auth/session';
+import HeroFilter, { HeroFilterSkeleton } from './_components/HeroFilter';
+import HeroCarousel from './_components/HeroCarousel';
+import { HERO_SLIDES } from './_components/heroSlides';
+import { getCarFacets } from '@/marketplace/db/queries/cars';
+import { ListingCardGridSkeleton } from '../_components/ListingCardSkeleton';
 
 export const metadata = {
   title: 'Alromaih Marketplace',
@@ -38,17 +43,20 @@ export const metadata = {
  * the three run as separate queries.
  */
 
-/** One shadow, defined once. Purple-tinted, matching CarCard. */
-const CARD_SHADOW =
-  'shadow-[0_8px_24px_rgba(70,25,79,0.10),0_2px_8px_rgba(0,0,0,0.04)] ' +
-  'hover:shadow-[0_20px_40px_rgba(70,25,79,0.18),0_8px_16px_rgba(0,0,0,0.08)] ' +
-  'dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)]';
-
-/** The shared surface: radius, border-that-becomes-a-ring, lift on hover. */
+/**
+ * The shared surface for this page's tiles.
+ *
+ * `raised-card` carries the colour, the lighting and both shadows — see the
+ * RAISED SURFACES block in globals.css. What stays here is what belongs to a
+ * CARD specifically rather than to a raised panel: the radius, and the lift on
+ * hover. A dropdown is raised too and must not rise when pointed at.
+ *
+ * This replaces a hand-written gradient + two-shadow stack that predated the
+ * utility and said the same thing in grey.
+ */
 const CARD =
-  `group relative flex flex-col overflow-hidden rounded-[14px] border-[5px] border-transparent ` +
-  `bg-white transition-all duration-500 hover:-translate-y-1 ` +
-  `dark:border-[rgb(38,38,38)] dark:bg-[#141414] ${CARD_SHADOW}`;
+  'raised-card group relative flex flex-col overflow-hidden rounded-[14px] ' +
+  'transition-transform duration-500 hover:-translate-y-1';
 
 export default async function MarketplaceHomePage({ params }) {
   const { locale } = await params;
@@ -58,67 +66,83 @@ export default async function MarketplaceHomePage({ params }) {
 
   return (
     <main className="pb-24">
-      {/* ── Hero ────────────────────────────────────────────────────────────
-          Full-bleed rather than boxed. The old hero was a left-aligned text
-          block sitting inside the same container as everything under it, so
-          the page opened with no change of register at all — it read as the
-          first section, not as an entrance.
+      {/* ── Hero ──────────────────────────────────────────────
+          Full-bleed photograph, the words on top of it, the filter bar beneath
+          them — one object rather than a stack of three.
+
+          ── Height comes from the CONTENT ─────────────────────────
+
+          The section is sized by the text and the filter inside it, and the
+          carousel is absolutely positioned to cover whatever that turns out to
+          be. So the image can never shift the layout — there is no reserved box
+          waiting to be filled, and CLS on this screen is structurally zero
+          rather than zero if the aspect ratio was guessed right.
+
+          ── The artwork ───────────────────────────────────────
+
+          Five slides from _components/heroSlides.js — a hardcoded stand-in
+          shaped exactly like the endpoint that will replace it. When the admin
+          can manage these, that module starts fetching and nothing here changes.
           ---------------------------------------------------------------- */}
-      <section className="relative overflow-hidden bg-brand-primary dark:bg-[#1c0a20]">
-        {/* Two soft radial washes. Cheap depth — no image to load, no layout
-            shift, and it survives dark mode because it is drawn from the brand
-            colour rather than a photograph. */}
+      <section className="relative isolate flex min-h-[400px] flex-col justify-end overflow-hidden bg-neutral-900 sm:min-h-[560px] lg:min-h-[640px]">
+        {/* The photograph, filling the section. */}
+        <div className="absolute inset-0">
+          <HeroCarousel data={HERO_SLIDES} locale={locale} />
+        </div>
+
+        {/* ── Scrim ──────────────────────────────────────────
+            THIS is where the 20% lives. Dimming the photograph itself put the
+            car behind a veil; a 20% wash over a full-strength image leaves the
+            car plainly visible and still gives white text something to sit on.
+
+            Slightly deeper at the top and foot than in the middle, because that
+            is where the words are — the caption in the centre has its own
+            drop-shadow and the car deserves the clearest band of the frame.
+
+            A gradient and not backdrop-blur — blurring a full-width layer is one
+            of the more expensive things a phone GPU can be asked to do, and it
+            would be repainted on every slide change. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(201,163,212,0.28),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(90,35,99,0.55),transparent_60%)]"
+          className="pointer-events-none absolute inset-0 z-10 bg-linear-to-b from-black/35 via-black/20 to-black/45"
         />
 
-        <div className="relative mx-auto w-full max-w-[1600px] px-4 py-20 sm:px-8 sm:py-28 lg:px-20 xl:px-28">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-            {t('قيد التطوير', 'In development')}
-          </span>
+        {/*
+          pointer-events-none on the stack, auto on what is actually clickable.
+          The content sits above the carousel, so without this the invisible
+          column would swallow every click meant for the arrows and the dots.
+        */}
+        <div className="pointer-events-none relative z-20 mx-auto flex w-full max-w-[1600px] flex-1 flex-col justify-end px-3 pb-8 pt-6 sm:px-8 sm:pb-12 sm:pt-8 lg:px-20 xl:px-28">
+          {/* ── The page's heading ───────────────────────────────
+              Present, singular, and not drawn.
 
-          <h1 className="mt-6 max-w-3xl text-balance text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-6xl">
-            {t('سوق الرميح', 'Alromaih Marketplace')}
+              The visible headline now belongs to the carousel — it changes with
+              the slide, and all five are in the DOM at once. Five h1 elements
+              is the same as none, and a heading that rotates is not a heading
+              the page can be indexed on. So the h1 is one stable sentence,
+              read by screen readers and crawlers, while the slides carry the
+              copy a visitor actually sees.
+              -------------------------------------------------------- */}
+          <h1 className="sr-only">
+            {t(
+              'سوق الرميح — وجهتك لبيع وشراء السيارات في السعودية',
+              'Alromaih Marketplace — buy and sell cars across Saudi Arabia'
+            )}
           </h1>
 
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-white/70 sm:text-lg">
-            {t(
-              'سيارات جديدة ومستعملة من معارض موثوقة، بأسعار واضحة وتواصل مباشر مع البائع.',
-              'New and used cars from verified showrooms — clear pricing, and a direct line to the seller.'
-            )}
-          </p>
-
-          {/* One pill, not a box + a button beside it. The search is the hero's
-              primary action, so it gets the visual weight of a single object. */}
-          {/* Submits to the cars grid, which is where `?q=` is read. It used
-              to post to /marketplace/search — a ComingSoon stub — so the one
-              thing the hero asks a visitor to do landed on a placeholder.
-              Search is a modal now (see SearchModal); this form is the
-              no-JavaScript path to the same results. */}
-          <form
-            action={`/${locale}/marketplace/cars`}
-            className="mt-9 flex max-w-xl items-center gap-2 rounded-2xl bg-white p-2 shadow-[0_16px_40px_rgba(0,0,0,0.22)] dark:bg-[#141414]"
-          >
-            <Search className="ms-3 h-5 w-5 shrink-0 text-neutral-400" />
-            <input
-              type="search"
-              name="q"
-              placeholder={t('ابحث عن ماركة أو موديل…', 'Search by brand or model…')}
-              className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-hidden placeholder:text-neutral-400"
-            />
-            <button
-              type="submit"
-              className="h-11 shrink-0 rounded-xl bg-brand-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-[#5a2363] focus:outline-hidden focus:ring-2 focus:ring-white/50 dark:bg-[#c9a3d4] dark:text-[#1a0620]"
-            >
-              {t('بحث', 'Search')}
-            </button>
-          </form>
+          {/* ── Filters ─────────────────────────────────────────
+              Behind its own boundary: the options are a live tally of what is
+              listed, which is a database read, and the headline above must not
+              wait for it. */}
+          <div className="pointer-events-auto mx-auto mt-auto w-full max-w-5xl pt-16 sm:pt-24">
+            <Suspense fallback={<HeroFilterSkeleton />}>
+              <HeroFilterSlot locale={locale} />
+            </Suspense>
+          </div>
 
           {/* Static, so they paint with the hero — a visitor who already knows
               what they want never waits for a query to let them say so. */}
-          <div className="mt-7 flex flex-wrap gap-2">
+          <div className="pointer-events-auto mt-4 flex flex-wrap justify-center gap-1.5 sm:mt-6 sm:gap-2">
             {[
               { href: `/${locale}/marketplace/cars`, ar: 'كل السيارات', en: 'All cars' },
               { href: `/${locale}/marketplace/cars?condition=new`, ar: 'جديد', en: 'New' },
@@ -128,7 +152,10 @@ export default async function MarketplaceHomePage({ params }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-full border border-white/25 px-4 py-2 text-sm text-white/85 transition-colors hover:border-white/60 hover:bg-white/10"
+                /* `raised`, like every other control in the chrome. These were
+                   white outlines on the photograph, which made them the one
+                   set of buttons on the page lit by nothing. */
+                className="raised rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
               >
                 {t(link.ar, link.en)}
               </Link>
@@ -138,17 +165,6 @@ export default async function MarketplaceHomePage({ params }) {
       </section>
 
       <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 lg:px-20 xl:px-28">
-        {/* ── Category rail ───────────────────────────────────────────────── */}
-        <section className="pt-16">
-          <SectionHead
-            eyebrow={t('الأقسام', 'Sections')}
-            title={t('تصفح حسب القسم', 'Browse by section')}
-          />
-          <Suspense fallback={<CategoryRailSkeleton />}>
-            <CategoryRail locale={locale} t={t} />
-          </Suspense>
-        </section>
-
         {/* ── Featured listings ───────────────────────────────────────────── */}
         <section className="pt-16">
           <SectionHead
@@ -158,7 +174,7 @@ export default async function MarketplaceHomePage({ params }) {
             linkLabel={t('عرض الكل', 'View all')}
             isAr={isAr}
           />
-          <Suspense fallback={<CarGridSkeleton count={4} columns={4} />}>
+          <Suspense fallback={<ListingCardGridSkeleton count={4} columns={4} />}>
             <FeaturedGrid locale={locale} />
           </Suspense>
         </section>
@@ -177,29 +193,48 @@ export default async function MarketplaceHomePage({ params }) {
           </Suspense>
         </section>
 
-        {/* ── Sell CTA ────────────────────────────────────────────────────── */}
-        <section className="relative mt-20 overflow-hidden rounded-3xl bg-brand-primary px-6 py-16 text-center dark:bg-[#1c0a20]">
+        {/* ── Sell CTA ──────────────────────────────────────────────────────
+            Words on the lead edge, a real listing on the trailing one.
+
+            The car comes out of the DATABASE rather than from stock art,
+            because the pitch is "put YOUR cars in front of buyers" and the
+            honest illustration of that is a car somebody has actually listed.
+            It sits behind its own <Suspense> so the copy and the button paint
+            with the rest of the page, and it renders nothing at all when the
+            catalogue is empty — a CTA with a hole where a photo should be is
+            worse than a CTA that is only words.
+            -------------------------------------------------------------- */}
+        <section className="relative mt-20 overflow-hidden rounded-3xl bg-brand-primary dark:bg-[var(--brand-ink)]">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(201,163,212,0.25),transparent_60%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(76,192,138,0.25),transparent_60%)]"
           />
-          <div className="relative">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">
-              {t('بِع على سوق الرميح', 'Sell on Alromaih')}
-            </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70">
-              {t(
-                'انضم كمعرض واعرض سياراتك على آلاف المشترين.',
-                'List your showroom and put your cars in front of thousands of buyers.'
-              )}
-            </p>
-            <Link
-              href={`/${locale}/marketplace/sell`}
-              className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-sm font-semibold text-brand-primary shadow-lg transition-transform hover:scale-105"
-            >
-              {t('ابدأ الآن', 'Get started')}
-              <ArrowRight className={`h-4 w-4 ${isAr ? 'rotate-180' : ''}`} />
-            </Link>
+
+          <div className="relative grid items-center gap-8 px-6 py-12 sm:py-16 md:grid-cols-2 md:gap-4 md:ps-12 md:pe-0">
+            <div className="text-center md:text-start">
+              <h2 className="text-2xl font-bold text-white sm:text-3xl">
+                {t('بِع على سوق الرميح', 'Sell on Alromaih')}
+              </h2>
+              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70 md:mx-0">
+                {t(
+                  'انضم كمعرض واعرض سياراتك على آلاف المشترين.',
+                  'List your showroom and put your cars in front of thousands of buyers.'
+                )}
+              </p>
+              <Link
+                href={`/${locale}/marketplace/sell`}
+                className="raised mt-8 inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-bold"
+              >
+                {t('ابدأ الآن', 'Get started')}
+                <ArrowRight className={`h-4 w-4 ${isAr ? 'rotate-180' : ''}`} />
+              </Link>
+            </div>
+
+            <div className="relative h-[150px] w-full sm:h-[200px] md:h-[230px]">
+              <Suspense fallback={null}>
+                <SellCtaCar locale={locale} />
+              </Suspense>
+            </div>
           </div>
         </section>
       </div>
@@ -217,7 +252,7 @@ function SectionHead({ eyebrow, title, href, linkLabel, isAr }) {
   return (
     <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-primary/70 dark:text-[#c9a3d4]/70">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-primary/70 dark:text-[var(--brand-on-dark)]/70">
           {eyebrow}
         </span>
         <h2 className="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">{title}</h2>
@@ -226,7 +261,7 @@ function SectionHead({ eyebrow, title, href, linkLabel, isAr }) {
       {href ? (
         <Link
           href={href}
-          className="group inline-flex items-center gap-1.5 text-sm font-medium text-brand-primary transition-colors hover:text-[#5a2363] dark:text-[#c9a3d4]"
+          className="group inline-flex items-center gap-1.5 text-sm font-medium text-brand-primary transition-colors hover:text-[var(--brand-dark)] dark:text-[var(--brand-on-dark)]"
         >
           {linkLabel}
           <ArrowRight
@@ -242,32 +277,6 @@ function SectionHead({ eyebrow, title, href, linkLabel, isAr }) {
    Module scope, not nested in the page — a component declared inside another
    component is a new type on every render, which remounts its whole subtree.
    ------------------------------------------------------------------------ */
-
-async function CategoryRail({ locale, t }) {
-  const categories = await getHomeCategories(locale);
-
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {categories.map((cat) => (
-        <Link key={cat.id} href={`/${locale}${cat.path}`} className={`${CARD} p-6`}>
-          {/* The tile is mostly whitespace on purpose — a category is a
-              destination, not a data point, so it gets room rather than
-              density. */}
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-primary/8 text-brand-primary transition-colors group-hover:bg-brand-primary group-hover:text-white dark:bg-[#c9a3d4]/10 dark:text-[#c9a3d4]">
-            <Store className="h-5 w-5" />
-          </span>
-
-          <p className="mt-5 text-base font-semibold transition-colors group-hover:text-brand-primary dark:group-hover:text-[#c9a3d4]">
-            {cat.name}
-          </p>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            {cat.children.length} {t('تصنيف', 'categories')}
-          </p>
-        </Link>
-      ))}
-    </div>
-  );
-}
 
 /**
  * The featured row uses the SAME ListingCard as the cars grid and the related
@@ -289,7 +298,24 @@ async function FeaturedGrid({ locale }) {
    * to a table it has no user for.
    */
   const user = await getUser();
-  const savedIds = user ? await getSavedIds(user.id) : null;
+  /**
+   * An EMPTY SET on failure, never null.
+   *
+   * `saved={null}` is how a card is told "nobody is signed in", and it answers
+   * that by falling back to the localStorage wishlist. So a lookup that failed
+   * for a SIGNED-IN visitor used to hand back null and quietly turn their cards
+   * back into signed-out ones — hearts lit from a list they built before they
+   * ever had an account, while /account/saved read the database and showed
+   * nothing. Two sources disagreeing, with no error anywhere to explain it.
+   *
+   * A signed-in visitor now always gets a Set. Empty means "nothing saved",
+   * which is the safe direction to fail: a heart that is wrongly empty is
+   * corrected by one tap, and a heart that is wrongly full is a lie about their
+   * account that the saved page contradicts.
+   */
+  const savedIds = user
+    ? await getSavedIds(user.id).catch(() => new Set())
+    : null;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
@@ -298,7 +324,17 @@ async function FeaturedGrid({ locale }) {
           key={item.id}
           listing={item}
           locale={locale}
-          priority={i < 4}
+          /*
+            Nothing in this grid is priority any more.
+
+            It used to mark the first four, which was right when the hero was a
+            text block and these cars were the first images on the page. The
+            hero is now a full-bleed photograph, so the LCP element is up there
+            — and four eager card images racing it for bandwidth make the one
+            image that IS measured arrive later. These sit below the fold on
+            every viewport; lazy is the honest answer.
+          */
+          priority={false}
           cardSpecs={cardSpecs[item.id] ?? []}
           saved={savedIds ? savedIds.has(item.id) : null}
         />
@@ -326,16 +362,16 @@ async function VendorGrid({ locale, t }) {
                 className="h-12 w-12 shrink-0 rounded-full border border-neutral-200 object-cover dark:border-neutral-700"
               />
             ) : (
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-primary/8 text-lg font-bold text-brand-primary dark:bg-[#c9a3d4]/10 dark:text-[#c9a3d4]">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-primary/8 text-lg font-bold text-brand-primary dark:bg-[var(--brand-on-dark)]/10 dark:text-[var(--brand-on-dark)]">
                 {v.name?.trim()?.[0] ?? '?'}
               </span>
             )}
 
             <div className="min-w-0">
-              <p className="flex items-center gap-1.5 truncate font-semibold transition-colors group-hover:text-brand-primary dark:group-hover:text-[#c9a3d4]">
+              <p className="flex items-center gap-1.5 truncate font-semibold transition-colors group-hover:text-brand-primary dark:group-hover:text-[var(--brand-on-dark)]">
                 {v.name}
                 {v.verified ? (
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-brand-primary dark:text-[#c9a3d4]" />
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-brand-primary dark:text-[var(--brand-on-dark)]" />
                 ) : null}
               </p>
               <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">{v.city}</p>
@@ -356,5 +392,55 @@ async function VendorGrid({ locale, t }) {
         </Link>
       ))}
     </div>
+  );
+}
+
+/* ── Hero filter ────────────────────────────────────────────
+
+   getCarFacets tallies the LIVE listings, so the four dropdowns only ever
+   offer makes, models, trims and cities that something is actually listed
+   under. That is the difference between a filter bar and a decorative one: a
+   visitor cannot compose a search that returns nothing.
+
+   One read for all four, and it is memoised — the cars page asks for the same
+   facets, so arriving there from this bar does not pay for them twice.
+   -------------------------------------------------------------------------- */
+async function HeroFilterSlot({ locale }) {
+  const facets = await getCarFacets(locale).catch(() => null);
+
+  // A failed tally must not take the hero down with it. No bar is a worse page
+  // than a working one; a broken page is worse than both.
+  if (!facets?.brands?.length) return null;
+
+  return <HeroFilter facets={facets} locale={locale} />;
+}
+
+/* ── The car in the Sell CTA ────────────────────────────────────────────────
+
+   One real listing's photo, read the same way the featured row reads its cars.
+
+   Deliberately the FIRST featured listing rather than a random one: this block
+   sits at the foot of a page that has already shown the featured grid, and a
+   car the visitor just scrolled past is a better illustration of "your cars, in
+   front of buyers" than a second unrelated one. It also costs nothing extra —
+   getHomeFeatured is memoised, so the featured grid above has already paid for
+   this read.
+
+   Returns null on an empty catalogue or a failed read. The stage keeps its
+   height either way, so the section does not reflow when the photo is missing.
+   -------------------------------------------------------------------------- */
+async function SellCtaCar({ locale }) {
+  const { items } = await getHomeFeatured(locale, 8).catch(() => ({ items: [] }));
+  const car = (items ?? []).find((c) => c.image);
+  if (!car) return null;
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={car.image}
+      alt={car.imageAlt || car.title}
+      loading="lazy"
+      className="h-full w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)]"
+    />
   );
 }

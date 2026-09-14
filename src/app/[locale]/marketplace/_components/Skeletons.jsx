@@ -13,7 +13,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
  *
  * That "same box" claim is the whole contract of this file. The heights and
  * grid definitions below are copied from the real components, not guessed:
- *   - CarCardSkeleton      → cars/_components/CarCard.jsx
  *   - StatCardsSkeleton    → (seller)/_components/StatCards.jsx
  *   - ChartSkeleton        → (seller)/_components/ListingsChart.jsx  (h-[260px])
  *   - CatalogTableSkeleton → (seller)/_components/CatalogManager.jsx
@@ -41,7 +40,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
  */
 export function HeaderSkeleton() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 h-20 w-full bg-white shadow-lg dark:bg-[#0f0f0f]">
+    <header className="fixed inset-x-0 top-0 z-50 h-16 w-full bg-linear-to-b from-[#F7FCF9] to-[#DCEFE4] shadow-lg dark:from-[#1B4029] dark:to-[#12301F] sm:h-20">
       <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between gap-4 px-3 sm:px-8">
         <Skeleton className="h-9 w-32" />
         <div className="hidden items-center gap-6 lg:flex">
@@ -96,52 +95,6 @@ export function PageHeadSkeleton() {
  * the spec grid was three columns here for exactly as long as it was three
  * there.
  */
-export function CarCardSkeleton() {
-  return (
-    <div className="flex h-full w-full flex-col rounded-[10px] border-[5px] border-transparent bg-white shadow-[0_8px_24px_rgba(70,25,79,0.15),0_4px_12px_rgba(0,0,0,0.1)] dark:border-[rgb(55,65,81)] dark:bg-[#1e1e1e] dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
-      <div className="mx-2 px-2 pb-3 pt-3 md:pb-4 md:pt-4">
-        <Skeleton className="h-[130px] w-full rounded-lg md:h-[160px]" />
-      </div>
-
-      {/* Name block + the brand mark on the trailing edge, mirroring the
-          card's flex-row-reverse. */}
-      <div className="mx-2 flex flex-row-reverse items-center justify-between border-b border-gray-200 px-1 pb-1.5 dark:border-gray-700 md:mx-3 md:px-2 md:pb-2">
-        <Skeleton className="ms-1 h-6 w-12 shrink-0 md:ms-2 md:h-8 md:w-16" />
-        <div className="me-1 min-w-0 flex-1 md:me-2">
-          <Skeleton className="mb-1.5 h-2.5 w-24" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="mt-1 h-2.5 w-28" />
-        </div>
-      </div>
-
-      <div className="mx-2 flex min-h-[60px] items-center border-b border-gray-200 py-1.5 dark:border-gray-700 md:min-h-[68px] md:py-2">
-        <div className="w-full px-2 md:px-3">
-          <Skeleton className="mb-1.5 h-2.5 w-16" />
-          <Skeleton className="h-4 w-28" />
-        </div>
-      </div>
-
-      {/* Four columns, each an icon box over two lines — the same shape the
-          card reserves whether or not a kind has artwork. */}
-      <div className="mx-2 grid min-h-[64px] grid-cols-4 gap-0.5 border-b-2 border-gray-300 py-1.5 pt-2 dark:border-gray-700 md:min-h-[76px] md:pt-2.5">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col items-center justify-center gap-1 px-0.5">
-            <Skeleton className="mb-0.5 h-7 w-7 rounded-md md:h-8 md:w-8" />
-            <Skeleton className="h-2 w-8" />
-            <Skeleton className="h-2.5 w-10" />
-          </div>
-        ))}
-      </div>
-
-      <div className="mx-2 mt-auto">
-        <div className="flex min-h-[44px] items-center justify-between px-2 py-1.5 md:min-h-[52px] md:px-3 md:py-2">
-          <Skeleton className="h-6 w-20 rounded-full" />
-          <Skeleton className="h-4 w-16" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /**
  * A grid of card skeletons, in the SAME columns as the grid it stands in for.
@@ -154,19 +107,11 @@ export function CarCardSkeleton() {
  * Literal class strings, not a template — Tailwind's scanner reads source text,
  * so `xl:grid-cols-${n}` would never be generated.
  */
-export function CarGridSkeleton({ count = 6, columns = 3 }) {
-  const cols = columns === 4
-    ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
-    : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3';
-
-  return (
-    <div className={`grid gap-4 sm:gap-6 ${cols}`}>
-      {Array.from({ length: count }, (_, i) => (
-        <CarCardSkeleton key={i} />
-      ))}
-    </div>
-  );
-}
+/*
+ * The listing card's skeleton is NOT here. It lives beside the card it traces,
+ * in ListingCardSkeleton.jsx, and every page imports it from there directly —
+ * one definition, filed next to the thing it has to stay in step with.
+ */
 
 /**
  * Filter rail — a stack of collapsible groups.
@@ -183,7 +128,7 @@ export function FilterSidebarSkeleton() {
           title, a search box and a reset button that are the same on every
           visit — so drawing it for real means the rail's most prominent band
           never flashes in. Only what the query decides is a skeleton. */}
-      <div className="bg-linear-to-r from-[#46194f] to-[#5a1f63] p-4">
+      <div className="bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-4">
         <div className="mb-4 flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded bg-white/25" />
           <Skeleton className="h-5 w-16 bg-white/25" />
@@ -191,11 +136,11 @@ export function FilterSidebarSkeleton() {
         <Skeleton className="h-10 w-full rounded-[5px] bg-white/80" />
       </div>
 
-      <div className="space-y-3 bg-gray-50 p-4 dark:bg-[#111]">
+      <div className="space-y-3 p-4">
         {[2, 1, 2, 1].map((rows, g) => (
           <div
             key={g}
-            className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xs dark:border-white/10 dark:bg-[#1a1a1a]"
+            className="raised-card overflow-hidden rounded-xl"
           >
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-3">
@@ -224,7 +169,7 @@ export function MobileFilterButtonSkeleton() {
 /** The white card over the grid: title and count on one side, sort on the other. */
 export function ResultsHeaderSkeleton() {
   return (
-    <div className="mb-6 rounded-2xl bg-white p-5 shadow-lg dark:bg-[#1a1a1a]">
+    <div className="raised-card mb-6 rounded-2xl p-5">
       <div className="flex flex-col items-start justify-between gap-3 md:flex-row md:items-center">
         <div className="flex items-center gap-2">
           <Skeleton className="h-6 w-36" />
@@ -246,7 +191,7 @@ export function CategoryRailSkeleton() {
   return (
     <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
       {Array.from({ length: 4 }, (_, i) => (
-        <div key={i} className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <div key={i} className="raised-card rounded-xl p-5">
           <Skeleton className="h-5 w-24" />
           <Skeleton className="mt-2 h-3 w-16" />
         </div>
@@ -260,7 +205,7 @@ export function ListingGridSkeleton({ count = 8 }) {
   return (
     <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+        <div key={i} className="raised-card flex flex-col overflow-hidden rounded-xl">
           <Skeleton className="aspect-4/3 w-full rounded-none" />
           <div className="flex flex-1 flex-col gap-2 p-4">
             <Skeleton className="h-4 w-14 rounded" />
@@ -279,7 +224,7 @@ export function VendorGridSkeleton({ count = 3 }) {
   return (
     <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+        <div key={i} className="raised-card rounded-xl p-5">
           <Skeleton className="h-5 w-32" />
           <SkeletonLines count={2} className="mt-3" />
           <Skeleton className="mt-4 h-3 w-40" />
@@ -294,11 +239,28 @@ export function VendorGridSkeleton({ count = 3 }) {
 /** Main image plus the thumbnail strip below it. */
 export function GallerySkeleton() {
   return (
-    <div>
-      <Skeleton className="aspect-4/3 w-full rounded-xl" />
-      <div className="mt-3 flex gap-2 overflow-hidden">
+    /*
+      Traced against ListingFold's gallery column, which is a stack of three:
+      the Exterior/Interior segmented control, the 16:10 frame, then the
+      thumbnail strip.
+
+      The frame was `aspect-4/3` here and `aspect-16/10` there — on a 700px
+      column that is a 58px height difference, so the whole page below it
+      jumped when the photos arrived. Thumbnails were a single size; the real
+      strip is 48×64 stepping to 64×80 at md.
+    */
+    <div className="flex flex-col gap-3">
+      {/* The segmented control, centred over the frame. */}
+      <div className="flex justify-center">
+        <Skeleton className="h-[46px] w-44 rounded-xl" />
+      </div>
+
+      <Skeleton className="aspect-16/10 w-full rounded-2xl" />
+
+      {/* Centred from md, start-aligned below it — same as the real strip. */}
+      <div className="flex justify-start gap-2 overflow-hidden p-2 md:justify-center md:gap-3 md:px-0">
         {Array.from({ length: 5 }, (_, i) => (
-          <Skeleton key={i} className="h-16 w-20 shrink-0 rounded-lg" />
+          <Skeleton key={i} className="h-12 w-16 shrink-0 rounded-xl md:h-16 md:w-20" />
         ))}
       </div>
     </div>
@@ -310,7 +272,7 @@ export function SpecsSkeleton({ count = 6 }) {
   return (
     <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <div key={i} className="raised-card rounded-xl p-4">
           <Skeleton className="h-4 w-4 rounded" />
           <Skeleton className="mt-2 h-2.5 w-16" />
           <Skeleton className="mt-1.5 h-3.5 w-20" />
@@ -323,12 +285,12 @@ export function SpecsSkeleton({ count = 6 }) {
 /** The sticky buy panel: title, price, seller box, two buttons. */
 export function BuyPanelSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-[#1a1a1a]">
+    <div className="raised-card rounded-xl p-5">
       <Skeleton className="h-6 w-3/4" />
       <Skeleton className="mt-3 h-8 w-40" />
       <Skeleton className="mt-2 h-3 w-32" />
 
-      <div className="mt-5 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+      <div className="raised-card mt-5 rounded-lg p-4">
         <Skeleton className="h-2.5 w-14" />
         <Skeleton className="mt-2 h-4 w-36" />
         <Skeleton className="mt-2 h-3 w-28" />

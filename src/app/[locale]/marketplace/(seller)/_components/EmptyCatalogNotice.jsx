@@ -38,7 +38,7 @@ export default function EmptyCatalogNotice({ locale = 'ar' }) {
 
       <Link
         href={`/${locale}/marketplace/seller/catalog?entity=templates`}
-        className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+        className="raised-solid inline-flex shrink-0 items-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-medium text-white"
       >
         {t('تصفّح القوالب', 'Browse templates')}
         <ArrowRight className={`h-4 w-4 ${isAr ? 'rotate-180' : ''}`} />

@@ -608,7 +608,7 @@ export default function ListingForm({
   const label = "mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300";
   const field =
     "h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-hidden transition-colors focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:bg-gray-50 disabled:text-gray-400 dark:border-gray-600 dark:bg-[#1a1a1a] dark:disabled:bg-[#141414]";
-  const card = "rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-[#1a1a1a]";
+  const card = "raised-card rounded-xl p-5";
   const section = "mb-6 last:mb-0";
   const sectionTitle = "mb-4 text-sm font-bold text-brand-primary";
 
@@ -817,7 +817,7 @@ export default function ListingForm({
         </code>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href={`/${locale}/marketplace/listing/${state.listing.slug}`}
-            className="rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]">
+            className="raised-solid rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white">
             {t("عرض الإعلان", "View listing")}
           </Link>
           <Link href={`/${locale}/marketplace/seller/listings`}
@@ -1120,7 +1120,7 @@ export default function ListingForm({
                               {/* The cover photo, chosen not inferred. Exactly
                                   one can hold it — setMain clears the rest. */}
                               {isMain(m) ? (
-                                <span className="absolute inset-s-1 top-1 rounded bg-brand-primary px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                <span className="raised-solid absolute inset-s-1 top-1 rounded bg-brand-primary px-1.5 py-0.5 text-[9px] font-bold text-white">
                                   {t("رئيسية", "MAIN")}
                                 </span>
                               ) : (
@@ -1585,7 +1585,7 @@ export default function ListingForm({
 
               <label className="flex items-start gap-2.5 text-sm">
                 <input type="checkbox" name="seoIndex" defaultChecked={existing?.seo_index !== false}
-                  className="mt-0.5 h-4 w-4 accent-[#46194F]" />
+                  className="mt-0.5 h-4 w-4 accent-[var(--brand-primary)]" />
                 <span>
                   {t("اظهر في نتائج البحث", "Show in search results")}
                   <span className="block text-xs text-gray-500 dark:text-gray-400">
@@ -1596,7 +1596,7 @@ export default function ListingForm({
 
               <label className="mt-3 flex items-start gap-2.5 text-sm">
                 <input type="checkbox" name="seoFollow" defaultChecked={existing?.seo_follow !== false}
-                  className="mt-0.5 h-4 w-4 accent-[#46194F]" />
+                  className="mt-0.5 h-4 w-4 accent-[var(--brand-primary)]" />
                 <span>
                   {t("تتبّع الروابط في الوصف", "Follow links in the description")}
                   <span className="block text-xs text-gray-500 dark:text-gray-400">
@@ -1712,7 +1712,7 @@ export default function ListingForm({
 
             <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
               <button type="submit" disabled={pending || blockers.length > 0}
-                className="flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#5a2363] disabled:cursor-not-allowed disabled:opacity-60">
+                className="raised-solid flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60">
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {pending
                   ? t("جاري الحفظ…", "Saving…")
@@ -1769,7 +1769,7 @@ export default function ListingForm({
             </DialogTitle>
 
             <DialogClose asChild>
-              <Button type="button" size="sm" className="shrink-0 bg-brand-primary hover:bg-[#5a2363]">
+              <Button type="button" size="sm" className="shrink-0 bg-brand-primary hover:bg-[var(--brand-dark)]">
                 {t("تم", "Done")}
               </Button>
             </DialogClose>

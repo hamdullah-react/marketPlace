@@ -15,7 +15,7 @@ import { getCardSpecs } from '@/marketplace/db/queries/specs';
 import { normalizeListing, localized, formatPrice } from '@/marketplace/lib/listing';
 import { shapeOffer } from '@/marketplace/lib/offer';
 import ListingCard from '../../../_components/ListingCard';
-import { CarGridSkeleton } from '../../../_components/Skeletons';
+
 import { getSavedIds } from '@/marketplace/db/queries/account';
 import { getUser, getViewer } from '@/marketplace/auth/session';
 import { getVendorMedia } from '@/marketplace/db/queries/media';
@@ -28,6 +28,7 @@ import EditSection from './_components/EditSection';
 import { socialLinksOf, PLATFORM_KEYS } from '@/marketplace/lib/social';
 import { SocialIcon } from '@/app/[locale]/marketplace/(seller)/_components/SocialLinksEditor';
 import RichTextRender, { hasRichText } from './_components/RichTextRender';
+import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 
 /**
  * This route's params are not known at build time, so under cacheComponents
@@ -771,7 +772,7 @@ export default async function VendorPage({ params, searchParams }) {
           ------------------------------------------------------------- */}
       <div className="relative px-1 sm:px-4">
         <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end">
-          <div className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-md sm:h-28 sm:w-28 dark:border-[#0f0f0f] dark:bg-[#252525]">
+          <div className="raised-card relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl sm:h-28 sm:w-28">
             {vendor.logo_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={vendor.logo_url} alt="" className="h-full w-full object-contain" />
@@ -942,7 +943,7 @@ export default async function VendorPage({ params, searchParams }) {
           into two rows, which is what a channel does.
           ------------------------------------------------------------- */}
       <div className="sticky top-0 z-20 mt-6 -mx-4 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-        <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 px-1 sm:px-4 dark:border-white/10">
+        <nav className="flex gap-1 overflow-x-auto border-b border-brand-primary/10 px-1 sm:px-4 dark:border-white/10">
           {TABS.map((x) => {
             const on = x.key === tab;
 
@@ -974,7 +975,7 @@ export default async function VendorPage({ params, searchParams }) {
       <div className="mt-6 px-1 sm:px-4">
         {/* ── Cars ──────────────────────────────────────────────────────── */}
         {tab === 'home' ? (
-          <Suspense fallback={<CarGridSkeleton count={6} />}>
+          <Suspense fallback={<ListingCardGridSkeleton count={6} />}>
             <Cars vendor={vendor} searchParams={searchParams} locale={locale} t={t} />
           </Suspense>
         ) : null}
@@ -1489,7 +1490,24 @@ async function Cars({ vendor, searchParams, locale, t }) {
   // One read for the whole grid; null for a signed-out visitor, which is what
   // tells ListingCard to use localStorage instead of the table.
   const user = await getUser();
-  const savedIds = user ? await getSavedIds(user.id) : null;
+  /**
+   * An EMPTY SET on failure, never null.
+   *
+   * `saved={null}` is how a card is told "nobody is signed in", and it answers
+   * that by falling back to the localStorage wishlist. So a lookup that failed
+   * for a SIGNED-IN visitor used to hand back null and quietly turn their cards
+   * back into signed-out ones — hearts lit from a list they built before they
+   * ever had an account, while /account/saved read the database and showed
+   * nothing. Two sources disagreeing, with no error anywhere to explain it.
+   *
+   * A signed-in visitor now always gets a Set. Empty means "nothing saved",
+   * which is the safe direction to fail: a heart that is wrongly empty is
+   * corrected by one tap, and a heart that is wrongly full is a lie about their
+   * account that the saved page contradicts.
+   */
+  const savedIds = user
+    ? await getSavedIds(user.id).catch(() => new Set())
+    : null;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (

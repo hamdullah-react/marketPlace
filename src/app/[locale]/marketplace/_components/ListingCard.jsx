@@ -10,35 +10,45 @@
  * price treatment — so the same car looked like a different product depending
  * on which page you found it from.
  *
- * Structurally the SAME card as the main site's MyComponents/Cards/CarCard —
- * same 10px radius, same 5px transparent border that becomes the hover ring,
- * same purple-tinted shadow, and the same five stacked bands:
+ * ── Three regions, not five bands ───────────────────────────────────────────
  *
- *   1. image, with the wishlist heart floating top-end
- *   2. car name + brand logo, divided by a rule
- *   3. price band
- *   4. an icon row of specs
- *   5. actions: a primary button, and "View details"
+ * This used to be the main site's CarCard: five stacked bands separated by
+ * rules — image, name, price, spec icons, actions. It now follows the layout
+ * in the reference design instead:
  *
- * It is a self-contained COPY, not an import: it reads a normalized marketplace
- * listing rather than an Odoo car, and MARKETPLACE-STRUCTURE.md 8 forbids
- * importing from @/MyComponents. Matching the bands by hand is the price of
- * that isolation, and it is worth paying — a buyer moving between the two
- * should not notice they have crossed into a different application.
+ *   1. HEADER   name and vendor on the lead edge, price and the round
+ *               "View details" arrow on the trailing one — so the two things a
+ *               buyer scans a grid for sit on the same line
+ *   2. STAGE    the car, with the heart and the compare tick floating on the
+ *               trailing edge and the city pill on the lead one
+ *   3. STRIP    the specs along the foot: value first and large, label small
+ *               underneath, hairlines between rather than a rule beneath
  *
- * Two bands differ, because the underlying data does:
+ * NOTHING was dropped in the move. Every element the banded version carried is
+ * still here — offer badge, condition badge, brand logo, vendor, verified tick,
+ * title, year/mileage, cash-price caption, price, strike-through compare-at,
+ * up to four specs with their icons, wishlist, compare, city, View details.
+ * Three of them changed FORM rather than disappearing, and each is noted where
+ * it happens: the price caption folded into the identity line, the spec icons
+ * moved inline beside their values, and "View details" became the corner arrow
+ * while keeping its words as the accessible name and the tooltip.
+ *
+ * It remains a self-contained COPY, not an import: it reads a normalized
+ * marketplace listing rather than an Odoo car, and MARKETPLACE-STRUCTURE.md 8
+ * forbids importing from @/MyComponents.
+ *
+ * Two things differ from the main site because the underlying data does:
  *
  *   - No monthly payment. The main site quotes finance on its own inventory;
- *     the marketplace does not, so the price band is the cash price full-width
- *     rather than a split with a divider down the middle.
- *   - The icon row is the main site's "benefits" row, but driven by the CATALOG
- *     rather than by per-car benefit records: the option kinds a seller flagged
- *     "show on card" in Catalog > Kinds, with the icons uploaded there.
+ *     the marketplace does not, so the price is the cash price alone.
+ *   - The spec strip is the main site's "benefits" row, but driven by the
+ *     CATALOG rather than by per-car benefit records: the specifications a
+ *     seller flagged "show on card", with the icons uploaded there.
  */
 
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, ArrowUpRight, ArrowUpLeft, ArrowLeftRight } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import {
   subscribe, getSnapshot, getServerSnapshot, toggle as toggleCompare, MAX as MAX_COMPARE,
@@ -205,74 +215,193 @@ export default function ListingCard({
       : null,
   ].filter(Boolean);
 
-  const Chevron = isEnglish ? ChevronRight : ChevronLeft;
+  /* The corner arrow points AWAY from the text in both directions — ↗ in
+     English, ↖ in Arabic. An arrow that points back into the card reads as
+     "return", which is the opposite of what this control does. */
+  const Arrow = isEnglish ? ArrowUpRight : ArrowUpLeft;
 
   return (
-    <div className="car-card group relative flex h-full w-full flex-col overflow-visible rounded-[10px] border-[5px] border-transparent bg-white shadow-[0_8px_24px_rgba(70,25,79,0.15),0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-500 hover:shadow-[0_20px_40px_rgba(70,25,79,0.25),0_10px_20px_rgba(0,0,0,0.15)] dark:border-[rgb(55,65,81)] dark:bg-[#1e1e1e] dark:shadow-[0_8px_24px_rgba(0,0,0,0.3)] dark:hover:bg-[#252525]">
-      {/* ── Discount badge ─────────────────────────────────────────────────
-          One badge, not two. A running offer replaces the generic "Save 10%"
-          with the seller's own name for it — "عرض رمضان" says more than a
-          percentage, and stacking both would put two pills in one corner.
-          The percentage is kept alongside the name, since that is the part a
-          buyer scans for. */}
-      {listing.offer?.label ? (
-        <div className="absolute left-0 top-[10px] z-20 flex items-center gap-1">
-          <span className="rounded-e-full bg-brand-primary px-3 py-1 text-[11px] font-bold text-white shadow-sm">
+    /* ── The card ─────────────────────────────────────────────────────────
+       One soft, generously-rounded panel instead of the five ruled bands this
+       used to be. The rules are gone but nothing they separated is: the name,
+       the vendor, the price, the specs and every control are all still here,
+       re-seated into the three regions the reference layout uses — a header
+       that pairs the name with the price, a stage for the car, and a stat
+       strip along the foot.
+
+       overflow-hidden, so the image is clipped by the radius. The heart and the compare tick moved INSIDE the panel for the
+       same reason — the old card was overflow-visible to let them hang off
+       the edge, which is what forced the 5px transparent border.
+       raised-card, like the hero's filter panel and the nav dropdowns — the
+       grid is a tray of panels and they should all be lit the same way. This
+       card's own gradient and two-shadow stack were the same idea written out
+       by hand, in grey rather than green, before the utility existed.
+
+       The hover lift stays HERE rather than moving into the utility: rising on
+       hover is what a card does, and would be wrong on a dropdown.
+       ------------------------------------------------------------------ */
+    <div className="car-card raised-card group relative flex h-full w-full flex-col overflow-hidden rounded-[22px] transition-transform duration-500 hover:-translate-y-1 md:rounded-[26px]">
+
+      {/* ── Badges ───────────────────────────────────────────────────────
+          Both kept, both still opposed so a discounted car cannot collide
+          them. Floating pills now rather than flags welded to the edge,
+          because the edge is a 22px curve and a square flag on it reads as a
+          rendering mistake. */}
+      {/* ── View details ─────────────────────────────────────────────────
+          Pinned to the top corner rather than sitting beside the price. It is
+          the card's one navigation affordance, so it belongs where a corner
+          control is looked for — and next to the price it competed with the
+          number for the same glance.
+
+          The words did not go anywhere: they are the accessible name and the
+          tooltip, so a screen reader and a hover both still say "View
+          details" while the grid stays quiet.
+          ------------------------------------------------------------- */}
+      <Link
+        href={href}
+        prefetch={false}
+        title={isEnglish ? "View details" : "عرض التفاصيل"}
+        className="raised absolute end-3 top-3 z-30 flex h-7 w-7 items-center justify-center rounded-full md:h-8 md:w-8"
+      >
+        <Arrow className="h-3.5 w-3.5 transition-transform duration-300 group-hover:scale-110 md:h-4 md:w-4" />
+        <span className="sr-only">{isEnglish ? "View details" : "عرض التفاصيل"}</span>
+      </Link>
+
+      <div className="absolute start-4 top-4 z-30 flex items-center gap-1.5">
+        {listing.offer?.label ? (
+          /* GOLD, not the brand green. The offer is the one thing on the card
+             that is not a fact about the car, and giving it the brand colour
+             made it read as chrome. Gold is what the palette reserves for a
+             deal — and it is the only place the second half of "green and
+             gold" appears, which is what stops the theme being green alone. */
+          <span className="rounded-full bg-brand-gold px-2 py-0.5 text-[9px] font-bold text-[#2a2100] shadow-sm md:text-[10px]">
             {listing.offer.label}
             {listing.offer.percent ? ` · ${listing.offer.percent}%` : ""}
           </span>
-        </div>
-      ) : listing.discountPercent ? (
-        <div className="absolute left-0 top-[10px] z-20">
-          <span className="rounded-e-full bg-brand-primary px-3 py-1 text-[11px] font-bold text-white shadow-sm">
+        ) : listing.discountPercent ? (
+          <span className="rounded-full bg-brand-gold px-2 py-0.5 text-[9px] font-bold text-[#2a2100] shadow-sm md:text-[10px]">
             {isEnglish ? `Save ${listing.discountPercent}%` : `وفّر ${listing.discountPercent}%`}
           </span>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* ── Condition ──────────────────────────────────────────────────
-          Top right, opposite the discount, so the two never collide on a
-          discounted car. */}
-      {condition ? (
-        <div className="absolute right-0 top-[10px] z-20">
+        {condition ? (
           <span
-            className={`rounded-s-full px-3 py-1 text-[11px] font-bold shadow-sm ${
+            className={`rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm md:text-[10px] ${
               condition.isNew
-                ? "bg-green-600 text-white"
-                : "bg-gray-200 text-gray-700 dark:bg-[#333] dark:text-gray-200"
+                ? "bg-brand-primary text-white"
+                : "bg-white/90 text-gray-700 dark:bg-white/15 dark:text-gray-200"
             }`}
           >
             {condition.label}
           </span>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
-      {/* ── Image ──────────────────────────────────────────────────────── */}
-      <div className="relative mx-2 overflow-hidden px-2 pb-3 pt-3 md:pb-4 md:pt-4">
+      {/* ── Header: what it is, and what it costs ────────────────────────
+          The reference pairs these on one line, and it is the right pairing —
+          a buyer scanning a grid is answering "which car, how much" and the
+          old card made them travel past a photo to get the second half.
+
+          pt-12 leaves the badge row its own airspace, so a name never has to
+          share a line with a "Save 10%" pill. */}
+      <div className="relative z-20 flex items-start justify-between gap-2.5 px-4 pt-14 md:gap-3 md:px-5">
+        <div className="min-w-0 flex-1">
+          {/* Vendor and brand on one line — both were separate bands before,
+              and neither ever needed a full row of its own. */}
+          {listing.vendor || listing.brand ? (
+            <div className="mb-1 flex min-w-0 items-center gap-2">
+              {listing.brand ? (
+                <span className="flex h-3.5 shrink-0 items-center md:h-4">
+                  {listing.brand.logo ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={listing.brand.logo}
+                      alt={listing.brand.name ?? ""}
+                      loading="lazy"
+                      className="max-h-3.5 w-auto max-w-10 object-contain md:max-h-4 md:max-w-12"
+                    />
+                  ) : (
+                    <span className="whitespace-nowrap text-[9px] font-bold uppercase tracking-wide text-brand-primary/70 dark:text-brand-on-dark/70">
+                      {listing.brand.name}
+                    </span>
+                  )}
+                </span>
+              ) : null}
+              {listing.vendor ? (
+                <p className="truncate text-[9px] text-gray-500 dark:text-gray-400 md:text-[10px]">
+                  {listing.vendor.name}
+                  {listing.vendor.verified ? <span className="text-brand-primary"> ✓</span> : null}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <h2 className="line-clamp-2 wrap-break-word text-[13px] font-bold leading-snug tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-brand-primary dark:text-neutral-50 dark:group-hover:text-white md:text-[15px]">
+            <Link href={href} prefetch={false}>
+              {listing.title}
+            </Link>
+          </h2>
+
+          {/* The identity line, and the "Cash Price" caption folded into it.
+              The caption was a whole row saying one word about the number two
+              rows below it; beside the year and the mileage it costs nothing
+              and still says which price this is. */}
+          <p className="mt-0.5 truncate text-[9px] text-gray-500 dark:text-gray-400 md:text-[10px]">
+            {[...meta, isEnglish ? "Cash price" : "سعر الكاش"].join(" · ")}
+          </p>
+        </div>
+
+        {/* Price + the way in. */}
+        <div className="flex shrink-0 items-center gap-2 md:gap-2.5">
+          <div className="text-end">
+            <div className="text-[13px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 md:text-sm">
+              {listing.priceLabel}
+            </div>
+            {listing.compareAtLabel ? (
+              <div className="text-[9px] text-gray-500 line-through tabular-nums dark:text-gray-400 md:text-[10px]">
+                {listing.compareAtLabel}
+              </div>
+            ) : null}
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Stage: the car ───────────────────────────────────────────────
+          No ghost lettering behind the photo. It was decoration that competed
+          with the spec strip for the eye on a card this dense, and on a small
+          tile it read as a rendering artefact rather than as texture.
+          ------------------------------------------------------------- */}
+      <div className="relative mt-1.5 px-3 pb-1 md:mt-2">
         <Link
           href={href}
           prefetch={false}
-          className="relative block h-[130px] w-full transition-transform duration-500 group-hover:scale-105 md:h-[160px]"
+          className="relative z-10 block h-[130px] w-full transition-transform duration-500 group-hover:scale-105 md:h-[160px]"
         >
           {listing.image ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={listing.image}
               alt={listing.imageAlt}
-              className="h-full w-full object-contain"
+              className="h-full w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)]"
               loading={priority ? "eager" : "lazy"}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center rounded-lg bg-gray-50 text-xs text-gray-400 dark:bg-[#262626] dark:text-gray-500">
+            <div className="flex h-full w-full items-center justify-center rounded-2xl bg-black/[0.03] text-xs text-gray-400 dark:bg-white/5 dark:text-gray-500">
               {isEnglish ? "No image" : "لا توجد صورة"}
             </div>
           )}
         </Link>
 
-        <div className={`absolute right-1 top-4 z-10 ${compact ? "hidden" : ""}`}>
+        {/* ── Floating controls ─────────────────────────────────────────────
+            The heart and the compare tick, stacked on the trailing edge. Both
+            were already icon buttons; putting them together makes them read as
+            one set of controls for this card rather than two unrelated marks
+            at opposite ends of it. */}
+        <div className={`absolute end-3 top-0 z-20 flex flex-col gap-1 ${compact ? "hidden" : ""}`}>
           <button
             onClick={toggleFavorite}
-            className="flex min-h-[40px] min-w-[40px] items-center justify-center p-2 transition-all duration-300 hover:scale-110 md:min-h-[48px] md:min-w-[48px] md:p-3"
+            className="raised flex h-8 w-8 items-center justify-center rounded-full md:h-9 md:w-9"
             aria-label={
               isFavorite
                 ? isEnglish ? "Remove from wishlist" : "إزالة من المفضلة"
@@ -280,144 +409,12 @@ export default function ListingCard({
             }
           >
             <Heart
-              className={`h-5 w-5 transition-all duration-300 md:h-6 md:w-6 ${
-                isFavorite ? "scale-110 fill-brand-primary text-brand-primary" : "text-brand-primary hover:scale-110"
+              className={`h-4 w-4 transition-all duration-300 md:h-[18px] md:w-[18px] ${
+                isFavorite ? "scale-110 fill-brand-primary text-brand-primary" : "text-brand-primary"
               }`}
             />
           </button>
-        </div>
 
-        {listing.city ? (
-          <div className={`absolute bottom-1 z-10 md:bottom-2 ${isEnglish ? "left-1 md:left-2" : "right-1 md:right-2"}`}>
-            <div className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-brand-primary shadow-lg dark:bg-[#2a2a2a] md:px-3 md:py-1.5 md:text-xs">
-              {listing.city}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* ── Name + brand logo ──────────────────────────────────────────────
-          flex-row-reverse, matching the main site: the logo sits on the
-          trailing edge in both directions, and the name takes the rest.
-          ------------------------------------------------------------- */}
-      <div className="mx-2 flex flex-row-reverse items-center justify-between border-b border-gray-200 px-1 pb-1.5 dark:border-gray-700 md:mx-3 md:px-2 md:pb-2">
-        {/*
-          The logo when the brand has one, its NAME when it does not.
-
-          Not a fallback in the sense the spec icons refuse — the name is real
-          catalog data, not a stand-in mark invented to fill a hole. Dropping
-          the brand entirely (what this did before) left the card unable to say
-          what make the car even was until someone uploaded artwork, which is a
-          worse answer than a word.
-        */}
-        {listing.brand ? (
-          <div className="ms-1 flex h-6 shrink-0 items-center justify-center md:ms-2 md:h-8">
-            {listing.brand.logo ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={listing.brand.logo}
-                alt={listing.brand.name ?? ""}
-                loading="lazy"
-                className="max-h-8 w-auto max-w-16 object-contain"
-              />
-            ) : (
-              <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-brand-primary/70 dark:text-[#c9a3d4]/70 md:text-xs">
-                {listing.brand.name}
-              </span>
-            )}
-          </div>
-        ) : null}
-
-        <div className="me-1 flex min-w-0 flex-1 flex-col justify-center md:me-2">
-          {listing.vendor ? (
-            <p className="mb-0.5 truncate text-[10px] text-gray-500 dark:text-gray-400 md:text-xs">
-              {listing.vendor.name}
-              {listing.vendor.verified ? <span className="text-brand-primary"> ✓</span> : null}
-            </p>
-          ) : null}
-          <h2 className="line-clamp-2 wrap-break-word text-sm font-bold leading-tight text-brand-primary transition-all duration-300 group-hover:text-[#5a1f70] dark:group-hover:text-white md:text-base">
-            <Link href={href} prefetch={false}>
-              {listing.title}
-            </Link>
-          </h2>
-          {meta.length ? (
-            <p className="mt-0.5 truncate text-[10px] text-gray-500 dark:text-gray-400 md:text-xs">
-              {meta.join(" · ")}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      {/* ── Price ──────────────────────────────────────────────────────────
-          Full width, with no divider down the middle. The main site splits this
-          band into cash | monthly because it finances its own stock; the
-          marketplace quotes no finance, and a half-empty band with a rule down
-          the centre would only advertise the gap.
-          ------------------------------------------------------------- */}
-      <div className="mx-2 flex min-h-[60px] items-center border-b border-gray-200 py-1.5 dark:border-gray-700 md:min-h-[68px] md:py-2">
-        <div className="w-full px-2 md:px-3">
-          <p className="mb-0.5 text-[10px] text-brand-primary md:mb-1 md:text-xs">
-            {isEnglish ? "Cash Price" : "سعر الكاش"}
-          </p>
-          <div className="flex items-baseline gap-2 font-bold text-brand-primary">
-            <span className="text-sm tabular-nums md:text-base">{listing.priceLabel}</span>
-            {listing.compareAtLabel ? (
-              <span className="text-[10px] text-gray-500 line-through tabular-nums md:text-xs">
-                {listing.compareAtLabel}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Facts row ──────────────────────────────────────────────────── */}
-      {facts.length > 0 ? (
-        <div className="mx-2 grid min-h-[64px] grid-cols-4 gap-0.5 border-b-2 border-gray-300 py-1.5 pt-2 dark:border-gray-700 md:min-h-[76px] md:pt-2.5">
-          {facts.map((f) => (
-            <div key={f.label} className="flex flex-col items-center justify-center px-0.5 text-center">
-              {/*
-                The kind's icon, straight from car_attribute_kinds.icon_url.
-
-                NO fallback glyph. A generic placeholder on a kind nobody has
-                given artwork to looks like a real icon that happens to be
-                wrong, and it hides the gap from the only person who can close
-                it. The box is reserved rather than conditional, so a row with
-                icons and a row without keep the same height.
-              */}
-              <div className="mb-0.5 flex h-7 w-7 items-center justify-center md:h-8 md:w-8">
-                {f.icon ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={f.icon} alt="" loading="lazy" className="h-full w-full object-contain" />
-                ) : null}
-              </div>
-              <span className="text-[8px] leading-tight text-gray-500 dark:text-gray-400 md:text-[10px]">
-                {f.label}
-              </span>
-              <span className="mt-0.5 line-clamp-1 text-[9px] font-semibold text-brand-primary md:text-[11px]">
-                {f.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* ── Actions ────────────────────────────────────────────────────── */}
-      <div className="mx-2 mt-auto">
-        {/* ── One way in, not two ──────────────────────────────────────────
-            There used to be an "Enquire" pill here, linking to #contact so the
-            request panel opened on arrival. It is gone: the card is a summary,
-            and asking somebody to commit to an enquiry from a photo and a price
-            is asking before they have read anything. The listing page carries
-            Request a quote and the seller's number, next to the specs the
-            answer actually depends on.
-
-            justify-end rather than justify-between now that only View details
-            remains — between with one child pins it to the start of the row. */}
-        <div
-          className={`flex min-h-[44px] items-center px-2 py-1.5 md:min-h-[52px] md:px-3 md:py-2 ${
-            compact ? "justify-end" : "justify-between"
-          }`}
-        >
           {/* ── Compare ──────────────────────────────────────────────────
               A TOGGLE, not a link. Comparing is something you do to two or
               three cars, and the second one is usually further down the
@@ -429,7 +426,6 @@ export default function ListingCard({
               inside a hover/press affordance and the button sits above a
               link region; without them a tick also navigates.
               ------------------------------------------------------- */}
-          {compact ? null : (
           <button
             type="button"
             onClick={(e) => {
@@ -471,25 +467,25 @@ export default function ListingCard({
                     ? "إزالة من المقارنة"
                     : "أضف للمقارنة"
             }
-            className={`relative flex items-center justify-center rounded-full p-2 transition-all duration-300 hover:scale-110 ${
+            /* "Full" and "ticked" keep their own faces on purpose: both are
+               states the button is REPORTING, and `raised` is the resting look
+               every other control wears. A ticked compare that looked like the
+               heart beside it would say nothing. */
+            className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300 md:h-9 md:w-9 ${
               compareFull
-                ? "bg-red-50 ring-2 ring-red-400 dark:bg-red-950/40"
+                ? "bg-red-50 shadow-sm ring-2 ring-red-400 dark:bg-red-950/40"
                 : inCompare
-                  ? "bg-brand-primary/15 ring-2 ring-brand-primary"
-                  : "bg-brand-light hover:bg-brand-light/80 dark:bg-white/10"
+                  ? "bg-brand-primary/15 shadow-sm ring-2 ring-brand-primary"
+                  : "raised"
             }`}
           >
-            {/* Two FIXED brand colours, not currentColor — so the mark is not
-                tinted by the button around it, and the selected state has to
-                be carried by the pill behind it and the label beside it
-                rather than by recolouring the icon. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icons/compare.svg"
-              alt=""
-              width={18}
-              height={18}
-              className={`h-[18px] w-[18px] shrink-0 object-contain transition-transform duration-300 ${
+            {/* currentColor, deliberately. This was a two-tone SVG asset with
+                the old brand purple baked into the file, which made it the one
+                mark on the card that could not follow the theme — CSS cannot
+                recolour an image's pixels. A stroke icon inherits the button's
+                colour and costs no request; the asset is deleted. */}
+            <ArrowLeftRight
+              className={`h-4 w-4 shrink-0 text-brand-primary transition-transform duration-300 dark:text-brand-on-dark ${
                 inCompare ? "scale-110" : ""
               }`}
             />
@@ -499,28 +495,78 @@ export default function ListingCard({
               </span>
             ) : null}
           </button>
-          )}
+        </div>
 
-          <Link
-            href={href}
-            prefetch={false}
-            className="flex items-center text-xs text-brand-primary transition-all duration-300 md:text-sm"
-          >
-            <span
-              className={`font-medium transition-all duration-300 ${
-                isEnglish ? "group-hover:translate-x-1" : "group-hover:-translate-x-1"
+        {listing.city ? (
+          <div className="absolute bottom-0 start-3 z-20">
+            <div className="raised rounded-full px-2 py-0.5 text-[9px] font-bold md:text-[10px]">
+              {listing.city}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Spec strip ───────────────────────────────────────────────────
+          The same four specs, restacked the way the reference reads them:
+          the VALUE first and large, the label small underneath. The old order
+          put an icon and a caption above the number, so the one thing a buyer
+          is comparing across cards was the smallest text in the row.
+
+          Dividers between, not under — a hairline between columns groups them
+          as one strip; the heavy rule underneath used to cut the card in two.
+          grid-cols-N from the actual count, so three specs fill the width
+          instead of leaving a gap where a fourth never arrives.
+          ------------------------------------------------------------- */}
+      {facts.length > 0 ? (
+        <div
+          className={`relative z-20 mt-auto grid px-3 pb-4 pt-1.5 md:px-4 ${
+            facts.length === 1
+              ? "grid-cols-1"
+              : facts.length === 2
+                ? "grid-cols-2"
+                : facts.length === 3
+                  ? "grid-cols-3"
+                  : "grid-cols-4"
+          }`}
+        >
+          {facts.map((f, i) => (
+            <div
+              key={f.label}
+              className={`flex min-w-0 flex-col items-center justify-start px-1 text-center ${
+                i > 0 ? "border-s border-black/10 dark:border-white/10" : ""
               }`}
             >
-              {isEnglish ? "View Details" : "عرض التفاصيل"}
-            </span>
-            <Chevron
-              className={`h-4 w-4 transition-all duration-300 ${
-                isEnglish ? "ml-0.5 group-hover:translate-x-1" : "mr-0.5 group-hover:-translate-x-1"
-              }`}
-            />
-          </Link>
+              <div className="flex min-w-0 items-center gap-1">
+                {/*
+                  The kind's icon, straight from car_attribute_kinds.icon_url.
+
+                  NO fallback glyph. A generic placeholder on a kind nobody has
+                  given artwork to looks like a real icon that happens to be
+                  wrong, and it hides the gap from the only person who can close
+                  it. Inline beside the value now rather than on a row of its
+                  own, so a card whose specs have no artwork is simply a tidy
+                  row of numbers instead of a row of empty boxes.
+                */}
+                {f.icon ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={f.icon}
+                    alt=""
+                    loading="lazy"
+                    className="h-3 w-3 shrink-0 object-contain opacity-70 md:h-3.5 md:w-3.5"
+                  />
+                ) : null}
+                <span className="truncate text-[10px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 md:text-[11px]">
+                  {f.value}
+                </span>
+              </div>
+              <span className="mt-px line-clamp-1 text-[8px] leading-tight text-gray-500 dark:text-gray-400 md:text-[9px]">
+                {f.label}
+              </span>
+            </div>
+          ))}
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

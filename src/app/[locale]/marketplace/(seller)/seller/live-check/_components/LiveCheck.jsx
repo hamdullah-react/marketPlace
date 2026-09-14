@@ -218,7 +218,7 @@ export default function LiveCheck({ vendorId, locale }) {
               say("→ server FAILED: " + e.message);
             }
           }}
-          className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          className="raised-solid rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-opacity"
         >
           {isAr ? "أرسل رسالة اختبار إلى هذه الصفحة" : "Send a test message to this page"}
         </button>

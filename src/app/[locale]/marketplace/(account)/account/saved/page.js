@@ -7,7 +7,8 @@ import { getSavedListings } from '@/marketplace/db/queries/account';
 import { getCardSpecs } from '@/marketplace/db/queries/specs';
 import { normalizeListing } from '@/marketplace/lib/listing';
 import ListingCard from '../../../_components/ListingCard';
-import { CarGridSkeleton } from '../../../_components/Skeletons';
+import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
+
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -43,7 +44,7 @@ export default async function SavedPage({ params, searchParams }) {
         {t('السيارات المحفوظة', 'Saved cars')}
       </h1>
 
-      <Suspense fallback={<div className="mt-8"><CarGridSkeleton count={6} /></div>}>
+      <Suspense fallback={<div className="mt-8"><ListingCardGridSkeleton count={6} /></div>}>
         <Grid searchParams={searchParams} locale={locale} t={t} />
       </Suspense>
     </div>
@@ -85,7 +86,7 @@ async function Grid({ searchParams, locale, t }) {
         </p>
         <Link
           href={`/${locale}/marketplace/cars`}
-          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+          className="raised-solid mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white"
         >
           <Car className="h-4 w-4" />
           {t('تصفّح السيارات', 'Browse cars')}

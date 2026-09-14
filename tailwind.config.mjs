@@ -73,10 +73,20 @@ export default {
     				foreground: 'hsl(var(--card-foreground))'
     			},
     			brand: {
-    				primary: '#46194F',
-    				light: '#fff',
-    				dark: '#1f0c23',
-    				DEFAULT: '#46194F'
+    				/*
+    				  Read from CSS variables rather than typed here, so the theme
+    				  has ONE source. globals.css already defined `text-brand-primary`
+    				  and friends as @utility rules reading var(--brand-primary);
+    				  these literals were the second, silently disagreeing copy —
+    				  `light` was #fff here and #f5e8fa there.
+    				*/
+    				primary: 'var(--brand-primary)',
+    				light: 'var(--brand-light)',
+    				dark: 'var(--brand-dark)',
+    				'on-dark': 'var(--brand-on-dark)',
+    				gold: 'var(--gold)',
+    				'gold-light': 'var(--gold-light)',
+    				DEFAULT: 'var(--brand-primary)'
     			},
     			sidebar: {
     				DEFAULT: 'hsl(var(--sidebar-background))',
@@ -134,10 +144,10 @@ export default {
     			},
     			'pulse-glow': {
     				'0%, 100%': {
-    					boxShadow: '0 0 10px rgba(70, 25, 79, 0.3), 0 0 20px rgba(70, 25, 79, 0.2), 0 0 30px rgba(70, 25, 79, 0.1)'
+    					boxShadow: '0 0 10px rgba(var(--brand-rgb), 0.3), 0 0 20px rgba(var(--brand-rgb), 0.2), 0 0 30px rgba(var(--brand-rgb), 0.1)'
     				},
     				'50%': {
-    					boxShadow: '0 0 15px rgba(70, 25, 79, 0.5), 0 0 30px rgba(70, 25, 79, 0.3), 0 0 45px rgba(70, 25, 79, 0.2)'
+    					boxShadow: '0 0 15px rgba(var(--brand-rgb), 0.5), 0 0 30px rgba(var(--brand-rgb), 0.3), 0 0 45px rgba(var(--brand-rgb), 0.2)'
     				}
     			},
     			'slide-up': {

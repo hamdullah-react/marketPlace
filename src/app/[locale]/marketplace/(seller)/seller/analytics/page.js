@@ -185,13 +185,13 @@ async function Analytics({ searchParams, locale, t }) {
           </span>
         </p>
 
-        <nav className="flex gap-1 rounded-lg border p-1" aria-label={t('المدة', 'Range')}>
+        <nav className="flex gap-1 rounded-lg border p-1"raised-solid aria-label={t('المدة', 'Range')}>
           {RANGES.map((n) => (
             <Link
               key={n}
               href={rangeHref(n)}
               aria-current={n === days ? 'page' : undefined}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                 n === days ? 'bg-brand-primary text-white' : 'text-muted-foreground hover:bg-muted'
               }`}
             >

@@ -12,8 +12,8 @@ export default function ComingSoon({ locale = 'ar', titleAr, titleEn, route }) {
   return (
     <main className="flex min-h-[70vh] flex-col items-center justify-center px-6 py-20">
       <div className="w-full max-w-md text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-[#46194f]/20 bg-[#46194f]/5 px-4 py-1.5 text-xs font-medium text-brand-primary dark:border-[#c9a3d4]/25 dark:bg-[#c9a3d4]/10 dark:text-[#c9a3d4]">
-          <span className="h-1.5 w-1.5 rounded-full bg-brand-primary dark:bg-[#c9a3d4]" />
+        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-primary)]/20 bg-[var(--brand-primary)]/5 px-4 py-1.5 text-xs font-medium text-brand-primary dark:border-[var(--brand-on-dark)]/25 dark:bg-[var(--brand-on-dark)]/10 dark:text-[var(--brand-on-dark)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-primary dark:bg-[var(--brand-on-dark)]" />
           {isAr ? 'قريباً' : 'Coming Soon'}
         </span>
 

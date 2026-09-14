@@ -5,7 +5,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { FileText } from 'lucide-react';
 import { getListingMeta, getListingPageData, getSimilarCars } from './_apicalls/listingDetailApi';
 import {
-  GallerySkeleton, SpecsSkeleton, BuyPanelSkeleton, CarGridSkeleton,
+  GallerySkeleton, SpecsSkeleton, BuyPanelSkeleton,
 } from '../../../_components/Skeletons';
 import ListingFold from './_components/ListingFold';
 import SpecSheet from './_components/SpecSheet';
@@ -18,6 +18,7 @@ import { getOpenLead } from '@/marketplace/db/queries/leads';
 import {
   getVendorFormFields, getVendorFormStyle, getVendorFormTabs,
 } from '@/marketplace/db/queries/forms';
+import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 
 /**
  * This route is allowed to block — and that is the trade this page already
@@ -444,7 +445,7 @@ async function AboveTheFold({ slug, locale, t }) {
           summary, it is noise.
           ---------------------------------------------------------------- */}
       {listing.description ? (
-        <section className="mt-8 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xs dark:border-white/10 dark:bg-[#161616]">
+        <section className="mt-8 raised-card overflow-hidden rounded-xl">
           <div className="bg-linear-to-r from-brand-primary to-brand-dark px-5 py-3.5">
             <h2 className="flex items-center gap-2 text-base font-bold text-white">
               <FileText className="h-4 w-4" />
@@ -477,7 +478,24 @@ async function Related({ slug, locale, t }) {
   // Read after the early return, so a page with no similar cars does not pay
   // for a query whose answer it will not use.
   const user = await getUser();
-  const savedIds = user ? await getSavedIds(user.id) : null;
+  /**
+   * An EMPTY SET on failure, never null.
+   *
+   * `saved={null}` is how a card is told "nobody is signed in", and it answers
+   * that by falling back to the localStorage wishlist. So a lookup that failed
+   * for a SIGNED-IN visitor used to hand back null and quietly turn their cards
+   * back into signed-out ones — hearts lit from a list they built before they
+   * ever had an account, while /account/saved read the database and showed
+   * nothing. Two sources disagreeing, with no error anywhere to explain it.
+   *
+   * A signed-in visitor now always gets a Set. Empty means "nothing saved",
+   * which is the safe direction to fail: a heart that is wrongly empty is
+   * corrected by one tap, and a heart that is wrongly full is a lie about their
+   * account that the saved page contradicts.
+   */
+  const savedIds = user
+    ? await getSavedIds(user.id).catch(() => new Set())
+    : null;
 
   return (
     <section className="mt-14">

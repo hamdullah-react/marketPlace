@@ -17,17 +17,21 @@
  * page has not parsed yet — so it draws two, the commonest comparison and the
  * fewest that can be one.
  */
+import { ListingCardSkeleton } from '../../_components/ListingCardSkeleton';
+
 export default function CompareLoading() {
   return (
-    <main className="animate-pulse pb-20" aria-hidden="true">
+    <main className="pb-20" aria-hidden="true">
+      {/* animate-pulse sits on each block rather than on <main>: the card
+          skeleton brings its own, and two nested pulses beat out of phase. */}
       {/* ── Header bar ────────────────────────────────────────────────────── */}
-      <div className="border-b border-neutral-200 bg-white shadow-xs dark:border-neutral-800 dark:bg-[#141414]">
+      <div className="raised-card">
         <div className="mx-auto w-full max-w-[1600px] px-3 py-2.5 sm:px-8 md:py-4 lg:px-20 xl:px-28">
           <div className="flex items-center gap-2 md:gap-4">
-            <div className="h-9 w-9 shrink-0 rounded-xl bg-gray-200 dark:bg-white/10" />
+            <div className="h-9 w-9 shrink-0 rounded-xl animate-pulse bg-brand-primary/10 dark:bg-white/10" />
             <div className="min-w-0 flex-1">
-              <div className="h-6 w-48 rounded bg-gray-200 dark:bg-white/10 md:h-8 md:w-80" />
-              <div className="mt-2 hidden h-4 w-64 rounded bg-gray-200 dark:bg-white/10 md:block" />
+              <div className="h-6 w-48 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10 md:h-8 md:w-80" />
+              <div className="mt-2 hidden h-4 w-64 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10 md:block" />
             </div>
           </div>
         </div>
@@ -36,60 +40,45 @@ export default function CompareLoading() {
       <div className="mx-auto w-full max-w-[1600px] px-4 pt-4 sm:px-8 md:pt-6 lg:px-20 xl:px-28">
         {/* ── Action pills ────────────────────────────────────────────────── */}
         <div className="mb-4 flex justify-center gap-2 md:gap-3">
-          <div className="h-10 w-40 rounded-xl bg-gray-200 dark:bg-white/10 md:w-44" />
-          <div className="h-10 w-28 rounded-xl bg-gray-200 dark:bg-white/10 md:w-36" />
+          <div className="h-10 w-40 rounded-xl animate-pulse bg-brand-primary/10 dark:bg-white/10 md:w-44" />
+          <div className="h-10 w-28 rounded-xl animate-pulse bg-brand-primary/10 dark:bg-white/10 md:w-36" />
         </div>
 
-        {/* ── Cards ───────────────────────────────────────────────────────── */}
+        {/* ── Cards ─────────────────────────────────────────
+            The SHARED ListingCardSkeleton, because this page renders real
+            ListingCards. It used to hand-draw its own, and that copy had gone
+            stale in exactly the way the grid ones had — image on top, then a
+            name band, a price band, a four-icon row, an actions row, which is
+            the layout the card stopped using some time ago.
+
+            `max-w-2xl md:grid-cols-2` mirrors CARD_GRID[2] in CompareTable:
+            this file cannot know how many cars are being compared (they are in
+            a URL the page has not parsed yet), so it draws two — the commonest
+            comparison, and the fewest that can be one.
+            ---------------------------------------------------------------- */}
         <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-2">
           {[0, 1].map((i) => (
-            <div
-              key={i}
-              className="overflow-hidden rounded-[10px] bg-white shadow-lg dark:bg-[#141414]"
-            >
-              <div className="h-36 bg-gray-200 dark:bg-white/10 sm:h-40" />
-              <div className="p-3 sm:p-4">
-                <div className="mb-3 flex items-center gap-2 border-b border-gray-100 pb-3 dark:border-white/10">
-                  <div className="h-8 w-12 rounded bg-gray-200 dark:bg-white/10" />
-                  <div className="flex-1">
-                    <div className="mb-1 h-4 w-3/4 rounded bg-gray-200 dark:bg-white/10" />
-                    <div className="h-3 w-1/2 rounded bg-gray-200 dark:bg-white/10" />
-                  </div>
-                </div>
-                <div className="mb-3 h-5 w-24 rounded bg-gray-200 dark:bg-white/10" />
-                {/* The card's icon row of specs. */}
-                <div className="grid grid-cols-4 gap-2 border-t border-gray-100 py-2 dark:border-white/10">
-                  {[0, 1, 2, 3].map((j) => (
-                    <div key={j} className="flex flex-col items-center">
-                      <div className="mb-1 h-6 w-6 rounded-full bg-gray-200 dark:bg-white/10" />
-                      <div className="h-2 w-8 rounded bg-gray-200 dark:bg-white/10" />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 dark:border-white/10">
-                  <div className="h-8 w-20 rounded-full bg-gray-200 dark:bg-white/10" />
-                  <div className="h-4 w-24 rounded bg-gray-200 dark:bg-white/10" />
-                </div>
-              </div>
-            </div>
+            <ListingCardSkeleton key={i} />
           ))}
         </div>
 
         {/* ── Key Specifications ──────────────────────────────────────────── */}
         <div className="py-4 md:py-8">
-          <div className="mb-3 h-12 rounded-xl bg-gray-200 dark:bg-white/10 md:mb-6 md:h-14" />
+          {/* Solid, like the real bar — it is the one saturated thing in the
+              column and a pale block in its place changes the page's weight. */}
+          <div className="raised-solid mb-3 h-[52px] rounded-xl animate-pulse bg-brand-primary md:mb-6 md:h-[60px]" />
 
-          <div className="mb-4 overflow-hidden rounded-xl bg-white shadow-xs dark:bg-[#141414] md:mb-8">
+          <div className="raised-card mb-4 overflow-hidden rounded-xl md:mb-8">
             {[0, 1, 2, 3, 4].map((i) => (
               <div key={i} className="flex border-b last:border-0 dark:border-white/10">
-                <div className="flex w-[120px] shrink-0 items-center gap-2 bg-gray-50 p-3 dark:bg-white/5 md:w-[150px] md:p-4">
-                  <div className="h-6 w-6 shrink-0 rounded bg-gray-200 dark:bg-white/10" />
-                  <div className="h-4 flex-1 rounded bg-gray-200 dark:bg-white/10" />
+                <div className="flex w-[120px] shrink-0 items-center gap-2 bg-brand-primary/[0.04] p-3 dark:bg-white/5 md:w-[150px] md:p-4">
+                  <div className="h-6 w-6 shrink-0 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10" />
+                  <div className="h-4 flex-1 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10" />
                 </div>
                 <div className="flex flex-1">
                   {[0, 1].map((j) => (
                     <div key={j} className="flex flex-1 justify-center p-3 md:p-4">
-                      <div className="h-4 w-16 rounded bg-gray-200 dark:bg-white/10" />
+                      <div className="h-4 w-16 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10" />
                     </div>
                   ))}
                 </div>
@@ -98,19 +87,21 @@ export default function CompareLoading() {
           </div>
 
           {/* ── Specifications, and its closed categories ─────────────────── */}
-          <div className="mb-3 h-12 rounded-xl bg-gray-200 dark:bg-white/10 md:mb-6 md:h-14" />
+          {/* Solid, like the real bar — it is the one saturated thing in the
+              column and a pale block in its place changes the page's weight. */}
+          <div className="raised-solid mb-3 h-[52px] rounded-xl animate-pulse bg-brand-primary md:mb-6 md:h-[60px]" />
 
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="mb-3 overflow-hidden rounded-xl bg-white shadow-xs dark:bg-[#141414] md:mb-6"
+              className="raised-card mb-3 overflow-hidden rounded-xl md:mb-6"
             >
               <div className="flex items-center justify-between p-3 md:p-5">
                 <div className="flex items-center gap-2 md:gap-3">
-                  <div className="h-8 w-8 rounded bg-gray-200 dark:bg-white/10 md:h-10 md:w-10" />
-                  <div className="h-5 w-32 rounded bg-gray-200 dark:bg-white/10 md:w-40" />
+                  <div className="h-8 w-8 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10 md:h-10 md:w-10" />
+                  <div className="h-5 w-32 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10 md:w-40" />
                 </div>
-                <div className="h-5 w-5 rounded bg-gray-200 dark:bg-white/10" />
+                <div className="h-5 w-5 rounded animate-pulse bg-brand-primary/10 dark:bg-white/10" />
               </div>
             </div>
           ))}

@@ -276,7 +276,7 @@ export default function AddressBook({ locale = "ar", addresses = [] }) {
                 type="checkbox"
                 name="isDefault"
                 defaultChecked={Boolean(editing?.is_default)}
-                className="h-4 w-4 accent-[#46194F]"
+                className="h-4 w-4 accent-[var(--brand-primary)]"
               />
               {t("اجعله العنوان الافتراضي", "Make this my default address")}
             </label>

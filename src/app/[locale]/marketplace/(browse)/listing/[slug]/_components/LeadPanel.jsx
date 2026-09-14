@@ -355,7 +355,7 @@ export default function LeadPanel({
           className={
             already
               ? "flex w-full items-center justify-center gap-2 rounded-2xl border border-green-300 bg-green-50 py-2.5 text-sm font-semibold text-green-800 transition-colors hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300"
-              : "flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              : "raised-solid flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white transition-opacity"
           }
         >
           {already ? <CheckCircle2 className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
@@ -474,7 +474,7 @@ export default function LeadPanel({
 
                 <Link
                   href={sent.requestsPath}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white"
+                  className="raised-solid flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white"
                 >
                   {t("طلباتي", "My requests")}
                   <ArrowRight className={`h-4 w-4 ${isAr ? "rotate-180" : ""}`} />
@@ -519,7 +519,7 @@ export default function LeadPanel({
 
                 <Link
                   href={requestsPath}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white"
+                  className="raised-solid flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white"
                 >
                   {t("طلباتي", "My requests")}
                   <ArrowRight className={`h-4 w-4 ${isAr ? "rotate-180" : ""}`} />
@@ -543,7 +543,7 @@ export default function LeadPanel({
                 </p>
                 <Link
                   href={signInHref}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white"
+                  className="raised-solid flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-2.5 text-sm font-semibold text-white"
                 >
                   <LogIn className="h-4 w-4" />
                   {t("تسجيل الدخول", "Sign in")}
@@ -672,7 +672,7 @@ export default function LeadPanel({
                 <button
                   type="submit"
                   disabled={lead.pending}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="raised-solid flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-primary py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
                 >
                   {lead.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {t("أرسل الطلب", "Send request")}

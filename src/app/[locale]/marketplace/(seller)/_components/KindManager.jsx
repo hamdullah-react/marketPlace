@@ -188,7 +188,7 @@ export default function KindManager({
         <Button
           type="button"
           onClick={openAdd}
-          className="gap-2 bg-brand-primary hover:bg-[#5a2363]"
+          className="gap-2 bg-brand-primary hover:bg-[var(--brand-dark)]"
         >
           <Plus className="h-4 w-4" />
           {t("إضافة نوع", "Add kind")}
@@ -448,7 +448,7 @@ export default function KindManager({
                 <input
                   type="checkbox" name="showOnCard"
                   defaultChecked={!!editing.showOnCard}
-                  className="mt-0.5 h-4 w-4 accent-[#46194F]"
+                  className="mt-0.5 h-4 w-4 accent-[var(--brand-primary)]"
                 />
                 <span>
                   {t("يظهر على بطاقة السيارة", "Show on the car card")}
@@ -491,7 +491,7 @@ export default function KindManager({
                   {t("إلغاء", "Cancel")}
                 </Button>
                 <Button type="submit" disabled={save.pending}
-                  className="gap-2 bg-brand-primary hover:bg-[#5a2363]">
+                  className="gap-2 bg-brand-primary hover:bg-[var(--brand-dark)]">
                   {save.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   {t("حفظ", "Save")}
                 </Button>

@@ -191,7 +191,7 @@ export default function RequestCard({ row, locale = "ar" }) {
                 {i < BUYER_STEPS.length - 1 ? (
                   <span
                     className={`h-px flex-1 transition-colors ${
-                      i < at ? "bg-brand-primary" : "bg-gray-200 dark:bg-white/10"
+                      i < at ? "bg-brand-primary" : "bg-brand-primary/10 dark:bg-white/10"
                     }`}
                   />
                 ) : null}

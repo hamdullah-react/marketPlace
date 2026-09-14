@@ -201,7 +201,7 @@ export default function ListingFold({
             listing holds both — one tab is not a choice. */}
         {tabs.length > 1 ? (
           <div className="flex justify-center">
-            <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xs dark:border-white/10 dark:bg-[#161616]">
+            <div className="raised-card flex overflow-hidden rounded-xl">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -225,7 +225,7 @@ export default function ListingFold({
         ) : null}
 
         {/* ── Frame ──────────────────────────────────────────────────────── */}
-        <div className="relative aspect-16/10 w-full overflow-hidden rounded-2xl border border-gray-200 bg-linear-to-br from-gray-50 to-gray-100 shadow-lg dark:border-white/10 dark:from-[#1c1c1c] dark:to-[#141414]">
+        <div className="raised-card relative aspect-16/10 w-full overflow-hidden rounded-2xl">
           {current ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -346,7 +346,7 @@ export default function ListingFold({
 
       {/* ══ Buy panel ═════════════════════════════════════════════════════ */}
       <div className="flex flex-col xl:col-span-3">
-        <div className="relative overflow-visible rounded-2xl border border-gray-200 bg-white p-4 shadow-lg lg:p-5 dark:border-white/10 dark:bg-[#161616]">
+        <div className="raised-card relative overflow-visible rounded-2xl p-4 lg:p-5">
           {/* ── Name + brand mark ──────────────────────────────────────── */}
           <div className="relative z-10 flex items-center justify-between">
             <div className="min-w-0 flex-1">
@@ -530,7 +530,7 @@ export default function ListingFold({
           ) : null}
 
           {/* ── Price + actions ────────────────────────────────────────── */}
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-md dark:border-white/10 dark:bg-[#161616]">
+          <div className="raised-card rounded-2xl">
             <div className="p-3">
               <div className="mb-3">
                 <div className="mb-1 flex items-center gap-1 text-3xl font-bold text-brand-primary">

@@ -228,7 +228,7 @@ export default function ColorPicker({
                       type="button"
                       onClick={create}
                       disabled={creating}
-                      className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-brand-primary px-3 text-xs font-medium text-white disabled:opacity-60"
+                      className="raised-solid flex h-9 shrink-0 items-center gap-1 rounded-lg bg-brand-primary px-3 text-xs font-medium text-white disabled:opacity-60"
                     >
                       {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                       {t("إضافة", "Add")}

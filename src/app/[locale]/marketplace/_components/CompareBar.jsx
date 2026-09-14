@@ -109,7 +109,7 @@ export default function CompareBar({ locale = "ar" }) {
             <Link
               href={href}
               onClick={() => startTransition(() => {})}
-              className="flex items-center gap-1.5 rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-brand-dark"
+              className="raised-solid flex items-center gap-1.5 rounded-xl bg-brand-primary px-4 py-2.5 text-xs font-semibold text-white hover:bg-brand-dark"
             >
               {pending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

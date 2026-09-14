@@ -174,7 +174,7 @@ export default async function AccountPage({ params }) {
         </div>
         <Link
           href={`/${locale}/marketplace/${viewer.vendors.length ? 'seller' : 'sell'}`}
-          className="rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+          className="raised-solid rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white"
         >
           {viewer.vendors.length ? t('لوحة البائع', 'Dashboard') : t('افتح معرضك', 'Open a showroom')}
         </Link>
@@ -480,7 +480,7 @@ function Empty({ icon: Icon, title, body, cta, href, ctaIcon: CtaIcon }) {
       <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">{body}</p>
       <Link
         href={href}
-        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-[#5a2363]"
+        className="raised-solid mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-4 py-2 text-xs font-medium text-white"
       >
         {CtaIcon ? <CtaIcon className="h-3.5 w-3.5" /> : null}
         {cta}

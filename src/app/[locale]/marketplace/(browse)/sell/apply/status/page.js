@@ -123,7 +123,7 @@ export default async function SellApplyStatusPage({ params }) {
         {vendor.state === 'approved' ? (
           <Link
             href={`/${locale}/marketplace/seller`}
-            className="rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#5a2363]"
+            className="raised-solid rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white"
           >
             {t('إلى لوحة البائع', 'Go to the dashboard')}
           </Link>
