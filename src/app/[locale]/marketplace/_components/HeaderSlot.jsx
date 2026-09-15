@@ -69,6 +69,7 @@ export default async function HeaderSlot({ locale = 'ar' }) {
               email: viewer.email,
               avatarUrl: viewer.avatarUrl,
               isStaff: viewer.isStaff,
+              isAdmin: viewer.isAdmin,
               isVendor: viewer.vendors.length > 0,
             }
           : null

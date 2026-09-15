@@ -362,3 +362,11 @@ export async function staffForAction() {
   if (!viewer.isStaff) return { error: 'NOT_STAFF' };
   return { viewer };
 }
+
+/** Same shape, for the admin panel — users, admins, boost decisions. */
+export async function adminForAction() {
+  const viewer = await getViewer();
+  if (!viewer) return { error: 'NOT_SIGNED_IN' };
+  if (!viewer.isAdmin) return { error: 'NOT_ADMIN' };
+  return { viewer };
+}

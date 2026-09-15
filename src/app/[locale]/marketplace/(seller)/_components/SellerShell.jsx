@@ -27,7 +27,7 @@ import {
   StarIcon, WalletIcon, SettingsIcon, BarChartIcon, StoreIcon,
   ExternalLinkIcon, HelpCircleIcon, SearchIcon, UserIcon, LibraryIcon,
   ChevronsUpDownIcon, LogOutIcon, BadgeCheckIcon, ClipboardListIcon,
-  ChevronDownIcon, UsersIcon, TagIcon,
+  ChevronDownIcon, UsersIcon, TagIcon, SparklesIcon,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -52,6 +52,7 @@ const NAV_MAIN = [
   { href: "/marketplace/seller/listings", icon: CarIcon, ar: "إعلاناتي", en: "Listings" },
   { href: "/marketplace/seller/listings/new", icon: PlusIcon, ar: "إضافة سيارة", en: "Add a car" },
   { href: "/marketplace/seller/offers", icon: TagIcon, ar: "العروض", en: "Offers" },
+  { href: "/marketplace/seller/promotions", icon: SparklesIcon, ar: "الترويج", en: "Promotions" },
   { href: "/marketplace/seller/media", icon: ImagesIcon, ar: "مكتبة الصور", en: "Media" },
   { href: "/marketplace/seller/catalog", icon: LibraryIcon, ar: "الكتالوج", en: "Catalog" },
   { href: "/marketplace/seller/analytics", icon: BarChartIcon, ar: "التحليلات", en: "Analytics" },

@@ -1,4 +1,4 @@
-import { getFeaturedListings } from '@/marketplace/db/queries/listings';
+import { getFeaturedListings, getLiveListings } from '@/marketplace/db/queries/listings';
 import { getCategoryTree } from '@/marketplace/db/queries/categories';
 import { getTopVendors } from '@/marketplace/db/queries/vendors';
 import { getCardSpecs } from '@/marketplace/db/queries/specs';
@@ -44,6 +44,21 @@ export async function getHomeFeatured(locale = 'ar', limit = 8) {
   // Which facts a card shows is a catalog decision — the specifications
   // flagged "show on card". One read for the whole page: doing it per card
   // would be a round trip each for a four-icon row.
+  const cardSpecs = await getCardSpecs(rows.map((r) => r.id), locale).catch(() => new Map());
+
+  return {
+    items: rows.map((r) => normalizeListing(r, locale)),
+    cardSpecs: Object.fromEntries(cardSpecs),
+  };
+}
+
+/**
+ * The Most viewed row: live cars ordered by their real view count only.
+ * Unlike getHomeFeatured, a boost does not move a car up here — this row is
+ * what buyers actually opened.
+ */
+export async function getHomeMostViewed(locale = 'ar', limit = 8) {
+  const { items: rows } = await getLiveListings({ type: 'car', sort: 'popular', limit });
   const cardSpecs = await getCardSpecs(rows.map((r) => r.id), locale).catch(() => new Map());
 
   return {

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Publish / unpublish / delete for one listing row.
+ * Publish / unpublish / boost / delete for one listing row.
  *
  * One instance per row rather than one shared menu, so an action can never fire
  * against the wrong listing: the id is baked into this component's own hidden
@@ -10,6 +10,10 @@
  * A state change fires straight from the menu; deleting goes through a confirm
  * dialog first. That asymmetry is deliberate — unpublishing is one click to
  * reverse, deleting is not reversible at all.
+ *
+ * "Boost this car" opens the Promotions page with this car preselected. The
+ * plans and prices live there and come from the admin — none are hardcoded
+ * here.
  */
 
 import { startTransition, useState } from "react";
@@ -17,6 +21,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   MoreHorizontal, Eye, Pencil, Send, Undo2, Trash2, Loader2, AlertTriangle,
+  Sparkles, XCircle,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
@@ -28,12 +33,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { useActionResult } from "./useActionResult";
 import { setListingState, deleteListing } from "../_actions/listing-crud";
+import { cancelBoostRequest } from "../_actions/boosts";
 import { errorText } from "@/marketplace/lib/errors";
 
 const INITIAL = { ok: false, error: null };
 
 export default function ListingRowActions({
-  locale = "ar", listing, vendorId, publicPath,
+  locale = "ar", listing, vendorId, publicPath, boost = null, boostsReady = false,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -47,34 +53,29 @@ export default function ListingRowActions({
   const remove = useActionResult(deleteListing, INITIAL, {
     onSuccess: () => { setConfirmDelete(false); router.refresh(); },
   });
+  const cancelBoost = useActionResult(cancelBoostRequest, INITIAL, {
+    onSuccess: () => router.refresh(),
+  });
 
   const msg = (r) => (r?.error ? errorText(r.error, locale, r.params) : null);
 
   const isLive = listing.state === "live";
-  const busy = move.pending || remove.pending;
+  const busy = move.pending || remove.pending || cancelBoost.pending;
+
+  const activeUntil = boost?.activeUntil
+    ? new Date(boost.activeUntil).toLocaleDateString(isAr ? "ar-SA" : "en-GB", { day: "numeric", month: "short" })
+    : null;
+
+  const boostHref = (() => {
+    const q = new URLSearchParams({ listing: listing.id });
+    if (vendorId) q.set("vendor", vendorId);
+    return `/${locale}/marketplace/seller/promotions?${q.toString()}`;
+  })();
 
   /**
-   * The action is CALLED, not submitted through a form.
-   *
-   * This used to be a hidden <form> per row, with a ref and requestSubmit(), so
-   * each menu item could stay an ordinary menu item. Two things were wrong with
-   * it, and they turned out to be one thing:
-   *
-   *   · ListingsTable wraps the rows in its own <form> — the one that collects
-   *     the bulk-select checkboxes. A form inside a form is invalid HTML, and
-   *     React said so on every render of the page.
-   *   · Publish and Unpublish did nothing. requestSubmit() on a form the DOM
-   *     should never have contained never reached the action, and because the
-   *     menu closes on its own, it looked like a click that simply missed.
-   *
-   * Invoking the action inside a transition is what the Next docs prescribe for
-   * exactly this — an action fired by something that is not a form submission
-   * (see 07-mutating-data, "Showing a pending state"). `move.pending` still
-   * reports, because useActionState tracks the call rather than the <form>.
-   *
-   * The delete confirmation below keeps its form: Radix renders DialogContent
-   * through a portal, so it lands on document.body and is not nested in
-   * anything.
+   * The action is CALLED, not submitted through a form: ListingsTable wraps the
+   * rows in its own <form>, and a form inside a form is invalid HTML (see the
+   * Next docs, 07-mutating-data, "Showing a pending state").
    */
   const moveTo = (next) => {
     move.dismiss();
@@ -87,14 +88,22 @@ export default function ListingRowActions({
     startTransition(() => move.formAction(body));
   };
 
+  const withdrawBoost = () => {
+    cancelBoost.dismiss();
+
+    const body = new FormData();
+    body.set("boostId", boost?.pendingId ?? "");
+    body.set("vendorId", vendorId ?? "");
+
+    startTransition(() => cancelBoost.formAction(body));
+  };
+
+  const rowError = msg(move.result) || msg(cancelBoost.result);
+
   return (
     <>
       <div className="flex items-center justify-end gap-1">
-        {/* The error belongs beside the row it came from — a toast would leave
-            the seller guessing which of twenty cars refused. */}
-        {msg(move.result) ? (
-          <span className="me-2 text-xs text-red-600">{msg(move.result)}</span>
-        ) : null}
+        {rowError ? <span className="me-2 text-xs text-red-600">{rowError}</span> : null}
 
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-primary" /> : null}
 
@@ -129,6 +138,28 @@ export default function ListingRowActions({
               </Link>
             </DropdownMenuItem>
 
+            {/* ── Boost — live cars only, once the BOOSTS schema exists ── */}
+            {isLive && boostsReady ? (
+              activeUntil ? (
+                <DropdownMenuItem disabled className="gap-2">
+                  <Sparkles className="h-4 w-4 text-brand-gold" />
+                  {t(`مميز حتى ${activeUntil}`, `Featured until ${activeUntil}`)}
+                </DropdownMenuItem>
+              ) : boost?.pendingId ? (
+                <DropdownMenuItem className="gap-2" onSelect={withdrawBoost}>
+                  <XCircle className="h-4 w-4" />
+                  {t("إلغاء طلب التمييز", "Cancel boost request")}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem asChild>
+                  <Link href={boostHref} className="gap-2">
+                    <Sparkles className="h-4 w-4 text-brand-gold" />
+                    {t("ميّز هذه السيارة", "Boost this car")}
+                  </Link>
+                </DropdownMenuItem>
+              )
+            ) : null}
+
             <DropdownMenuSeparator />
 
             {/* Publish and unpublish are the same control in two directions.
@@ -146,9 +177,6 @@ export default function ListingRowActions({
               </DropdownMenuItem>
             )}
 
-            {/* Only offered when it changes something. From `live` it would be
-                a downgrade nobody asks for, and from `pending_review` it is
-                where the listing already is. */}
             {listing.state === "draft" || listing.state === "rejected" ? (
               <DropdownMenuItem className="gap-2" onSelect={() => moveTo("pending_review")}>
                 <Send className="h-4 w-4" />

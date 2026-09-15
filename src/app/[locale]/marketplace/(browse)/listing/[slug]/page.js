@@ -19,6 +19,7 @@ import {
   getVendorFormFields, getVendorFormStyle, getVendorFormTabs,
 } from '@/marketplace/db/queries/forms';
 import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
+import ViewBeacon from './_components/ViewBeacon';
 
 /**
  * This route is allowed to block — and that is the trade this page already
@@ -399,6 +400,7 @@ async function AboveTheFold({ slug, locale, t }) {
 
   return (
     <>
+      <ViewBeacon listingId={listing.id} />
       {/*
        * Layout mirrors (main)/car/[slug] — see car-gallery.jsx:183.
        *

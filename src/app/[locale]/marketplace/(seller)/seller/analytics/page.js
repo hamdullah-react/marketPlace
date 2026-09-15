@@ -82,7 +82,7 @@ async function Analytics({ searchParams, locale, t }) {
   if (!vendorId) {
     return (
       <div className="px-4 lg:px-6">
-        <Card>
+        <Card className="raised-card border-0">
           <CardHeader>
             <CardTitle className="text-base">{t('لا يوجد متجر بعد', 'No store yet')}</CardTitle>
           </CardHeader>
@@ -102,7 +102,7 @@ async function Analytics({ searchParams, locale, t }) {
     console.error('[seller/analytics] load failed:', error);
     return (
       <div className="px-4 lg:px-6">
-        <Card>
+        <Card className="raised-card border-0">
           <CardHeader>
             <CardTitle className="text-base">
               {t('التحليلات غير متاحة حالياً', 'Analytics are unavailable right now')}
@@ -157,7 +157,7 @@ async function Analytics({ searchParams, locale, t }) {
       {/* ── KPI cards. Same grid as the dashboard's StatCards. ───────────── */}
       <div className="grid grid-cols-1 gap-4 px-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 lg:px-6">
         {cards.map((c) => (
-          <Card key={c.en} className="@container/card h-full">
+          <Card key={c.en} className="@container/card raised-card h-full border-0 transition-transform duration-300 hover:-translate-y-0.5">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {t(c.ar, c.en)}
@@ -185,14 +185,14 @@ async function Analytics({ searchParams, locale, t }) {
           </span>
         </p>
 
-        <nav className="flex gap-1 rounded-lg border p-1"raised-solid aria-label={t('المدة', 'Range')}>
+        <nav className="raised flex gap-1 rounded-lg p-1" aria-label={t('المدة', 'Range')}>
           {RANGES.map((n) => (
             <Link
               key={n}
               href={rangeHref(n)}
               aria-current={n === days ? 'page' : undefined}
               className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                n === days ? 'bg-brand-primary text-white' : 'text-muted-foreground hover:bg-muted'
+                n === days ? 'raised-solid bg-brand-primary text-white' : 'raised-hover text-muted-foreground'
               }`}
             >
               {t(`${n} يوم`, `${n} days`)}

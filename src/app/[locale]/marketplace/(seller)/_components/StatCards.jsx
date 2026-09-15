@@ -85,7 +85,7 @@ export default function StatCards({ locale = 'ar', stats = {}, listings = [], ve
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4 lg:px-6 dark:*:data-[slot=card]:bg-card">
       {CARDS.map(({ label, value, badge, headline, note, to }) => (
         <Link key={label} href={href(to)} data-slot="card-link">
-          <Card className="@container/card h-full">
+          <Card className="@container/card raised-card h-full border-0 transition-transform duration-300 hover:-translate-y-0.5">
             <CardHeader className="relative">
               <CardDescription>{label}</CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">

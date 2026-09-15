@@ -13,7 +13,7 @@ import type { LooseRow } from '@/marketplace/lib/row';
 const SELECT = `
   id, slug, type, state, name, description,
   price, compare_at, vat_included, stock, attributes, media, city, views,
-  published_at,
+  published_at, is_featured,
   vendors ( id, slug, name, verified, rating_avg, rating_count ),
   car_brands ( id, slug, name, logo_url ),
   categories ( id, slug, name )
@@ -38,7 +38,7 @@ const SELECT = `
 const CARD_SELECT = `
   id, slug, type, state, name,
   price, compare_at, vat_included, stock, attributes, media, city, views,
-  published_at,
+  published_at, is_featured,
   vendors ( id, slug, name, verified, rating_avg, rating_count ),
   car_brands ( id, slug, name, logo_url )
 `;
@@ -193,9 +193,29 @@ export async function getLiveListingSlugs(limit = 500) {
   return (data ?? []).map((r) => r.slug).filter(Boolean);
 }
 
+/**
+ * The home page's featured row: cars an admin has featured (approved boosts)
+ * first, most viewed among them, then the most viewed of the rest to fill the
+ * row. A marketplace with no boosts running still shows a full row.
+ */
 export async function getFeaturedListings(limit = 8) {
-  const { items } = await getLiveListings({ sort: 'popular', limit });
-  return items;
+  const { data, error } = await getMarketplaceDb()
+    .from('listings')
+    .select(SELECT)
+    .eq('state', 'live')
+    .eq('is_featured', true)
+    .order('views', { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`getFeaturedListings: ${error.message}`);
+
+  const featured = (data ?? []) as LooseRow[];
+  await attachOffers(featured);
+  if (featured.length >= limit) return featured;
+
+  const { items } = await getLiveListings({ sort: 'popular', limit: limit + featured.length });
+  const seen = new Set(featured.map((r) => r.id));
+  return [...featured, ...(items as LooseRow[]).filter((r) => !seen.has(r.id))].slice(0, limit);
 }
 
 /**
@@ -256,15 +276,4 @@ export async function getRelatedListings(listing: LooseRow | null | undefined, l
   if (error) throw new Error(`getRelatedListings: ${error.message}`);
   await attachOffers(data);
   return data ?? [];
-}
-
-/** Fire-and-forget; a failed counter must never break a page render. */
-export async function incrementViews(id: string) {
-  try {
-    const db = getMarketplaceDb();
-    const { data } = await db.from('listings').select('views').eq('id', id).maybeSingle();
-    if (data) await db.from('listings').update({ views: (data.views ?? 0) + 1 }).eq('id', id);
-  } catch {
-    /* ignore */
-  }
 }

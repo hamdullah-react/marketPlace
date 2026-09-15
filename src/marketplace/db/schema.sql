@@ -4245,3 +4245,230 @@ alter table listing_variants
 
 alter table listing_variants
   add column if not exists compare_at numeric(12,2) check (compare_at is null or compare_at >= 0);
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  BOOSTS, THE VIEW COUNTER, AND WHO MAY FEATURE A CAR
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  1. increment_listing_views()  a real, atomic view counter. The old code read
+--                                 the number and wrote number+1, so two visitors
+--                                 at once counted as one — and nothing called it.
+--  2. listings.featured_until     when a paid/approved boost ends.
+--  3. listings_protect_promotion  a vendor could set is_featured on their own
+--                                 car straight through the API, because
+--                                 listings_vendor_all allows every column. Now
+--                                 only staff/admin (and the server) can change
+--                                 is_featured, featured_until and views.
+--  4. listing_boosts              a vendor's request to feature a car for 7, 14
+--                                 or 30 days, approved or rejected by an admin.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── 1. View counter ─────────────────────────────────────────────────────────
+
+create or replace function increment_listing_views(target uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update listings set views = views + 1 where id = target and state = 'live';
+$$;
+
+revoke all on function increment_listing_views(uuid) from public, anon, authenticated;
+grant execute on function increment_listing_views(uuid) to service_role;
+
+-- ── 2. When a boost ends ────────────────────────────────────────────────────
+
+alter table listings add column if not exists featured_until timestamptz;
+
+create index if not exists listings_featured_idx on listings (featured_until) where is_featured;
+
+-- ── 3. Only the platform decides what is featured ───────────────────────────
+
+create or replace function listings_protect_promotion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- The server (service role) and direct database connections are trusted:
+  -- they are what approve boosts and count views. auth.role() is null on a
+  -- direct connection, hence the coalesce.
+  if coalesce(auth.role(), 'service_role') not in ('anon', 'authenticated') then
+    return new;
+  end if;
+
+  if is_staff() then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    new.is_featured    := false;
+    new.featured_until := null;
+    new.views          := 0;
+  else
+    new.is_featured    := old.is_featured;
+    new.featured_until := old.featured_until;
+    new.views          := old.views;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists listings_protect_promotion on listings;
+create trigger listings_protect_promotion
+  before insert or update on listings
+  for each row execute function listings_protect_promotion();
+
+-- ── 4. Boost requests ───────────────────────────────────────────────────────
+
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'boost_state') then
+    create type boost_state as enum ('pending', 'approved', 'rejected', 'cancelled', 'expired');
+  end if;
+end $$;
+
+create table if not exists listing_boosts (
+  id           uuid primary key default gen_random_uuid(),
+  listing_id   uuid not null references listings (id) on delete cascade,
+  vendor_id    uuid not null references vendors (id) on delete cascade,
+  days         integer not null check (days between 1 and 365),
+  state        boost_state not null default 'pending',
+  note         text,
+  requested_by uuid,
+  reviewed_by  uuid,
+  reviewed_at  timestamptz,
+  review_note  text,
+  starts_at    timestamptz,
+  ends_at      timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+-- One open request per car: a second press of "Boost" must not queue a
+-- duplicate for the admin to reject.
+create unique index if not exists listing_boosts_one_pending
+  on listing_boosts (listing_id) where state = 'pending';
+create index if not exists listing_boosts_state_idx  on listing_boosts (state, created_at desc);
+create index if not exists listing_boosts_vendor_idx on listing_boosts (vendor_id, created_at desc);
+
+alter table listing_boosts enable row level security;
+
+-- Vendors may READ their own requests. Every write goes through the server,
+-- which checks ownership itself — there is no vendor write policy on purpose.
+drop policy if exists listing_boosts_member_read on listing_boosts;
+create policy listing_boosts_member_read on listing_boosts
+  for select using (is_vendor_member(vendor_id) or is_staff());
+
+drop policy if exists listing_boosts_staff_all on listing_boosts;
+create policy listing_boosts_staff_all on listing_boosts
+  for all using (is_staff()) with check (is_staff());
+
+-- ── 5. The first admin ──────────────────────────────────────────────────────
+
+update profiles set role = 'admin'
+where id = (select id from auth.users where email = 'hamdullahs046@gmail.com')
+  and role <> 'admin';
+
+-- PostgREST caches the schema; without this the new table and column are
+-- invisible to the app until the next restart.
+notify pgrst, 'reload schema';
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  BOOST PLANS AND PRICES
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  Nothing about a boost is fixed in code. An admin creates the plans on
+--  Admin → Boost requests — how many days, and what it costs — and can edit,
+--  switch off or delete them at any time. There are no built-in plans or
+--  prices: until an admin adds one, sellers are told boosts are not available.
+--
+--  boost_plans              one row per plan. Public read for active plans, so
+--                           the seller's form can list them; staff-only write.
+--  listing_boosts.price     the price SNAPSHOTTED on each request, so editing
+--                           or deleting a plan never changes what an existing
+--                           request was quoted.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+create table if not exists boost_plans (
+  id         uuid primary key default gen_random_uuid(),
+  days       integer not null unique check (days between 1 and 365),
+  price      numeric(12,2) not null check (price >= 0),
+  active     boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ── Upgrading the first version of this table ─────────────────────────────
+--
+-- A database that ran the FIRST version of this section has boost_plans keyed
+-- by days, with a fixed 7/14/30 rule, a currency column and no id — and
+-- `create table if not exists` above skips it, so it is reshaped here instead.
+-- Every step checks before it acts, so this is a no-op on a fresh install and
+-- on any later re-run. Rows already in the table are kept.
+
+alter table boost_plans add column if not exists id uuid not null default gen_random_uuid();
+alter table boost_plans add column if not exists created_at timestamptz not null default now();
+
+do $$
+begin
+  -- Primary key moves from days to id.
+  if exists (
+    select 1 from pg_constraint
+    where conrelid = 'boost_plans'::regclass and contype = 'p'
+      and pg_get_constraintdef(oid) <> 'PRIMARY KEY (id)'
+  ) then
+    execute (
+      select format('alter table boost_plans drop constraint %I', conname)
+      from pg_constraint where conrelid = 'boost_plans'::regclass and contype = 'p'
+    );
+    alter table boost_plans add constraint boost_plans_pkey primary key (id);
+  end if;
+
+  -- days stays unique: two "7 day" plans would be one choice shown twice.
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'boost_plans'::regclass and contype = 'u'
+      and pg_get_constraintdef(oid) = 'UNIQUE (days)'
+  ) then
+    alter table boost_plans add constraint boost_plans_days_key unique (days);
+  end if;
+end $$;
+
+-- Any length from 1 to 365 days, not only 7/14/30.
+alter table boost_plans drop constraint if exists boost_plans_days_check;
+alter table boost_plans add constraint boost_plans_days_check check (days between 1 and 365);
+
+-- No currency is stored for a boost — neither on a plan nor on a request.
+alter table boost_plans    drop column if exists currency;
+alter table listing_boosts drop column if exists currency;
+
+drop trigger if exists boost_plans_updated_at on boost_plans;
+create trigger boost_plans_updated_at before update on boost_plans
+  for each row execute function set_updated_at();
+
+alter table boost_plans enable row level security;
+
+drop policy if exists boost_plans_public_read on boost_plans;
+create policy boost_plans_public_read on boost_plans
+  for select using (active or is_staff());
+
+drop policy if exists boost_plans_staff_write on boost_plans;
+create policy boost_plans_staff_write on boost_plans
+  for all using (is_staff()) with check (is_staff());
+
+-- A request's length comes from whichever plan the seller picked, so the old
+-- fixed 7/14/30 rule on listing_boosts goes. Dropped and re-added so a re-run
+-- always leaves exactly this rule.
+alter table listing_boosts drop constraint if exists listing_boosts_days_check;
+alter table listing_boosts add constraint listing_boosts_days_check check (days between 1 and 365);
+
+alter table listing_boosts add column if not exists price    numeric(12,2) check (price is null or price >= 0);
+
+notify pgrst, 'reload schema';

@@ -72,7 +72,7 @@ export default async function SellerDashboardPage({ params, searchParams }) {
 
 function ListingsTableSkeleton() {
   return (
-    <Card>
+    <Card className="raised-card border-0">
       <CardHeader>
         <Skeleton className="h-4 w-28" />
       </CardHeader>
@@ -110,7 +110,7 @@ async function Stats({ searchParams, locale, t }) {
   if (!vendor) {
     return (
       <div className="px-4 lg:px-6">
-        <Card>
+        <Card className="raised-card border-0">
           <CardHeader>
             <CardTitle>{t('لا يوجد متجر بعد', 'No store yet')}</CardTitle>
           </CardHeader>

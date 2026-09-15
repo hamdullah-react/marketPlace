@@ -1,0 +1,198 @@
+"use client";
+
+/**
+ * "Boost a car" — the seller's side of a promotion.
+ *
+ * Sends a REQUEST (listing_boosts, state pending) at the price of the chosen
+ * length. Nothing is featured until an admin approves it on Admin → Boost
+ * requests, and payment is arranged with the platform team after approval.
+ */
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Sparkles, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { useActionResult } from "./useActionResult";
+import { requestBoost } from "../_actions/boosts";
+import { errorText } from "@/marketplace/lib/errors";
+
+export default function BoostRequestForm({
+  locale = "ar", vendorId = null, listings = [], plans = [], initialListingId = null,
+}) {
+  const isAr = locale === "ar";
+  const t = (ar, en) => (isAr ? ar : en);
+  const router = useRouter();
+
+  // Preselected when the seller arrives from Listings → "Boost this car".
+  const [pickedListing, setPickedListing] = useState(initialListingId ?? "");
+  const [pickedDays, setPickedDays] = useState(null);
+
+  const ask = useActionResult(requestBoost, { ok: false, error: null }, {
+    autoClearMs: 8000,
+    onSuccess: () => router.refresh(),
+  });
+
+  const date = (iso) =>
+    new Date(iso).toLocaleDateString(isAr ? "ar-SA" : "en-GB", { day: "numeric", month: "short" });
+  // A plain number in the reader's own digits — no currency is fixed in code.
+  const money = (n) =>
+    new Intl.NumberFormat(isAr ? "ar-SA" : "en", { maximumFractionDigits: 2 }).format(Number(n ?? 0));
+
+  // Derived, not stored: after a request the page refreshes and the car just
+  // sent becomes unavailable, so the selection moves on by itself.
+  const available = listings.filter((l) => !l.pending && !l.activeUntil);
+  const listingId = available.some((l) => l.id === pickedListing) ? pickedListing : (available[0]?.id ?? "");
+
+  // Only the plans an admin has created and switched on — nothing built in.
+  const days = plans.some((p) => p.days === pickedDays) ? pickedDays : (plans[0]?.days ?? null);
+  const plan = plans.find((p) => p.days === days) ?? null;
+
+  if (!listings.length) {
+    return (
+      <div className="raised-card rounded-xl p-5 text-sm">
+        <p className="font-semibold text-brand-primary">{t("لا توجد سيارات منشورة", "No live cars yet")}</p>
+        <p className="mt-1 text-muted-foreground">
+          {t("يمكن ترويج السيارات المنشورة فقط.", "Only live cars can be promoted.")}
+        </p>
+        <Link
+          href={`/${locale}/marketplace/seller/listings/new`}
+          className="raised-solid mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white"
+        >
+          {t("إضافة سيارة", "Add a car")}
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="raised-card rounded-xl p-4 sm:p-5">
+      <h2 className="flex items-center gap-2 font-semibold text-brand-primary">
+        <Sparkles className="h-4 w-4 text-brand-gold" />
+        {t("روّج لسيارة", "Boost a car")}
+      </h2>
+
+      {/* Keyed on the success token so the note clears after a request. */}
+      <form
+        key={ask.raw?.ok ? ask.raw.token : "boost-form"}
+        action={ask.formAction}
+        className="mt-4 grid gap-4"
+      >
+        <input type="hidden" name="vendorId" value={vendorId ?? ""} />
+        <input type="hidden" name="listingId" value={listingId} />
+        <input type="hidden" name="days" value={days ?? ""} />
+
+        <div className="grid gap-2">
+          <Label htmlFor="boost-listing">{t("السيارة", "Car")}</Label>
+          <Select
+            value={listingId || undefined}
+            onValueChange={setPickedListing}
+            disabled={available.length === 0}
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            <SelectTrigger id="boost-listing" className="raised h-10 w-full border-0">
+              <SelectValue
+                placeholder={t("كل سياراتك مروّجة أو بانتظار المراجعة", "All your cars are already boosted or waiting")}
+              />
+            </SelectTrigger>
+            <SelectContent className="raised-card max-h-72 border-0">
+              {listings.map((l) => (
+                <SelectItem
+                  key={l.id}
+                  value={l.id}
+                  disabled={l.pending || Boolean(l.activeUntil)}
+                  className="raised-hover"
+                >
+                  {l.title}
+                  {l.pending ? ` — ${t("بانتظار المراجعة", "waiting for review")}` : ""}
+                  {l.activeUntil
+                    ? ` — ${t(`مميزة حتى ${date(l.activeUntil)}`, `featured until ${date(l.activeUntil)}`)}`
+                    : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid gap-2">
+          <Label>{t("الخطة", "Plan")}</Label>
+          {plans.length === 0 ? (
+            <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+              {t(
+                "لا توجد خطط تمييز متاحة بعد. سيضيفها فريق المنصة قريباً.",
+                "No boost plans are available yet. The platform team will add them soon."
+              )}
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {plans.map((p) => (
+                <button
+                  key={p.id ?? p.days}
+                  type="button"
+                  onClick={() => setPickedDays(p.days)}
+                  aria-pressed={days === p.days}
+                  className={`flex flex-col items-center rounded-lg px-2 py-2.5 ${
+                    days === p.days ? "raised-solid bg-brand-primary text-white" : "raised"
+                  }`}
+                >
+                  <span className="text-sm font-semibold">{t(`${p.days} يوم`, `${p.days} days`)}</span>
+                  <span className={`text-xs tabular-nums ${days === p.days ? "text-white/85" : "text-muted-foreground"}`}>
+                    {money(p.price)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="boost-note">{t("ملاحظة للفريق (اختياري)", "Note for the team (optional)")}</Label>
+          <Textarea id="boost-note" name="note" maxLength={300} rows={2} />
+        </div>
+
+        {plan ? (
+          <div className="raised rounded-lg px-3 py-2.5 text-sm">
+            <p className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">{t("الإجمالي", "Total")}</span>
+              <span className="font-bold tabular-nums text-brand-primary">{money(plan.price)}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t(
+                "لا تدفع الآن — يتواصل معك فريق المنصة لترتيب الدفع بعد الموافقة.",
+                "Nothing to pay now — the platform team contacts you to arrange payment after approval."
+              )}
+            </p>
+          </div>
+        ) : null}
+
+        {ask.result?.ok ? (
+          <p className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+            <CheckCircle2 className="h-4 w-4" />
+            {t("أُرسل الطلب. سيراجعه فريق المنصة قريباً.", "Request sent. The platform team will review it shortly.")}
+          </p>
+        ) : ask.result?.error ? (
+          <p className="flex items-center gap-2 text-sm text-red-600">
+            <AlertCircle className="h-4 w-4" />
+            {errorText(ask.result.error, locale, ask.result.params)}
+          </p>
+        ) : null}
+
+        <div>
+          <Button
+            type="submit"
+            disabled={ask.pending || !listingId || !plan}
+            className="raised-solid gap-2 bg-brand-primary text-white hover:bg-brand-dark"
+          >
+            {ask.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {t("إرسال طلب الترويج", "Send promotion request")}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

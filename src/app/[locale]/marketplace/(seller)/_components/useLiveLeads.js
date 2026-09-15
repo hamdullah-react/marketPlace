@@ -86,7 +86,7 @@ import { useOnChange } from "@/hooks/use-on-change";
  */
 let audioCtx = null;
 
-function unlockAudio() {
+export function unlockAudio() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
@@ -108,7 +108,7 @@ function unlockAudio() {
  * Silent when the context was never unlocked, which is the correct outcome for
  * a page nobody has touched — not a bug to work around.
  */
-function ting() {
+export function ting() {
   try {
     // Not created here on purpose: a context first built at chime time starts
     // suspended and stays that way. See unlockAudio.
@@ -346,6 +346,18 @@ export function useLiveLeads(vendorId, { initial = 0, onLead } = {}) {
         .on("broadcast", { event: "lead_changed" }, (m) => {
           handler.current?.(m?.payload);
           soon();
+        })
+        /**
+         * The platform team approved, rejected or ended one of this showroom's
+         * promotions. Chimes — it is news the seller is waiting for — and tells
+         * any open Promotions or Listings page to re-read (LiveBoostRefresher).
+         * Leads are untouched, so no recount.
+         */
+        .on("broadcast", { event: "boost_changed" }, (m) => {
+          ting();
+          window.dispatchEvent(
+            new CustomEvent("marketplace:boost-changed", { detail: m?.payload ?? null })
+          );
         })
         .subscribe((state, err) => {
           setStatus(state);

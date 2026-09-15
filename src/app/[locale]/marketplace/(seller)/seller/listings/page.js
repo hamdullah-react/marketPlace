@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import { Plus } from 'lucide-react';
 import { formatPrice } from '@/marketplace/lib/listing';
-import { thumbUrl, THUMB } from '@/marketplace/lib/image';
+import SafeThumb from '../../../_components/SafeThumb';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TableSkeleton } from '../../../_components/Skeletons';
 import {
@@ -11,6 +11,8 @@ import {
 } from './_apicalls/listingsPageApi';
 import ListingsTable from '../../_components/ListingsTable';
 import ListingRowActions from '../../_components/ListingRowActions';
+import { getBoostsForListings } from '@/marketplace/db/queries/boosts';
+import LiveBoostRefresher from '../../_components/LiveBoostRefresher';
 
 export const metadata = {
   title: 'My Listings',
@@ -54,6 +56,7 @@ export default async function SellerListingsPage({ params, searchParams }) {
 
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
+      <LiveBoostRefresher />
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
         <div className="flex flex-wrap items-end justify-between gap-4 px-4 lg:px-6">
           <div>
@@ -143,7 +146,7 @@ async function StateTabs({ searchParams, locale, t }) {
   };
 
   return (
-    <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-700"raised-solid >
+    <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-700">
       {STATES.map((s) => (
         <Link
           key={s.value || 'all'}
@@ -170,6 +173,12 @@ async function ListingsSection({ searchParams, locale, isAr, t }) {
   const { listings, total, page, pageCount, pageSize, from, to } = await getListingsPageData(
     vendor?.id,
     { state: activeState, q, page: sp?.page, size: sp?.size, locale }
+  );
+
+  // Boost requests for the rows on this page. `ready` is false until the
+  // BOOSTS section of schema.sql has been run; the Boost action hides until then.
+  const { ready: boostsReady, byListing: boosts } = await getBoostsForListings(
+    listings.map((l) => l.id)
   );
 
   const stateLabel = (state) => {
@@ -248,11 +257,8 @@ async function ListingsSection({ searchParams, locale, isAr, t }) {
                       so rows never change height. */}
                   <td className="ps-4 py-3">
                     {l.image ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={thumbUrl(l.image, THUMB.icon)}
-                        alt=""
-                        loading="lazy"
+                      <SafeThumb
+                        src={l.image}
                         className="h-11 w-14 rounded-md border border-gray-200 object-cover dark:border-gray-700"
                       />
                     ) : (
@@ -275,15 +281,32 @@ async function ListingsSection({ searchParams, locale, isAr, t }) {
                     {formatPrice(l.price, locale)}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${STATE_STYLES[l.state] ?? STATE_STYLES.draft}`}>
-                      {stateLabel(l.state)}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${STATE_STYLES[l.state] ?? STATE_STYLES.draft}`}>
+                        {stateLabel(l.state)}
+                      </span>
+                      {l.isFeatured ? (
+                        <span className="rounded-full bg-[#06170E] px-2.5 py-1 text-[11px] font-bold text-brand-gold">
+                          {t('مميز', 'Featured')}
+                        </span>
+                      ) : boosts.get(l.id)?.pending ? (
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                          {t('طلب تمييز', 'Boost requested')}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3 tabular-nums text-gray-600 dark:text-gray-400">{l.views}</td>
                   <td className="px-4 py-3 text-end">
                     <ListingRowActions
                       locale={locale}
                       listing={{ id: l.id, state: l.state, title: l.title }}
+                      boostsReady={boostsReady}
+                      boost={{
+                        pendingId: boosts.get(l.id)?.pending?.id ?? null,
+                        pendingDays: boosts.get(l.id)?.pending?.days ?? null,
+                        activeUntil: boosts.get(l.id)?.active?.ends_at ?? null,
+                      }}
                       vendorId={vendor?.id ?? null}
                       publicPath={`/${locale}${l.path}`}
                     />

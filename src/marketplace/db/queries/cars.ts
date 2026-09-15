@@ -246,6 +246,13 @@ export async function getCars(opts: CarFilters = {}) {
 
   const filtered = (data ?? []).filter(matches);
 
+  /* Featured cars (approved boosts) lead the default orderings. sort() is
+     stable, so every other car keeps the order the query gave it. The price
+     sorts are left alone: a buyer who asked for cheapest first means it. */
+  if (sort !== 'price_asc' && sort !== 'price_desc') {
+    filtered.sort((a: CarRow, b: CarRow) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)));
+  }
+
   /**
    * "Has an offer" is the one filter that cannot be answered before the offers
    * are attached, so it costs the whole filtered set rather than a page. Only

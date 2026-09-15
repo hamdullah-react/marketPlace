@@ -51,7 +51,7 @@ import { useOnChange } from "@/hooks/use-on-change";
 import {
   Menu, X, Search, Heart, User, ChevronDown, Store, LogOut,
   LogIn, UserPlus, SlidersHorizontal, ClipboardList, Car, Plus,
-  LayoutDashboard,
+  LayoutDashboard, ShieldCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -323,6 +323,9 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
               ar: "المنصة",
               en: "Platform",
               items: [
+                ...(viewer.isAdmin
+                  ? [{ icon: ShieldCheck, ar: "لوحة الإدارة", en: "Admin dashboard", href: "/marketplace/admin" }]
+                  : []),
                 { icon: SlidersHorizontal, ar: "الكتالوج", en: "Catalog", href: "/marketplace/seller/catalog" },
               ],
             }]
@@ -600,7 +603,14 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                           <div className="flex items-center gap-3">
                             <ViewerAvatar size="h-9 w-9" {...avatarProps} />
                             <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{viewer.name}</p>
+                            <p className="flex items-center gap-1.5 text-sm font-semibold">
+                              <span className="truncate">{viewer.name}</span>
+                              {viewer.isAdmin ? (
+                                <span className="shrink-0 rounded-full bg-brand-gold px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-[#2a2100]">
+                                  {t("مسؤول", "Admin")}
+                                </span>
+                              ) : null}
+                            </p>
                             {/* Only when it is not already the line above — a
                                 menu that prints the same email twice looks like
                                 a bug. */}

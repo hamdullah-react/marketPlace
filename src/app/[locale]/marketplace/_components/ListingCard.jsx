@@ -48,7 +48,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { Heart, ArrowUpRight, ArrowUpLeft, ArrowLeftRight } from "lucide-react";
+import { Heart, ArrowUpRight, ArrowUpLeft, ArrowLeftRight, Eye } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import {
   subscribe, getSnapshot, getServerSnapshot, toggle as toggleCompare, MAX as MAX_COMPARE,
@@ -64,6 +64,7 @@ import {
   nudgeSavedCount, publishSavedCount,
   subscribeSaved, getSavedOverrides, getServerSavedOverrides, markSaved,
 } from "./savedStore";
+import { subscribeViews, getViews, getServerViews } from "./viewsStore";
 
 /**
  * Where a saved car lives.
@@ -112,6 +113,11 @@ export default function ListingCard({
   /* Drops the heart and the Compare toggle. Used by the compare page, where
      both would be controls for a decision the page has already made. */
   compact = false,
+  /* Shows how many people have opened this car — the real counter from
+     increment_listing_views. Used by the home page's Most viewed row. */
+  showViews = false,
+  /* Position in a ranked row (1, 2, 3…) — drawn as a medal-style badge. */
+  rank = null,
 }) {
   const isEnglish = locale === "en";
 
@@ -152,6 +158,11 @@ export default function ListingCard({
   const savedHere = savedOverrides.has(listing.id)
     ? savedOverrides.get(listing.id)
     : Boolean(saved);
+
+  /* The view count, live when the page runs LiveViews. Never lower than what
+     the server rendered — the store only fills in once it has polled. */
+  const liveViews = useSyncExternalStore(subscribeViews, getViews, getServerViews);
+  const viewCount = Math.max(Number(listing.views ?? 0), liveViews.get(listing.id) ?? 0);
 
   const [, startSaving] = useTransition();
 
@@ -306,6 +317,30 @@ export default function ListingCard({
       )}
 
       <div className="absolute start-4 top-4 z-30 flex items-center gap-1.5">
+        {rank ? (
+          <span
+            aria-label={isEnglish ? `Rank ${rank}` : `المرتبة ${rank}`}
+            className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold shadow-sm md:text-[11px] ${
+              rank === 1
+                ? "bg-brand-gold text-[#2a2100]"
+                : rank === 2
+                  ? "bg-[#D9DEE3] text-gray-800"
+                  : rank === 3
+                    ? "bg-[#E3A76F] text-[#3a1f05]"
+                    : "bg-brand-primary text-white"
+            }`}
+          >
+            #{rank}
+          </span>
+        ) : null}
+        {listing.isFeatured ? (
+          /* Promoted placement is labelled, always — a featured car must not
+             look like it earned the top of the grid on its own. */
+          <span className="rounded-full bg-[#06170E] px-2 py-0.5 text-[9px] font-bold text-brand-gold shadow-sm md:text-[10px]">
+            {isEnglish ? "Featured" : "مميز"}
+          </span>
+        ) : null}
+
         {listing.offer?.label ? (
           /* GOLD, not the brand green. The offer is the one thing on the card
              that is not a fact about the car, and giving it the brand colour
@@ -544,6 +579,22 @@ export default function ListingCard({
           <div className="absolute bottom-0 start-3 z-20">
             <div className="raised rounded-full px-2 py-0.5 text-[9px] font-bold md:text-[10px]">
               {listing.city}
+            </div>
+          </div>
+        ) : null}
+
+        {showViews ? (
+          <div className="absolute bottom-0 end-3 z-20">
+            <div
+              className="raised flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold tabular-nums md:text-[10px]"
+              title={isEnglish ? "People who viewed this car" : "عدد من شاهد هذه السيارة"}
+            >
+              <Eye className="h-3 w-3 text-brand-primary" aria-hidden="true" />
+              {/* Keyed on the value so the pop replays each time it rises. */}
+              <span key={viewCount} className="count-pop inline-block">
+                {viewCount.toLocaleString(isEnglish ? "en" : "ar-SA")}
+              </span>
+              <span className="sr-only">{isEnglish ? " views" : " مشاهدة"}</span>
             </div>
           </div>
         ) : null}

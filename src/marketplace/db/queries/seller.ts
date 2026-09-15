@@ -13,7 +13,7 @@ import type { Enum } from '@/marketplace/db/types';
 
 const LISTING_SELECT = `
   id, slug, type, state, name, price, compare_at, stock,
-  attributes, media, city, views, published_at, created_at,
+  attributes, media, city, views, published_at, created_at, is_featured,
   car_brands ( name ),
   car_models ( name )
 `;

@@ -1817,3 +1817,15 @@ input[cmdk-input]:focus-visible {
   --input: 0 0% 20%;
   --ring: 152 48% 53%;
 }
+
+
+/* A number that just changed — the live view counters (LiveViews, ListingCard).
+   Keyed on the value in React, so it replays each time the count rises. */
+@keyframes count-pop {
+  0% { transform: scale(1.4); color: var(--gold); }
+  100% { transform: scale(1); }
+}
+.count-pop { animation: count-pop 0.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .count-pop { animation: none; }
+}

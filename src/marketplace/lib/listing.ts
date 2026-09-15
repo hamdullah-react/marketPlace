@@ -222,6 +222,9 @@ export function normalizeListing(
     attributes: row.attributes ?? {},
     city: row.city,
     views: row.views ?? 0,
+    // Featured by an admin (an approved boost). Cards label it, so a promoted
+    // car is never presented as if it ranked there on its own.
+    isFeatured: Boolean(row.is_featured),
     fulfilment: fulfilmentPath(row.type),
 
     vendor: row.vendors

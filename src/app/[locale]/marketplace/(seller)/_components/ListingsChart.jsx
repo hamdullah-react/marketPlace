@@ -68,7 +68,7 @@ export default function ListingsChart({ locale = "ar", listings = [] }) {
   const empty = listings.length === 0;
 
   return (
-    <Card>
+    <Card className="raised-card border-0">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div>
           <CardTitle className="text-base">
@@ -80,14 +80,14 @@ export default function ListingsChart({ locale = "ar", listings = [] }) {
               : t("عدد الإعلانات في كل شريحة سعرية", "How many listings sit in each price band")}
           </CardDescription>
         </div>
-        <div className="flex shrink-0 gap-1">
+        <div className="raised flex shrink-0 gap-1 rounded-lg p-1">
           {TABS.map((x) => (
             <button
               key={x.id}
               type="button"
               onClick={() => setTab(x.id)}
               className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                tab === x.id ? "bg-brand-primary text-white" : "text-muted-foreground hover:bg-muted"
+                tab === x.id ? "raised-solid bg-brand-primary text-white" : "raised-hover text-muted-foreground"
               }`}
             >
               {t(x.ar, x.en)}

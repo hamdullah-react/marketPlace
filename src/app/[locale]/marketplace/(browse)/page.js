@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import { Search, ShieldCheck, ArrowRight, Star, Store } from 'lucide-react';
-import { getHomeFeatured, getHomeVendors } from './_apicalls/homeApi';
+import { getHomeFeatured, getHomeMostViewed, getHomeVendors } from './_apicalls/homeApi';
 import {
   VendorGridSkeleton,
 } from '../_components/Skeletons';
@@ -14,6 +14,7 @@ import HeroCarousel from './_components/HeroCarousel';
 import { HERO_SLIDES } from './_components/heroSlides';
 import { getCarFacets } from '@/marketplace/db/queries/cars';
 import { ListingCardGridSkeleton } from '../_components/ListingCardSkeleton';
+import LiveViews from '../_components/LiveViews';
 
 export const metadata = {
   title: 'Alromaih Marketplace',
@@ -168,8 +169,8 @@ export default async function MarketplaceHomePage({ params }) {
         {/* ── Featured listings ───────────────────────────────────────────── */}
         <section className="pt-16">
           <SectionHead
-            eyebrow={t('رائج الآن', 'Trending now')}
-            title={t('الأكثر مشاهدة', 'Most viewed')}
+            eyebrow={t('مختارة', 'Handpicked')}
+            title={t('سيارات مميزة', 'Featured cars')}
             href={`/${locale}/marketplace/cars`}
             linkLabel={t('عرض الكل', 'View all')}
             isAr={isAr}
@@ -177,6 +178,29 @@ export default async function MarketplaceHomePage({ params }) {
           <Suspense fallback={<ListingCardGridSkeleton count={4} columns={4} />}>
             <FeaturedGrid locale={locale} />
           </Suspense>
+        </section>
+
+        {/* ── Most viewed — ordered by the real view counter ─────────────── */}
+        <section className="pt-16">
+          {/* A panel of its own — green easing into gold — so the one row that
+              changes while you watch reads as live rather than as another grid. */}
+          <div className="relative overflow-hidden rounded-3xl border border-brand-primary/10 bg-linear-to-br from-[#F7FCF9] via-[var(--app-bg)] to-[#FBF6E4] p-4 sm:p-6 lg:p-8 dark:border-white/10 dark:from-[#0F1D15] dark:via-[var(--app-bg-dark)] dark:to-[#1C180B]">
+            <div aria-hidden="true" className="pointer-events-none absolute -end-24 -top-24 h-64 w-64 rounded-full bg-brand-gold/20 blur-3xl" />
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -start-24 h-64 w-64 rounded-full bg-brand-primary/10 blur-3xl" />
+
+            <div className="relative">
+              <SectionHead
+                eyebrow={t('رائج الآن', 'Trending now')}
+                title={t('الأكثر مشاهدة', 'Most viewed')}
+                href={`/${locale}/marketplace/cars?sort=popular`}
+                linkLabel={t('عرض الكل', 'View all')}
+                isAr={isAr}
+              />
+              <Suspense fallback={<ListingCardGridSkeleton count={4} columns={4} />}>
+                <MostViewedGrid locale={locale} />
+              </Suspense>
+            </div>
+          </div>
         </section>
 
         {/* ── Vendors ─────────────────────────────────────────────────────── */}
@@ -340,6 +364,41 @@ async function FeaturedGrid({ locale }) {
         />
       ))}
     </div>
+  );
+}
+
+/** Same card grid as FeaturedGrid, ordered by views, with the count on each card. */
+async function MostViewedGrid({ locale }) {
+  const [{ items, cardSpecs }, user] = await Promise.all([
+    getHomeMostViewed(locale, 4),
+    getUser(),
+  ]);
+  if (!items.length) return null;
+
+  const savedIds = user ? await getSavedIds(user.id).catch(() => new Set()) : null;
+
+  return (
+    <>
+      {/* The live badge, the running total, and the poll that keeps every
+          count on these cards current without a reload. */}
+      <div className="-mt-3 mb-5">
+        <LiveViews locale={locale} initial={items.map((i) => ({ id: i.id, views: i.views ?? 0 }))} />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+        {items.map((item, i) => (
+          <ListingCard
+            key={item.id}
+            listing={item}
+            locale={locale}
+            priority={false}
+            cardSpecs={cardSpecs[item.id] ?? []}
+            saved={savedIds ? savedIds.has(item.id) : null}
+            showViews
+            rank={i + 1}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

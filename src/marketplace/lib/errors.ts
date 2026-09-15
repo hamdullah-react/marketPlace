@@ -198,6 +198,42 @@ export const ERRORS = {
   BAD_TYPE: { ar: 'نوع ملف غير مدعوم', en: 'Unsupported file type' },
   TOO_LARGE: { ar: 'الملف أكبر من ٨ ميجابايت', en: 'File is larger than 8 MB' },
   UPLOAD_FAILED: { ar: 'فشل الرفع', en: 'Upload failed' },
+
+  // ── admin ──
+  NOT_ADMIN: { ar: 'هذا الإجراء متاح للمسؤولين فقط.', en: 'Only admins can do that.' },
+  USER_NOT_FOUND: {
+    ar: 'لا يوجد حساب بهذا البريد. يجب أن يسجّل الشخص أولاً.',
+    en: 'No account found. The person has to sign up first.',
+  },
+  EMAIL_REQUIRED: { ar: 'أدخل البريد الإلكتروني', en: 'Enter an email address' },
+  CANNOT_DELETE_SELF: { ar: 'لا يمكنك حذف حسابك من هنا.', en: 'You cannot delete your own account here.' },
+  CANNOT_DEMOTE_SELF: { ar: 'لا يمكنك إزالة صلاحية المسؤول عن نفسك.', en: 'You cannot remove your own admin role.' },
+  LAST_ADMIN: {
+    ar: 'هذا آخر مسؤول — أضف مسؤولاً آخر أولاً.',
+    en: 'This is the last admin — add another admin first.',
+  },
+
+  // ── boosts ──
+  BOOST_SETUP: {
+    ar: 'التمييز غير مفعّل بعد. يجب تشغيل قسم BOOSTS في schema.sql.',
+    en: 'Boosts are not set up yet. Run the BOOSTS section of schema.sql.',
+  },
+  BOOST_PENDING: { ar: 'يوجد طلب تمييز قيد المراجعة لهذه السيارة.', en: 'This car already has a boost request waiting.' },
+  BOOST_NOT_LIVE: { ar: 'يمكن تمييز السيارات المنشورة فقط.', en: 'Only live cars can be boosted.' },
+  BOOST_DAYS: { ar: 'اختر خطة تمييز متاحة', en: 'Choose an available boost plan' },
+  BOOST_NO_PLANS: {
+    ar: 'لا توجد خطط تمييز متاحة بعد. تواصل مع فريق المنصة.',
+    en: 'No boost plans are available yet. Contact the platform team.',
+  },
+  BOOST_PLAN_DAYS: { ar: 'أدخل عدد أيام بين ١ و٣٦٥', en: 'Enter a number of days between 1 and 365' },
+  BOOST_PLAN_EXISTS: { ar: 'توجد خطة بهذا العدد من الأيام بالفعل', en: 'A plan with that many days already exists' },
+  BOOST_NOT_PENDING: { ar: 'هذا الطلب لم يعد قيد المراجعة.', en: 'That request is no longer waiting.' },
+  BOOST_NOT_ACTIVE: { ar: 'هذا التمييز ليس فعّالاً.', en: 'That boost is not running.' },
+  BOOST_RUNNING: {
+    ar: 'هذا التمييز يعمل الآن ولا يمكن حذفه. يمكن لفريق المنصة إنهاؤه أولاً.',
+    en: 'This boost is running and cannot be deleted. The platform team can end it first.',
+  },
+  BOOST_PRICE_INVALID: { ar: 'أدخل سعراً صحيحاً', en: 'Enter a valid price' },
 };
 
 /**

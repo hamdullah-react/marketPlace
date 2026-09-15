@@ -59,7 +59,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
   return (
     <div className="grid grid-cols-1 gap-4 @4xl/main:grid-cols-2">
       {/* ── Activity over time ─────────────────────────────────────────── */}
-      <Card className="@4xl/main:col-span-2">
+      <Card className="raised-card border-0 @4xl/main:col-span-2">
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <CardTitle className="text-base">{t("النشاط", "Activity")}</CardTitle>
@@ -70,7 +70,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
               )}
             </CardDescription>
           </div>
-          <div className="flex gap-1 rounded-lg border p-1">
+          <div className="raised flex gap-1 rounded-lg p-1">
             {Object.entries(seriesConfig).map(([key, cfg]) => (
               <button
                 key={key}
@@ -78,7 +78,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
                 onClick={() => setMetric(key)}
                 aria-pressed={metric === key}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  metric === key ? "bg-brand-primary text-white" : "text-muted-foreground hover:bg-muted"
+                  metric === key ? "raised-solid bg-brand-primary text-white" : "raised-hover text-muted-foreground"
                 }`}
               >
                 {cfg.label}
@@ -130,7 +130,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
       </Card>
 
       {/* ── By state ───────────────────────────────────────────────────── */}
-      <Card>
+      <Card className="raised-card border-0">
         <CardHeader>
           <CardTitle className="text-base">{t("حسب الحالة", "By status")}</CardTitle>
           <CardDescription className="text-xs">
@@ -169,7 +169,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
       </Card>
 
       {/* ── Most viewed ────────────────────────────────────────────────── */}
-      <Card>
+      <Card className="raised-card border-0">
         <CardHeader>
           <CardTitle className="text-base">{t("الأكثر مشاهدة", "Most viewed")}</CardTitle>
           <CardDescription className="text-xs">
@@ -220,7 +220,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
         const rows = data[block.key] ?? [];
         const max = Math.max(1, ...rows.map((r) => r.count));
         return (
-          <Card key={block.key}>
+          <Card key={block.key} className="raised-card border-0">
             <CardHeader>
               <CardTitle className="text-base">{t(block.ar, block.en)}</CardTitle>
             </CardHeader>
