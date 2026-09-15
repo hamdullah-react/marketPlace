@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import { TableSkeleton } from '../../../../_components/Skeletons';
-import { BadgeDollarSign } from 'lucide-react';
+import { BadgeDollarSign, Phone, Mail, MessageCircle } from 'lucide-react';
 import { listBoosts } from '@/marketplace/db/queries/boosts';
 import { sweepExpiredBoosts } from '@/marketplace/db/queries/engagement';
 import { localized, formatPrice } from '@/marketplace/lib/listing';
@@ -29,6 +29,18 @@ const STATE_STYLES = {
   cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
   expired: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
 };
+
+/**
+ * A Saudi mobile as wa.me wants it: country code, digits only. "0501234567",
+ * "501234567" and "+966501234567" all become "966501234567".
+ */
+function whatsappNumber(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  if (digits.startsWith('966')) return digits;
+  if (digits.startsWith('05')) return `966${digits.slice(1)}`;
+  if (digits.startsWith('5') && digits.length === 9) return `966${digits}`;
+  return digits;
+}
 
 export default async function AdminBoostsPage({ params, searchParams }) {
   const { locale } = await params;
@@ -176,6 +188,42 @@ async function BoostsSection({ searchParams, locale }) {
                           {localized(b.vendors.name, locale)}
                         </Link>
                       ) : '—'}
+                      {/* The contact the seller sent with this request. Older
+                          requests, from before the form asked, have none. */}
+                      {b.contact_phone || b.contact_email ? (
+                        <div className="mt-1.5 space-y-1" dir="ltr">
+                          {b.contact_phone ? (
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={`tel:${b.contact_phone}`}
+                                className="inline-flex items-center gap-1 tabular-nums text-gray-600 hover:text-brand-primary dark:text-gray-400"
+                              >
+                                <Phone className="h-3 w-3" aria-hidden="true" />
+                                {b.contact_phone}
+                              </a>
+                              <a
+                                href={`https://wa.me/${whatsappNumber(b.contact_phone)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="WhatsApp"
+                                aria-label={t('واتساب', 'WhatsApp')}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                              </a>
+                            </div>
+                          ) : null}
+                          {b.contact_email ? (
+                            <a
+                              href={`mailto:${b.contact_email}`}
+                              className="flex max-w-[220px] items-center gap-1 truncate text-gray-600 hover:text-brand-primary dark:text-gray-400"
+                            >
+                              <Mail className="h-3 w-3 shrink-0" aria-hidden="true" />
+                              <span className="truncate">{b.contact_email}</span>
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-xs tabular-nums">
                       {t(`${b.days} يوم`, `${b.days} days`)}

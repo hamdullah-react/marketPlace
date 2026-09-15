@@ -7,6 +7,8 @@ import { TableSkeleton } from '../../../_components/Skeletons';
 import { resolveListingsVendor } from '../listings/_apicalls/listingsPageApi';
 import { getVendorBoosts, getBoostableListings, getBoostPlans } from '@/marketplace/db/queries/boosts';
 import { sweepExpiredBoosts } from '@/marketplace/db/queries/engagement';
+import { getVendorSettings } from '@/marketplace/db/queries/settings';
+import { getViewer } from '@/marketplace/auth/session';
 import { localized } from '@/marketplace/lib/listing';
 import SafeThumb from '../../../_components/SafeThumb';
 import BoostRequestForm from '../../_components/BoostRequestForm';
@@ -99,15 +101,21 @@ export default async function SellerPromotionsPage({ params, searchParams }) {
 async function RequestSection({ searchParams, locale }) {
   const sp = await searchParams;
   const vendor = await resolveListingsVendor(sp?.vendor);
-  const [listings, { plans }] = await Promise.all([
+  const [listings, { plans }, store, viewer] = await Promise.all([
     getBoostableListings(vendor?.id),
     getBoostPlans({ activeOnly: true }),
+    // Contact defaults only — a failed read is an empty field, not a broken form.
+    getVendorSettings(vendor?.id).catch(() => null),
+    getViewer().catch(() => null),
   ]);
 
   return (
     <BoostRequestForm
       locale={locale}
       vendorId={vendor?.id ?? null}
+      // The showroom's contact from Settings, then the signed-in account's.
+      defaultPhone={store?.contact_phone || viewer?.phone || ''}
+      defaultEmail={store?.contact_email || viewer?.email || ''}
       plans={plans}
       initialListingId={typeof sp?.listing === 'string' ? sp.listing : null}
       listings={listings.map((l) => ({ ...l, title: localized(l.name, locale) }))}

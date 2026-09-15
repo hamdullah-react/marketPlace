@@ -24,6 +24,8 @@ export const ERRORS = {
   // ── contact ──
   EMAIL_INVALID: { ar: 'بريد إلكتروني غير صالح', en: 'Invalid email address' },
   PHONE_INVALID: { ar: 'رقم جوال سعودي غير صالح', en: 'Invalid Saudi mobile number' },
+  PHONE_REQUIRED: { ar: 'أدخل رقم الجوال', en: 'Enter a mobile number' },
+  EMAIL_REQUIRED: { ar: 'أدخل البريد الإلكتروني', en: 'Enter an email address' },
 
   // ── business ──
   CR_INVALID: { ar: 'السجل التجاري يتكوّن من ١٠ أرقام', en: 'CR number must be 10 digits' },

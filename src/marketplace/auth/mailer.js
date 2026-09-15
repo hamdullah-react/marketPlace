@@ -264,6 +264,133 @@ function codeText({ code, locale, purpose, minutes, brandName = null }) {
   ].join('\n');
 }
 
+/* ── A promotion request, to the platform team ───────────────────────────── */
+
+/** A {ar, en} value as one line — English first, Arabic after when it differs. */
+const bilingual = (value) => {
+  if (value && typeof value === 'object') {
+    return [...new Set([value.en, value.ar].filter(Boolean))].join(' — ');
+  }
+  return value ? String(value) : '';
+};
+
+/** A Saudi mobile as wa.me wants it: country code, digits only. */
+const whatsappDigits = (phone) => {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  if (digits.startsWith('966')) return digits;
+  if (digits.startsWith('05')) return `966${digits.slice(1)}`;
+  if (digits.startsWith('5') && digits.length === 9) return `966${digits}`;
+  return digits;
+};
+
+/**
+ * "A seller asked to feature a car" — so the team does not have to be sitting
+ * in the admin panel to hear about it, and can call the seller straight from
+ * the email.
+ *
+ * Bilingual labels rather than one language: it goes to whoever runs the
+ * platform, and the site's name and a seller's words can be in either.
+ *
+ * `request` is { carName, vendorName, days, price, note, phone, email, adminUrl };
+ * the names may be {ar, en} objects.
+ */
+export async function sendBoostRequestEmail({ to, request }) {
+  let brandName = null;
+  let logoUrl = null;
+  try {
+    const { getSiteSettings } = await import('@/marketplace/db/queries/site');
+    const site = await getSiteSettings();
+    brandName = site.name.en || site.name.ar;
+    logoUrl = site.logoUrl;
+  } catch {
+    /* keep the defaults */
+  }
+
+  const name = brandName || DEFAULT_BRAND.en;
+  const car = bilingual(request.carName);
+  const showroom = bilingual(request.vendorName);
+  const price = request.price == null ? '' : Number(request.price).toLocaleString('en', { maximumFractionDigits: 2 });
+  const wa = request.phone ? whatsappDigits(request.phone) : '';
+
+  const mark = logoUrl && /^https:\/\//i.test(logoUrl)
+    ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(name)}" height="40" style="display:block;height:40px;width:auto;border:0;">`
+    : `<span style="color:${BRAND};font-size:20px;font-weight:bold;letter-spacing:1px;">${escapeHtml(name)}</span>`;
+
+  const link = (href, label) =>
+    `<a href="${escapeHtml(href)}" style="color:${BRAND};text-decoration:none;font-weight:600;">${escapeHtml(label)}</a>`;
+
+  // [Arabic label, English label, value as HTML]. Rows with no value are left out.
+  const rows = [
+    ['السيارة', 'Car', escapeHtml(car)],
+    ['المعرض', 'Showroom', escapeHtml(showroom)],
+    ['الخطة', 'Plan', escapeHtml(`${request.days} days · ${request.days} يوم`)],
+    ['السعر', 'Price', escapeHtml(price)],
+    ['الجوال', 'Mobile', request.phone
+      ? `${link(`tel:${request.phone}`, request.phone)} &nbsp;·&nbsp; ${link(`https://wa.me/${wa}`, 'WhatsApp')}`
+      : ''],
+    ['البريد', 'Email', request.email ? link(`mailto:${request.email}`, request.email) : ''],
+    ['ملاحظة', 'Note', escapeHtml(request.note)],
+  ].filter(([, , value]) => value);
+
+  const html = `<!DOCTYPE html>
+<html dir="ltr" lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <div style="background:linear-gradient(135deg,${BRAND} 0%,#06170E 100%);padding:36px 20px;text-align:center;">
+    <div style="display:inline-block;background:#ffffff;padding:12px 26px;border-radius:12px;">
+      ${mark}
+    </div>
+  </div>
+
+  <div style="max-width:560px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(11,107,58,.10);">
+    <div style="padding:28px 28px 8px;text-align:center;">
+      <h1 style="margin:0 0 4px;font-size:22px;color:#1f2937;">New promotion request</h1>
+      <p dir="rtl" style="margin:0 0 6px;font-size:18px;color:#1f2937;">طلب ترويج جديد</p>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#6b7280;">A seller asked to feature a car. Contact them to arrange payment, then approve or reject it.</p>
+    </div>
+
+    <table role="presentation" style="width:100%;border-collapse:collapse;margin:16px 0 8px;font-size:14px;">
+      ${rows.map(([ar, en, value]) => `
+      <tr>
+        <td style="padding:10px 28px;border-top:1px solid #f0f0f0;color:#6b7280;white-space:nowrap;vertical-align:top;width:1%;">${en}<br><span dir="rtl" style="font-size:12px;color:#9ca3af;">${ar}</span></td>
+        <td style="padding:10px 28px 10px 0;border-top:1px solid #f0f0f0;color:#1f2937;vertical-align:top;">${value}</td>
+      </tr>`).join('')}
+    </table>
+
+    <div style="padding:8px 28px 28px;text-align:center;">
+      <a href="${escapeHtml(request.adminUrl)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:10px;">Review request · مراجعة الطلب</a>
+    </div>
+  </div>
+
+  <p style="max-width:560px;margin:16px auto 32px;text-align:center;font-size:11px;color:#b0b0b0;">alromaihcars.com</p>
+</body>
+</html>`;
+
+  const text = [
+    'New promotion request · طلب ترويج جديد',
+    '',
+    ...rows.map(([ar, en]) => {
+      const plain = {
+        Car: car, Showroom: showroom, Plan: `${request.days} days`, Price: price,
+        Mobile: request.phone ? `${request.phone} (WhatsApp: https://wa.me/${wa})` : '',
+        Email: request.email, Note: request.note,
+      }[en];
+      return `${en} / ${ar}: ${plain}`;
+    }),
+    '',
+    `Review: ${request.adminUrl}`,
+  ].join('\n');
+
+  return sendMarketplaceEmail({
+    to,
+    subject: `New promotion request — ${car}${showroom ? ` (${showroom})` : ''}`,
+    html,
+    text,
+    // Replying to the alert writes to the seller.
+    replyTo: request.email || undefined,
+  });
+}
+
 /**
  * Sends one code. Throws on failure — the caller decides what the user is told,
  * because "we could not send it" and "we will not say whether that address

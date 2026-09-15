@@ -163,7 +163,19 @@ function PlanRow({ plan = null, locale }) {
                 <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmDelete(false)} disabled={remove.pending}>
                   {t("رجوع", "Back")}
                 </Button>
-                <Button type="button" size="sm" variant="destructive" disabled={remove.pending} formAction={remove.formAction} className="gap-1.5">
+                {/* type="submit": a browser only honours formAction on a SUBMIT
+                    button. As type="button" the click did nothing and the plan
+                    was never deleted. formNoValidate so a half-edited, empty
+                    Days or Price box cannot block the delete. */}
+                <Button
+                  type="submit"
+                  formNoValidate
+                  size="sm"
+                  variant="destructive"
+                  disabled={remove.pending}
+                  formAction={remove.formAction}
+                  className="gap-1.5"
+                >
                   {remove.pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   {t("تأكيد الحذف", "Confirm delete")}
                 </Button>

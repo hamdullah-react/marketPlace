@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -24,6 +25,9 @@ import { errorText } from "@/marketplace/lib/errors";
 
 export default function BoostRequestForm({
   locale = "ar", vendorId = null, listings = [], plans = [], initialListingId = null,
+  /* Prefilled from Settings → Contact (or the account) and sent with the
+     request, so the platform team can reach the seller about payment. */
+  defaultPhone = "", defaultEmail = "",
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -150,6 +154,55 @@ export default function BoostRequestForm({
           )}
         </div>
 
+        {/* ── How to reach you ─────────────────────────────────────────────
+            Sent with the request and shown to the platform team, who contact
+            the seller to arrange payment after approving. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="boost-phone">{t("رقم الجوال", "Mobile number")}</Label>
+            <Input
+              id="boost-phone"
+              name="contactPhone"
+              type="tel"
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              defaultValue={defaultPhone}
+              placeholder="05XXXXXXXX"
+              aria-invalid={ask.result?.field === "contactPhone" || undefined}
+              className="raised h-10 border-0"
+            />
+            {ask.result?.field === "contactPhone" ? (
+              <p className="text-xs text-red-600">{errorText(ask.result.error, locale)}</p>
+            ) : null}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="boost-email">{t("البريد الإلكتروني", "Email")}</Label>
+            <Input
+              id="boost-email"
+              name="contactEmail"
+              type="email"
+              dir="ltr"
+              autoComplete="email"
+              required
+              defaultValue={defaultEmail}
+              placeholder="name@example.com"
+              aria-invalid={ask.result?.field === "contactEmail" || undefined}
+              className="raised h-10 border-0"
+            />
+            {ask.result?.field === "contactEmail" ? (
+              <p className="text-xs text-red-600">{errorText(ask.result.error, locale)}</p>
+            ) : null}
+          </div>
+          <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
+            {t(
+              "يتواصل معك فريق المنصة على هذا الرقم أو البريد لترتيب الدفع.",
+              "The platform team uses this number or email to arrange payment with you."
+            )}
+          </p>
+        </div>
+
         <div className="grid gap-2">
           <Label htmlFor="boost-note">{t("ملاحظة للفريق (اختياري)", "Note for the team (optional)")}</Label>
           <Textarea id="boost-note" name="note" maxLength={300} rows={2} />
@@ -175,7 +228,7 @@ export default function BoostRequestForm({
             <CheckCircle2 className="h-4 w-4" />
             {t("أُرسل الطلب. سيراجعه فريق المنصة قريباً.", "Request sent. The platform team will review it shortly.")}
           </p>
-        ) : ask.result?.error ? (
+        ) : ask.result?.error && !ask.result?.field ? (
           <p className="flex items-center gap-2 text-sm text-red-600">
             <AlertCircle className="h-4 w-4" />
             {errorText(ask.result.error, locale, ask.result.params)}

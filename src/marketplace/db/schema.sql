@@ -4471,6 +4471,14 @@ alter table listing_boosts add constraint listing_boosts_days_check check (days 
 
 alter table listing_boosts add column if not exists price    numeric(12,2) check (price is null or price >= 0);
 
+-- How to reach the seller about THIS request — captured when they apply, so
+-- the platform team can call, WhatsApp or email them about payment without
+-- looking the showroom up. Prefilled from the showroom's contact details on the
+-- form and editable there; a snapshot, so later edits to the showroom's
+-- settings do not change what an existing request says.
+alter table listing_boosts add column if not exists contact_phone text;
+alter table listing_boosts add column if not exists contact_email text;
+
 notify pgrst, 'reload schema';
 
 -- ═══════════════════════════════════════════════════════════════════════════
