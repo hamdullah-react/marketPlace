@@ -285,7 +285,43 @@ export default function ListingCard({
        The hover lift stays HERE rather than moving into the utility: rising on
        hover is what a card does, and would be wrong on a dropdown.
        ------------------------------------------------------------------ */
-    <div className="car-card raised-card group relative flex h-full w-full flex-col overflow-hidden rounded-[22px] transition-transform duration-500 hover:-translate-y-1 md:rounded-[26px]">
+    /* ── Ambient hover, the YouTube way ────────────────────────────────────
+       On hover the card takes its colour from its own car. No canvas, no
+       colour sampling: a blurred, enlarged copy of the same photo does it,
+       like YouTube's ambient mode does with the video frame. The browser
+       already has the image, so it costs no request, and a car photo on
+       another host needs no CORS for it to work.
+
+       Two layers, both opacity-0 at rest:
+         glow  OUTSIDE the card, behind it, so the colour spills around the
+               edge. It needs this wrapper because the card is overflow-hidden.
+         tint  INSIDE the card, over its gradient and under the content, so the
+               panel itself is washed in the car's colour.
+       ------------------------------------------------------------------ */
+    <div className="group/ambient relative h-full w-full">
+      {listing.image ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={listing.image}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          className="pointer-events-none absolute inset-x-4 top-10 bottom-6 h-[calc(100%-4rem)] w-[calc(100%-2rem)] scale-90 object-cover opacity-0 blur-2xl saturate-150 transition-all duration-500 group-hover/ambient:scale-105 group-hover/ambient:opacity-70 motion-reduce:transition-none"
+        />
+      ) : null}
+
+    <div className="car-card raised-card group relative z-10 flex h-full w-full flex-col overflow-hidden rounded-[22px] transition-transform duration-500 hover:-translate-y-1 md:rounded-[26px]">
+
+      {listing.image ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={listing.image}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-150 object-cover opacity-0 blur-3xl saturate-150 transition-opacity duration-500 group-hover:opacity-35 dark:group-hover:opacity-45 motion-reduce:transition-none"
+        />
+      ) : null}
 
       {/* ── Badges ───────────────────────────────────────────────────────
           Both kept, both still opposed so a discounted car cannot collide
@@ -661,6 +697,7 @@ export default function ListingCard({
           ))}
         </div>
       ) : null}
+    </div>
     </div>
   );
 }

@@ -26,7 +26,11 @@ export default async function AdminLayout({ children, params }) {
     <AdminShell
       locale={locale}
       pendingBoosts={pendingBoosts}
-      brand={{ name: locale === 'en' ? site.name.en : site.name.ar }}
+      brand={{
+        name: locale === 'en' ? site.name.en : site.name.ar,
+        logoUrl: site.logoUrl,
+        logoDarkUrl: site.logoDarkUrl,
+      }}
       viewer={{
         // The admin's own id — the live panel listens on their personal topic.
         userId: viewer.userId,

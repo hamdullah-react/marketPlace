@@ -105,9 +105,27 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
             <SidebarMenuItem>
               <SidebarMenuButton asChild size="lg" className="data-[slot=sidebar-menu-button]:!p-1.5">
                 <Link href={`/${locale}/marketplace/admin`}>
-                  <div className="raised-solid flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary text-white">
-                    <ShieldCheckIcon className="size-4" />
-                  </div>
+                  {/* The logo from Admin → Settings → Branding. A plain <img>,
+                      not next/image: a sidebar chip gains nothing from the
+                      optimiser, and a logo must not depend on it to appear. */}
+                  {brand?.logoUrl ? (
+                    <div className="raised flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg p-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={brand.logoUrl}
+                        alt={brand?.name || ""}
+                        className={`h-full w-full object-contain ${brand.logoDarkUrl ? "dark:hidden" : ""}`}
+                      />
+                      {brand.logoDarkUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={brand.logoDarkUrl} alt="" className="hidden h-full w-full object-contain dark:block" />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="raised-solid flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-brand-primary text-white">
+                      <ShieldCheckIcon className="size-4" />
+                    </div>
+                  )}
                   <div className="grid flex-1 text-start leading-tight">
                     <span className="truncate text-base font-semibold">{brand?.name || t("سوق الرميح", "Alromaih Marketplace")}</span>
                     <span className="truncate text-xs font-normal text-muted-foreground">

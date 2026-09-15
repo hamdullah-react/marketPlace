@@ -86,7 +86,10 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
   const site = await getSiteSettings();
   const siteName = isAr ? site.name.ar : site.name.en;
   const tagline = isAr ? site.tagline.ar : site.tagline.en;
-  const svgLogo = /\.svg($|\?)/i.test(site.logoUrl);
+  // SVG and uploaded (absolute URL) logos load directly, not via the optimiser,
+  // which returns 500 when it cannot fetch the upload in time. See loadDirect in
+  // MarketplaceHeader.
+  const directLogo = /\.svg($|\?)/i.test(site.logoUrl) || /^https?:\/\//i.test(site.logoUrl);
 
   // Admin → Settings → Contact & links: the same list a showroom keeps. The
   // built-in links are only used until that column exists.
@@ -111,7 +114,7 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
                 sizes="180px"
                 className="object-contain object-start"
                 loading="lazy"
-                unoptimized={svgLogo}
+                unoptimized={directLogo}
               />
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-600 dark:text-gray-400">

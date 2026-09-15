@@ -133,8 +133,16 @@ function initialsOf(name = "") {
   return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-/** next/image cannot optimise SVG — an SVG logo is served as it is. */
-const isSvg = (src) => /\.svg($|\?)/i.test(src ?? "");
+/**
+ * Which logos skip the image optimiser.
+ *
+ * SVG, because next/image cannot optimise it. And any uploaded logo (an
+ * absolute URL from Admin → Settings), because the optimiser has to fetch it
+ * server-side: when that fetch fails (it returned 500 for the Supabase logo)
+ * the header shows an empty box. The browser loads it directly instead, the way
+ * listing photos already load. Only the built-in /public logo is optimised.
+ */
+const loadDirect = (src) => /\.svg($|\?)/i.test(src ?? "") || /^https?:\/\//i.test(src ?? "");
 
 export default function MarketplaceHeader({
   locale = "ar", viewer = null, offerCount = 0, savedCount = 0, brand = null, languages = null,
@@ -437,7 +445,7 @@ export default function MarketplaceHeader({
                       sizes="(max-width: 640px) 97px, (max-width: 1024px) 130px, (max-width: 1280px) 150px, 180px"
                       className={`object-contain ${darkLogo ? "dark:hidden" : ""}`}
                       loading="eager"
-                      unoptimized={isSvg(logo)}
+                      unoptimized={loadDirect(logo)}
                     />
                     {darkLogo ? (
                       <Image
@@ -447,7 +455,7 @@ export default function MarketplaceHeader({
                         sizes="(max-width: 640px) 97px, (max-width: 1024px) 130px, (max-width: 1280px) 150px, 180px"
                         className="hidden object-contain dark:block"
                         loading="eager"
-                        unoptimized={isSvg(darkLogo)}
+                        unoptimized={loadDirect(darkLogo)}
                       />
                     ) : null}
                   </div>
@@ -773,7 +781,7 @@ export default function MarketplaceHeader({
             height={43}
             alt={brandName}
             loading="lazy"
-            unoptimized={isSvg(logo)}
+            unoptimized={loadDirect(logo)}
             className="h-[43px] w-[150px] object-contain"
           />
           <button
