@@ -21,7 +21,7 @@
  * pixel aimed at every visitor if it were not.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -50,12 +50,19 @@ export default function RichText({
   /* The stored document, or null for a page nobody has written yet. */
   value = null,
   dir,
+  /* Optional (file) => Promise<url>. When given, the picture button uploads a
+     file with it instead of opening a showroom's MediaGallery — the site's own
+     pages (About us) have no showroom library to pick from. */
+  uploadImage = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
   const [doc, setDoc] = useState(value ?? null);
   const [picking, setPicking] = useState(false);
+  const fileInput = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFailed, setUploadFailed] = useState(false);
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState("");
 
@@ -101,6 +108,22 @@ export default function RichText({
   });
 
   const chain = () => editor?.chain().focus();
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !uploadImage) return;
+    setUploading(true);
+    setUploadFailed(false);
+    try {
+      const src = await uploadImage(file);
+      if (src) chain()?.setImage({ src }).run();
+    } catch {
+      setUploadFailed(true);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="min-w-0">
@@ -183,8 +206,12 @@ export default function RichText({
           >
             <Unlink className="h-4 w-4" />
           </Tool>
-          <Tool title={t("صورة", "Picture")} onClick={() => setPicking(true)}>
-            <ImagePlus className="h-4 w-4" />
+          <Tool
+            title={t("صورة", "Picture")}
+            disabled={uploading}
+            onClick={() => (uploadImage ? fileInput.current?.click() : setPicking(true))}
+          >
+            <ImagePlus className={`h-4 w-4 ${uploading ? "animate-pulse" : ""}`} />
           </Tool>
 
           <Separator orientation="vertical" className="mx-1 h-6" />
@@ -201,6 +228,13 @@ export default function RichText({
       </div>
 
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+
+      {uploadImage ? (
+        <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={onFile} />
+      ) : null}
+      {uploadFailed ? (
+        <p className="mt-1 text-xs text-red-600">{t("تعذّر رفع الصورة. حاول مرة أخرى.", "Could not upload the picture. Please try again.")}</p>
+      ) : null}
 
       {/* ── Picture, from the showroom's own library ───────────────────── */}
       <Dialog open={picking} onOpenChange={setPicking}>

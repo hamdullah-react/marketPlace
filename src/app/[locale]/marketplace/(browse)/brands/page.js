@@ -7,20 +7,13 @@ import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList,
   BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 
+/** Managed on Admin → Website content → Pages SEO (defaults in lib/sitePages.js). */
 export async function generateMetadata({ params }) {
   const { locale } = await params;
-  const isAr = locale === 'ar';
-
-  return {
-    title: isAr ? 'الماركات' : 'Car Brands',
-    description: isAr
-      ? 'تصفّح كل ماركات السيارات المتوفرة في سوق الرميح، وشاهد عدد السيارات المعروضة تحت كل ماركة.'
-      : 'Browse every car brand listed on Alromaih Marketplace, with how many cars each one has in stock.',
-    alternates: { canonical: `/${locale}/marketplace/brands` },
-    // noindex until real inventory replaces the seeded demo cars.
-    robots: { index: false, follow: false },
-  };
+  return pageMetadata('brands', locale);
 }
 
 /**
@@ -41,6 +34,7 @@ export default async function BrandsPage({ params }) {
 
   return (
     <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-8 sm:py-8 lg:px-20 xl:px-28">
+      <SeoJsonLd pageKey="brands" locale={locale} />
       <Suspense fallback={<BrandsSkeleton />}>
         <BrandsGrid locale={locale} />
       </Suspense>

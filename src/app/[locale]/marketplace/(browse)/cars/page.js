@@ -1,11 +1,17 @@
 import { setRequestLocale } from 'next-intl/server';
 import CarsBrowse from './_components/CarsBrowse';
+import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 
-export const metadata = {
-  title: 'Cars',
-  // noindex until real inventory replaces the seeded demo cars.
-  robots: { index: false, follow: false },
-};
+/**
+ * Title, description, indexing and share card come from Admin → Website
+ * content → Pages SEO (defaults in lib/sitePages.js). noindex by default until
+ * real inventory replaces the seeded demo cars.
+ */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('cars', locale);
+}
 
 /**
  * Every car on the marketplace.
@@ -27,13 +33,16 @@ export default async function CarsPage({ params, searchParams }) {
   const isAr = locale === 'ar';
 
   return (
-    <CarsBrowse
-      locale={locale}
-      searchParams={searchParams}
-      // The only one of the four browse pages with a rail — see CarsBrowse.
-      showFilters
-      basePath={`/${locale}/marketplace/cars`}
-      crumbs={[{ label: isAr ? 'السيارات' : 'Cars' }]}
-    />
+    <>
+      <SeoJsonLd pageKey="cars" locale={locale} />
+      <CarsBrowse
+        locale={locale}
+        searchParams={searchParams}
+        // The only one of the four browse pages with a rail — see CarsBrowse.
+        showFilters
+        basePath={`/${locale}/marketplace/cars`}
+        crumbs={[{ label: isAr ? 'السيارات' : 'Cars' }]}
+      />
+    </>
   );
 }

@@ -12,16 +12,22 @@ import { getUser } from '@/marketplace/auth/session';
 import HeroFilter, { HeroFilterSkeleton } from './_components/HeroFilter';
 import HeroCarousel from './_components/HeroCarousel';
 import { HERO_SLIDES } from './_components/heroSlides';
+import { getHeroSlides, getSiteSettings } from '@/marketplace/db/queries/site';
+import SeoJsonLd from '../_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 import { getCarFacets } from '@/marketplace/db/queries/cars';
 import { ListingCardGridSkeleton } from '../_components/ListingCardSkeleton';
 import LiveViews from '../_components/LiveViews';
 
-export const metadata = {
-  title: 'Alromaih Marketplace',
-  // Still noindex: the catalogue is demo data until real vendors are onboarded.
-  // Flip to index:true in this file and in layout.js at launch.
-  robots: { index: false, follow: false },
-};
+/**
+ * Managed on Admin → Website content → Pages SEO. Still noindex by default —
+ * the catalogue is demo data until real vendors are onboarded; switch
+ * "Show in search results" on for the Home page there at launch.
+ */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('home', locale);
+}
 
 /**
  * ── Design language ─────────────────────────────────────────────────────────
@@ -59,14 +65,36 @@ const CARD =
   'raised-card group relative flex flex-col overflow-hidden rounded-[14px] ' +
   'transition-transform duration-500 hover:-translate-y-1';
 
+/** The carousel's slides and speed, from Admin → Website content. Both reads are cached. */
+async function HeroArt({ locale }) {
+  const [{ ready, slides }, site] = await Promise.all([getHeroSlides(), getSiteSettings()]);
+  // The placeholder art stays until the first real slide is added, so the
+  // hero is never an empty dark box.
+  // Fallback off (Settings → Language): a slide shows only the visitor's own
+  // language, so an untranslated caption is blank rather than the other one.
+  const own = (value) => (site.localeFallback ? value : { [locale]: value?.[locale] ?? '' });
+  const data = ready && slides.length
+    ? {
+        intervalMs: site.heroIntervalMs,
+        slides: slides.map((s) => ({ ...s, title: own(s.title), description: own(s.description), alt: own(s.alt) })),
+      }
+    : HERO_SLIDES;
+  return <HeroCarousel data={data} locale={locale} />;
+}
+
 export default async function MarketplaceHomePage({ params }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const isAr = locale === 'ar';
   const t = (ar, en) => (isAr ? ar : en);
 
+  // The app name from Admin → Settings (a cached read).
+  const site = await getSiteSettings();
+  const siteName = isAr ? site.name.ar : site.name.en;
+
   return (
     <main className="pb-24">
+      <SeoJsonLd pageKey="home" locale={locale} />
       {/* ── Hero ──────────────────────────────────────────────
           Full-bleed photograph, the words on top of it, the filter bar beneath
           them — one object rather than a stack of three.
@@ -81,14 +109,16 @@ export default async function MarketplaceHomePage({ params }) {
 
           ── The artwork ───────────────────────────────────────
 
-          Five slides from _components/heroSlides.js — a hardcoded stand-in
-          shaped exactly like the endpoint that will replace it. When the admin
-          can manage these, that module starts fetching and nothing here changes.
+          Managed on Admin → Website content → Home carousel (hero_slides).
+          heroSlides.js is the placeholder art, used until the first slide is
+          added there (or while the WEBSITE CONTENT SQL has not been run).
           ---------------------------------------------------------------- */}
       <section className="relative isolate flex min-h-[400px] flex-col justify-end overflow-hidden bg-neutral-900 sm:min-h-[560px] lg:min-h-[640px]">
         {/* The photograph, filling the section. */}
         <div className="absolute inset-0">
-          <HeroCarousel data={HERO_SLIDES} locale={locale} />
+          <Suspense fallback={null}>
+            <HeroArt locale={locale} />
+          </Suspense>
         </div>
 
         {/* ── Scrim ──────────────────────────────────────────
@@ -126,8 +156,8 @@ export default async function MarketplaceHomePage({ params }) {
               -------------------------------------------------------- */}
           <h1 className="sr-only">
             {t(
-              'سوق الرميح — وجهتك لبيع وشراء السيارات في السعودية',
-              'Alromaih Marketplace — buy and sell cars across Saudi Arabia'
+              `${siteName} — وجهتك لبيع وشراء السيارات في السعودية`,
+              `${siteName} — buy and sell cars across Saudi Arabia`
             )}
           </h1>
 
@@ -237,7 +267,7 @@ export default async function MarketplaceHomePage({ params }) {
           <div className="relative grid items-center gap-8 px-6 py-12 sm:py-16 md:grid-cols-2 md:gap-4 md:ps-12 md:pe-0">
             <div className="text-center md:text-start">
               <h2 className="text-2xl font-bold text-white sm:text-3xl">
-                {t('بِع على سوق الرميح', 'Sell on Alromaih')}
+                {t(`بِع على ${siteName}`, `Sell on ${siteName}`)}
               </h2>
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/70 md:mx-0">
                 {t(

@@ -6,11 +6,15 @@ import { getApprovedVendors } from '@/marketplace/db/queries/vendors';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { localized } from '@/marketplace/lib/listing';
 import { Skeleton } from '@/components/ui/skeleton';
+import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
-export const metadata = {
-  title: 'Showrooms',
-  description: 'Browse verified car showrooms and dealers on Alromaih Marketplace.',
-};
+/** Managed on Admin → Website content → Pages SEO (defaults in lib/sitePages.js). */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('vendors', locale);
+}
 
 const PAGE_SIZE = 24;
 
@@ -27,17 +31,20 @@ export default async function VendorsPage({ params, searchParams }) {
   setRequestLocale(locale);
 
   const t = (ar, en) => (locale === 'ar' ? ar : en);
+  const site = await getSiteSettings();
+  const siteName = locale === 'ar' ? site.name.ar : site.name.en;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:py-14">
+      <SeoJsonLd pageKey="vendors" locale={locale} />
       <div className="text-center">
         <h1 className="text-3xl font-bold text-brand-primary sm:text-4xl">
           {t('المعارض', 'Showrooms')}
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 dark:text-gray-400"raised-solid >
+        <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 dark:text-gray-400">
           {t(
-            'المعارض والتجّار على سوق الرميح. اختر معرضاً لتصفّح سياراته والتواصل معه مباشرة.',
-            'The dealers and showrooms on Alromaih Marketplace. Pick one to browse its cars and get in touch directly.'
+            `المعارض والتجّار على ${siteName}. اختر معرضاً لتصفّح سياراته والتواصل معه مباشرة.`,
+            `The dealers and showrooms on ${siteName}. Pick one to browse its cars and get in touch directly.`
           )}
         </p>
       </div>

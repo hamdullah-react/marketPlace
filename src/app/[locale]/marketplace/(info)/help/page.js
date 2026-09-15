@@ -3,11 +3,14 @@ import { setRequestLocale } from 'next-intl/server';
 import { BookOpen, ChevronLeft, ChevronRight, LifeBuoy, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HELP_CATEGORIES, HELP_ARTICLES, articlesIn } from '@/marketplace/lib/help-articles';
+import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 
-export const metadata = {
-  title: 'Help',
-  robots: { index: false, follow: false },
-};
+/** Managed on Admin → Website content → Pages SEO (defaults in lib/sitePages.js). */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('help', locale);
+}
 
 /**
  * Help centre index.
@@ -25,6 +28,7 @@ export default async function HelpPage({ params }) {
 
   return (
     <main className="mx-auto w-full max-w-[1100px] px-4 py-10 sm:px-8">
+      <SeoJsonLd pageKey="help" locale={locale} />
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
           <LifeBuoy className="h-5 w-5" />

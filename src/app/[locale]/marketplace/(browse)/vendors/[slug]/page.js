@@ -28,6 +28,7 @@ import EditSection from './_components/EditSection';
 import { socialLinksOf, PLATFORM_KEYS } from '@/marketplace/lib/social';
 import { SocialIcon } from '@/app/[locale]/marketplace/(seller)/_components/SocialLinksEditor';
 import RichTextRender, { hasRichText } from './_components/RichTextRender';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 
 /**
@@ -106,11 +107,15 @@ export async function generateMetadata({ params }) {
   const metaTitle = say(vendor.meta_title);
   const metaDescription = say(vendor.meta_description);
 
+  // The app name from Admin → Settings (a cached read).
+  const site = await getSiteSettings();
+  const siteName = locale === 'ar' ? site.name.ar : site.name.en;
+
   const fallbackDescription =
     bio ||
     (locale === 'ar'
-      ? `سيارات ${name}${vendor.city ? ` في ${vendor.city}` : ''} على سوق الرميح.`
-      : `Cars from ${name}${vendor.city ? ` in ${vendor.city}` : ''} on Alromaih Marketplace.`);
+      ? `سيارات ${name}${vendor.city ? ` في ${vendor.city}` : ''} على ${siteName}.`
+      : `Cars from ${name}${vendor.city ? ` in ${vendor.city}` : ''} on ${siteName}.`);
 
   const title = metaTitle || name;
   const description = metaDescription || fallbackDescription;
@@ -1301,10 +1306,7 @@ export default async function VendorPage({ params, searchParams }) {
                   <p className="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
                     {localized(vendor.meta_description, locale) ||
                       bio ||
-                      t(
-                        `سيارات ${name}${vendor.city ? ` في ${vendor.city}` : ''} على سوق الرميح.`,
-                        `Cars from ${name}${vendor.city ? ` in ${vendor.city}` : ''} on Alromaih Marketplace.`
-                      )}
+                      <FallbackDescription name={name} city={vendor.city} locale={locale} />}
                   </p>
                 </div>
 
@@ -1449,6 +1451,15 @@ export default async function VendorPage({ params, searchParams }) {
    ------------------------------------------------------------------------ */
 
 const PAGE_SIZE = 12;
+
+/** The generated description line, naming the app from Admin → Settings. */
+async function FallbackDescription({ name, city, locale }) {
+  const site = await getSiteSettings();
+  const siteName = locale === 'ar' ? site.name.ar : site.name.en;
+  return locale === 'ar'
+    ? `سيارات ${name}${city ? ` في ${city}` : ''} على ${siteName}.`
+    : `Cars from ${name}${city ? ` in ${city}` : ''} on ${siteName}.`;
+}
 
 async function Cars({ vendor, searchParams, locale, t }) {
   const sp = await searchParams;

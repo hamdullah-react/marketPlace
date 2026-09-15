@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { requireAdmin } from '@/marketplace/auth/session';
 import { countPendingBoosts } from '@/marketplace/db/queries/boosts';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 import AdminShell from './_components/AdminShell';
 
 /**
@@ -19,12 +20,13 @@ export default async function AdminLayout({ children, params }) {
   setRequestLocale(locale);
 
   const viewer = await requireAdmin();
-  const pendingBoosts = await countPendingBoosts();
+  const [pendingBoosts, site] = await Promise.all([countPendingBoosts(), getSiteSettings()]);
 
   return (
     <AdminShell
       locale={locale}
       pendingBoosts={pendingBoosts}
+      brand={{ name: locale === 'en' ? site.name.en : site.name.ar }}
       viewer={{
         // The admin's own id — the live panel listens on their personal topic.
         userId: viewer.userId,

@@ -114,6 +114,7 @@ const NAV = [
   { key: "compare", ar: "المقارنة", en: "Compare", href: "/marketplace/compare" },
   { key: "sell", ar: "بِع سيارتك", en: "Sell Your Car", href: "/marketplace/sell" },
   { key: "how", ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
+  { key: "about", ar: "من نحن", en: "About Us", href: "/marketplace/about" },
 ];
 
 /**
@@ -132,8 +133,17 @@ function initialsOf(name = "") {
   return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-export default function MarketplaceHeader({ locale = "ar", viewer = null, offerCount = 0, savedCount = 0 }) {
+/** next/image cannot optimise SVG — an SVG logo is served as it is. */
+const isSvg = (src) => /\.svg($|\?)/i.test(src ?? "");
+
+export default function MarketplaceHeader({
+  locale = "ar", viewer = null, offerCount = 0, savedCount = 0, brand = null, languages = null,
+}) {
   const isAr = locale === "ar";
+  // From Admin → Settings, with the built-in logo as the fallback.
+  const logo = brand?.logoUrl || "/alromaih/new logo.png";
+  const darkLogo = brand?.logoDarkUrl || null;
+  const brandName = brand?.name || "Alromaih";
   const pathname = usePathname() || "";
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -421,13 +431,25 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                       the nav needs the room. */}
                   <div className="relative h-[28px] w-[97px] sm:h-[38px] sm:w-[130px] lg:h-[44px] lg:w-[150px] xl:h-[52px] xl:w-[180px]">
                     <Image
-                      src="/alromaih/new logo.png"
-                      alt="Alromaih"
+                      src={logo}
+                      alt={brandName}
                       fill
                       sizes="(max-width: 640px) 97px, (max-width: 1024px) 130px, (max-width: 1280px) 150px, 180px"
-                      className="object-contain"
+                      className={`object-contain ${darkLogo ? "dark:hidden" : ""}`}
                       loading="eager"
+                      unoptimized={isSvg(logo)}
                     />
+                    {darkLogo ? (
+                      <Image
+                        src={darkLogo}
+                        alt=""
+                        fill
+                        sizes="(max-width: 640px) 97px, (max-width: 1024px) 130px, (max-width: 1280px) 150px, 180px"
+                        className="hidden object-contain dark:block"
+                        loading="eager"
+                        unoptimized={isSvg(darkLogo)}
+                      />
+                    ) : null}
                   </div>
                   {/* Present on phones and tablets, gone at lg where the five
                       nav labels need every pixel, back at xl. */}
@@ -577,7 +599,8 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
                   ) : null}
                 </Link>
 
-                <LanguageSwitcher />
+                {/* Hidden when the admin has only one language switched on. */}
+                {!languages || languages.length > 1 ? <LanguageSwitcher /> : null}
 
                 {/* ── Profile ─────────────────────────────────────────── */}
                 <div className="relative" ref={profileRef}>
@@ -744,7 +767,15 @@ export default function MarketplaceHeader({ locale = "ar", viewer = null, offerC
               screen until somebody opens it. Eager here was a second copy of
               the header logo fetched on every page load for a panel most
               visitors never see. */}
-          <Image src="/alromaih/new logo.png" width={150} height={43} alt="Alromaih" loading="lazy" />
+          <Image
+            src={logo}
+            width={150}
+            height={43}
+            alt={brandName}
+            loading="lazy"
+            unoptimized={isSvg(logo)}
+            className="h-[43px] w-[150px] object-contain"
+          />
           <button
             onClick={() => setMenuOpen(false)}
             className="rounded-full p-2 transition-colors hover:bg-gray-100 dark:hover:bg-white/10"

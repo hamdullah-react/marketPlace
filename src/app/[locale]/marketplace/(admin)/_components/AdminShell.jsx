@@ -14,7 +14,11 @@ import { useLiveBoosts } from "./useLiveBoosts";
 import {
   LayoutDashboardIcon, UsersIcon, ShieldCheckIcon, SparklesIcon, HomeIcon,
   StoreIcon, BadgeDollarSignIcon, ChevronsUpDownIcon, LogOutIcon, UserIcon,
+  LayoutTemplateIcon, ImagesIcon, FileTextIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
 } from "lucide-react";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -22,7 +26,8 @@ import {
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton,
-  SidebarMenuItem, SidebarProvider, SidebarTrigger,
+  SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
+  SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
@@ -38,7 +43,22 @@ const NAV_MAIN = [
   { href: "/marketplace/admin/content/boost-plans", icon: BadgeDollarSignIcon, ar: "خطط التمييز والأسعار", en: "Boost plans & prices" },
 ];
 
-export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, children }) {
+/* The "Website content" dropdown in the sidebar. */
+const NAV_CONTENT = {
+  icon: LayoutTemplateIcon,
+  ar: "محتوى الموقع",
+  en: "Website content",
+  children: [
+    { href: "/marketplace/admin/content/banners", icon: ImagesIcon, ar: "شرائح الصفحة الرئيسية", en: "Home carousel" },
+    { href: "/marketplace/admin/content/pages", icon: FileTextIcon, ar: "صفحة من نحن", en: "About us" },
+    { href: "/marketplace/admin/content/seo", icon: SearchCheckIcon, ar: "تحسين محركات البحث", en: "Pages SEO" },
+  ],
+};
+
+// exact: /admin/settings/staff is the Admins page, not part of Settings.
+const NAV_SETTINGS = { href: "/marketplace/admin/settings", icon: SettingsIcon, ar: "الإعدادات", en: "Settings", exact: true };
+
+export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, brand = null, children }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const pathname = usePathname() || "";
@@ -71,7 +91,7 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, c
       : []),
   ];
 
-  const current = NAV_MAIN
+  const current = [...NAV_MAIN, ...NAV_CONTENT.children, NAV_SETTINGS]
     .filter((i) => isActive(i.href, i.exact))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
@@ -89,7 +109,7 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, c
                     <ShieldCheckIcon className="size-4" />
                   </div>
                   <div className="grid flex-1 text-start leading-tight">
-                    <span className="truncate text-base font-semibold">{t("سوق الرميح", "Alromaih Marketplace")}</span>
+                    <span className="truncate text-base font-semibold">{brand?.name || t("سوق الرميح", "Alromaih Marketplace")}</span>
                     <span className="truncate text-xs font-normal text-muted-foreground">
                       {t("لوحة الإدارة", "Admin panel")}
                     </span>
@@ -107,6 +127,7 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, c
             badges={{ [BOOSTS_HREF]: livePending }}
             {...navCtx}
           />
+          <WebsiteGroup group={NAV_CONTENT} settings={NAV_SETTINGS} {...navCtx} />
           <NavGroup items={secondary} className="mt-auto" {...navCtx} />
         </SidebarContent>
 
@@ -170,6 +191,60 @@ function NavGroup({ label, items, className, badges, isActive, t, locale }) {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+/**
+ * "Website content" as a dropdown (collapsible) with its pages under it, then
+ * Settings. Opens on its own when one of its pages is the current one.
+ */
+function WebsiteGroup({ group, settings, isActive, t, locale }) {
+  const GroupIcon = group.icon;
+  const SettingsItemIcon = settings.icon;
+  const inside = group.children.some((c) => isActive(c.href));
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{t("الموقع", "Website")}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <Collapsible asChild defaultOpen={inside} className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton tooltip={t(group.ar, group.en)} isActive={inside}>
+                  <GroupIcon />
+                  <span>{t(group.ar, group.en)}</span>
+                  <ChevronDownIcon className="ms-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {group.children.map(({ href, icon: ChildIcon, ar, en }) => (
+                    <SidebarMenuSubItem key={href}>
+                      <SidebarMenuSubButton asChild isActive={isActive(href)}>
+                        <Link href={`/${locale}${href}`}>
+                          <ChildIcon />
+                          <span>{t(ar, en)}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
+
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={isActive(settings.href, settings.exact)} tooltip={t(settings.ar, settings.en)}>
+              <Link href={`/${locale}${settings.href}`}>
+                <SettingsItemIcon />
+                <span>{t(settings.ar, settings.en)}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

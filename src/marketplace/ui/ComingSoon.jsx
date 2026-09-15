@@ -1,13 +1,20 @@
+import { getSiteSettings } from '@/marketplace/db/queries/site';
+
 /**
  * Placeholder for every marketplace route until that route is built.
  * Server component on purpose — zero client JS on ~75 unbuilt pages.
  *
+ * The app name comes from Admin → Settings (a cached read).
+ *
  * Delete the import from a page.js when you build that page for real.
  */
-export default function ComingSoon({ locale = 'ar', titleAr, titleEn, route }) {
+export default async function ComingSoon({ locale = 'ar', titleAr, titleEn, route }) {
   const isAr = locale === 'ar';
   const title = isAr ? titleAr : titleEn;
   const sub = isAr ? titleEn : titleAr;
+
+  const site = await getSiteSettings();
+  const siteName = isAr ? site.name.ar : site.name.en;
 
   return (
     <main className="flex min-h-[70vh] flex-col items-center justify-center px-6 py-20">
@@ -24,8 +31,8 @@ export default function ComingSoon({ locale = 'ar', titleAr, titleEn, route }) {
 
         <p className="mt-6 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
           {isAr
-            ? 'نعمل حالياً على تجهيز هذه الصفحة ضمن سوق الرميح. ترقّبوا الإطلاق قريباً.'
-            : 'This page is being built as part of the Alromaih Marketplace. Launching soon.'}
+            ? `نعمل حالياً على تجهيز هذه الصفحة ضمن ${siteName}. ترقّبوا الإطلاق قريباً.`
+            : `This page is being built as part of ${siteName}. Launching soon.`}
         </p>
 
         {route ? (

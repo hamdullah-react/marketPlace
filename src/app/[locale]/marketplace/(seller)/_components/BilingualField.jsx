@@ -164,7 +164,7 @@ export default function BilingualField({
               </div>
 
               <DialogClose asChild>
-                <Button type="button" className="w-full bg-brand-primary hover:bg-[var(--brand-dark)]">
+                <Button type="button" className="raised-solid w-full bg-brand-primary hover:bg-[var(--brand-dark)]">
                   {t("تم", "Done")}
                 </Button>
               </DialogClose>

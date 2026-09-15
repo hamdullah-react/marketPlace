@@ -154,24 +154,24 @@ export async function sendMarketplaceEmail({ to, subject, html, text, replyTo })
 const COPY = {
   signup: {
     ar: {
-      subject: 'رمز تأكيد حسابك — الرميح',
+      subject: 'رمز تأكيد حسابك — {name}',
       heading: 'أكّد بريدك الإلكتروني',
-      lead: 'استخدم هذا الرمز لإكمال إنشاء حسابك في سوق الرميح.',
+      lead: 'استخدم هذا الرمز لإكمال إنشاء حسابك في {name}.',
     },
     en: {
-      subject: 'Your confirmation code — Alromaih',
+      subject: 'Your confirmation code — {name}',
       heading: 'Confirm your email',
-      lead: 'Use this code to finish creating your Alromaih Marketplace account.',
+      lead: 'Use this code to finish creating your {name} account.',
     },
   },
   recovery: {
     ar: {
-      subject: 'رمز إعادة تعيين كلمة المرور — الرميح',
+      subject: 'رمز إعادة تعيين كلمة المرور — {name}',
       heading: 'إعادة تعيين كلمة المرور',
       lead: 'استخدم هذا الرمز لتعيين كلمة مرور جديدة.',
     },
     en: {
-      subject: 'Your password reset code — Alromaih',
+      subject: 'Your password reset code — {name}',
       heading: 'Reset your password',
       lead: 'Use this code to set a new password.',
     },
@@ -190,9 +190,32 @@ const EXPIRY = {
 
 const BRAND = '#0B6B3A';
 
-function codeHtml({ code, locale, purpose, minutes }) {
-  const isAr = locale === 'ar';
+/** Used when Admin → Settings could not be read. */
+const DEFAULT_BRAND = { ar: 'سوق الرميح', en: 'Alromaih Marketplace' };
+
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+
+/** The copy for one email, with the app name from Admin → Settings filled in. */
+function copyFor(purpose, isAr, brandName) {
+  const name = brandName || DEFAULT_BRAND[isAr ? 'ar' : 'en'];
   const c = COPY[purpose][isAr ? 'ar' : 'en'];
+  return {
+    name,
+    subject: c.subject.replaceAll('{name}', name),
+    heading: c.heading,
+    lead: c.lead.replaceAll('{name}', name),
+  };
+}
+
+function codeHtml({ code, locale, purpose, minutes, brandName = null, logoUrl = null }) {
+  const isAr = locale === 'ar';
+  const c = copyFor(purpose, isAr, brandName);
+
+  // An uploaded logo (an absolute https URL) is shown; otherwise the name.
+  const mark = logoUrl && /^https:\/\//i.test(logoUrl)
+    ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(c.name)}" height="40" style="display:block;height:40px;width:auto;border:0;">`
+    : `<span style="color:${BRAND};font-size:20px;font-weight:bold;letter-spacing:1px;">${escapeHtml(c.name)}</span>`;
 
   return `<!DOCTYPE html>
 <html dir="${isAr ? 'rtl' : 'ltr'}" lang="${isAr ? 'ar' : 'en'}">
@@ -200,14 +223,14 @@ function codeHtml({ code, locale, purpose, minutes }) {
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
   <div style="background:linear-gradient(135deg,${BRAND} 0%,#06170E 100%);padding:36px 20px;text-align:center;">
     <div style="display:inline-block;background:#ffffff;padding:12px 26px;border-radius:12px;">
-      <span style="color:${BRAND};font-size:20px;font-weight:bold;letter-spacing:1px;">AL ROMAIH</span>
+      ${mark}
     </div>
   </div>
 
   <div style="max-width:520px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(11,107,58,.10);">
     <div style="padding:32px 28px;text-align:center;">
       <h1 style="margin:0 0 8px;font-size:22px;color:#1f2937;">${c.heading}</h1>
-      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#6b7280;">${c.lead}</p>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#6b7280;">${escapeHtml(c.lead)}</p>
 
       <!-- dir=ltr on the digits themselves: a code is a sequence, and an RTL
            page would otherwise present it back to front. -->
@@ -232,9 +255,9 @@ function codeHtml({ code, locale, purpose, minutes }) {
  * The plain-text part carries the code too — some clients show only that, and
  * it is what a screen reader reaches first.
  */
-function codeText({ code, locale, purpose, minutes }) {
+function codeText({ code, locale, purpose, minutes, brandName = null }) {
   const isAr = locale === 'ar';
-  const c = COPY[purpose][isAr ? 'ar' : 'en'];
+  const c = copyFor(purpose, isAr, brandName);
   return [
     c.heading, '', c.lead, '', code, '',
     EXPIRY[isAr ? 'ar' : 'en'](minutes), '', FOOTER[isAr ? 'ar' : 'en'],
@@ -248,11 +271,25 @@ function codeText({ code, locale, purpose, minutes }) {
  */
 export async function sendOtpEmail({ to, code, purpose = 'signup', locale = 'ar', minutes = 15 }) {
   const isAr = locale === 'ar';
-  const payload = { code, locale, purpose, minutes };
+
+  // The app name and logo from Admin → Settings. Imported lazily and never
+  // allowed to stop a code from going out — the built-in name is the fallback.
+  let brandName = null;
+  let logoUrl = null;
+  try {
+    const { getSiteSettings } = await import('@/marketplace/db/queries/site');
+    const site = await getSiteSettings();
+    brandName = isAr ? site.name.ar : site.name.en;
+    logoUrl = site.logoUrl;
+  } catch {
+    /* keep the defaults */
+  }
+
+  const payload = { code, locale, purpose, minutes, brandName, logoUrl };
 
   return sendMarketplaceEmail({
     to,
-    subject: COPY[purpose][isAr ? 'ar' : 'en'].subject,
+    subject: copyFor(purpose, isAr, brandName).subject,
     text: codeText(payload),
     html: codeHtml(payload),
   });

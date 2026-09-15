@@ -53,9 +53,9 @@ function SettingSelect({ id, name, defaultValue, options, className }) {
         <SelectTrigger id={id} className={className}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="raised-card border-0">
           {options.map((o) => (
-            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            <SelectItem key={o.value} value={o.value} className="raised-hover">{o.label}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -105,7 +105,7 @@ function Pair({ id, labelText, ar, en, textarea, rows = 3, phAr = "", phEn = "",
 
 function Toggle({ name, defaultChecked, labelText, note }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+    <label className="raised flex cursor-pointer items-start gap-3 rounded-lg p-3">
       <input type="checkbox" name={name} defaultChecked={defaultChecked} className="mt-0.5 h-4 w-4 accent-[var(--brand-primary)]" />
       <span className="flex-1">
         <span className="block text-sm font-medium">{labelText}</span>
@@ -198,7 +198,8 @@ export default function SettingsForm({
   const field =
     "h-10 w-full rounded-lg border bg-background px-3 text-sm outline-hidden transition-colors focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20";
   const area = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-hidden focus:border-brand-primary";
-  const card = "rounded-xl border bg-card p-5";
+  // The dashboard's 3D surface — the same raised card the admin settings use.
+  const card = "raised-card rounded-xl p-5";
   const sectionTitle = "mb-1 text-sm font-bold text-brand-primary";
   const hint = "mb-4 text-xs text-muted-foreground";
 
@@ -288,11 +289,11 @@ export default function SettingsForm({
     {deletedBanner}
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[200px_minmax(0,1fr)]">
       {/* ── Tab rail ─────────────────────────────────────────────────────── */}
-      <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+      <nav className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
         {TABS.map(({ id, icon: Icon, ar, en }) => (
-          <button key={id} type="button" onClick={() => setTab(id)}
-            className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-              tab === id ? "bg-brand-primary text-white" : "text-muted-foreground hover:bg-muted"
+          <button key={id} type="button" onClick={() => setTab(id)} aria-pressed={tab === id}
+            className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm ${
+              tab === id ? "raised-solid bg-brand-primary text-white" : "raised-hover text-muted-foreground"
             }`}>
             <Icon className="h-4 w-4" />
             <span className="whitespace-nowrap">{t(ar, en)}</span>
@@ -612,7 +613,7 @@ export default function SettingsForm({
                   ["orders", t("طلبات", "Orders")],
                   ["reviews", t("تقييمات", "Reviews")],
                 ].map(([k, l]) => (
-                  <div key={k} className="rounded-lg border p-3 text-center">
+                  <div key={k} className="raised-card rounded-lg p-3 text-center">
                     <p className="text-lg font-bold tabular-nums text-brand-primary">{counts[k] ?? 0}</p>
                     <p className="text-xs text-muted-foreground">{l}</p>
                   </div>

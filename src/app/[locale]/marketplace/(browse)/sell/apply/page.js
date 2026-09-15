@@ -3,6 +3,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { getViewer } from '@/marketplace/auth/session';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import ApplyForm from '../_components/ApplyForm';
+import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -11,10 +13,11 @@ import ApplyForm from '../_components/ApplyForm';
  */
 export const instant = false;
 
-export const metadata = {
-  title: 'Vendor Application',
-  robots: { index: false, follow: false },
-};
+/** Managed on Pages SEO. noindex by default. */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('sell-apply', locale);
+}
 
 /**
  * The application form — and the router for everyone who should not see it.
@@ -55,6 +58,7 @@ export default async function SellApplyPage({ params }) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
+      <SeoJsonLd pageKey="sell-apply" locale={locale} />
       {/* Phone and city come from the profile they had to complete before
           getting here, so a showroom application opens half-filled instead of
           asking a third time for a number we already hold. Both stay editable:

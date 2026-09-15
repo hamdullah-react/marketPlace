@@ -4472,3 +4472,205 @@ alter table listing_boosts add constraint listing_boosts_days_check check (days 
 alter table listing_boosts add column if not exists price    numeric(12,2) check (price is null or price >= 0);
 
 notify pgrst, 'reload schema';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  WEBSITE CONTENT — branding, languages, home carousel, page SEO, About us
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  site_settings   ONE row: the app's name and tagline in both languages, the
+--                  logos and favicon, contact details, the SEO defaults (share
+--                  image, X handle, search-console verification codes) and the
+--                  home carousel's autoplay speed.
+--  site_languages  the languages the public site offers and which is default.
+--                  The list of POSSIBLE languages is fixed by the app's routing
+--                  (ar, en); this table switches them on and off.
+--  hero_slides     the home page carousel. Title, description and alt text in
+--                  both languages per slide.
+--  page_seo        search and share metadata per public page. A page has a row
+--                  only once an admin customises it; no row = the built-in text
+--                  in src/marketplace/lib/sitePages.js.
+--  site_pages      editable content pages (About us) as rich-text DOCUMENTS,
+--                  {ar: doc, en: doc} — JSON, never HTML, same as §28.
+--
+--  Public read (hidden slides and unpublished pages are admin-only), admin-only
+--  write. Uploads go to the marketplace-media bucket under site/.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+create table if not exists site_settings (
+  id                        boolean primary key default true check (id),
+  name                      jsonb not null default '{}'::jsonb,
+  tagline                   jsonb not null default '{}'::jsonb,
+  logo_url                  text,
+  logo_dark_url             text,
+  favicon_url               text,
+  contact_email             text,
+  contact_phone             text,
+  whatsapp                  text,
+  address                   jsonb not null default '{}'::jsonb,
+  default_og_image_url      text,
+  twitter_handle            text,
+  google_site_verification  text,
+  bing_site_verification    text,
+  hero_interval_ms          integer not null default 6000 check (hero_interval_ms between 2000 and 30000),
+  created_at                timestamptz not null default now(),
+  updated_at                timestamptz not null default now()
+);
+
+insert into site_settings (id, name, tagline)
+values (
+  true,
+  '{"ar": "سوق الرميح", "en": "Alromaih Marketplace"}',
+  '{"ar": "سيارات جديدة ومستعملة من معارض موثوقة، بأسعار واضحة وتواصل مباشر مع البائع.", "en": "New and used cars from verified showrooms — clear pricing, and a direct line to the seller."}'
+)
+on conflict (id) do nothing;
+
+create table if not exists site_languages (
+  code          text primary key check (code in ('ar', 'en')),
+  label         text not null,
+  native_label  text not null,
+  dir           text not null check (dir in ('rtl', 'ltr')),
+  enabled       boolean not null default true,
+  is_default    boolean not null default false,
+  sort          integer not null default 0,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  -- The default language has to be one the site actually offers.
+  constraint site_languages_default_enabled check (not is_default or enabled)
+);
+
+-- Exactly one default, enforced by the database rather than by the form.
+create unique index if not exists site_languages_one_default
+  on site_languages (is_default) where is_default;
+
+insert into site_languages (code, label, native_label, dir, enabled, is_default, sort)
+values
+  ('ar', 'Arabic',  'العربية', 'rtl', true, true,  0),
+  ('en', 'English', 'English', 'ltr', true, false, 1)
+on conflict (code) do nothing;
+
+create table if not exists hero_slides (
+  id           uuid primary key default gen_random_uuid(),
+  title        jsonb not null default '{}'::jsonb,
+  description  jsonb not null default '{}'::jsonb,
+  alt          jsonb not null default '{}'::jsonb,
+  image_url    text not null,
+  sort         integer not null default 0,
+  active       boolean not null default true,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create index if not exists hero_slides_active_sort on hero_slides (active, sort);
+
+create table if not exists page_seo (
+  page_key             text primary key check (page_key ~ '^[a-z0-9-]+$'),
+  meta_title           jsonb not null default '{}'::jsonb,
+  meta_description     jsonb not null default '{}'::jsonb,
+  meta_keywords        jsonb not null default '{}'::jsonb,   -- {ar: [..], en: [..]}
+  focus_keyword        jsonb not null default '{}'::jsonb,
+  og_title             jsonb not null default '{}'::jsonb,
+  og_description       jsonb not null default '{}'::jsonb,
+  og_image_url         text,
+  og_type              text not null default 'website' check (og_type in ('website', 'article', 'profile')),
+  twitter_card         text not null default 'summary_large_image' check (twitter_card in ('summary', 'summary_large_image')),
+  twitter_title        jsonb not null default '{}'::jsonb,
+  twitter_description  jsonb not null default '{}'::jsonb,
+  twitter_image_url    text,
+  canonical_url        text,
+  seo_index            boolean not null default true,
+  seo_follow           boolean not null default true,
+  seo_changefreq       text not null default 'weekly'
+                         check (seo_changefreq in ('always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never')),
+  seo_priority         numeric(2,1) not null default 0.5 check (seo_priority between 0 and 1),
+  structured_data      jsonb,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+create table if not exists site_pages (
+  slug        text primary key check (slug ~ '^[a-z0-9-]+$'),
+  title       jsonb not null default '{}'::jsonb,
+  body        jsonb not null default '{}'::jsonb,   -- {ar: tiptap doc, en: tiptap doc}
+  published   boolean not null default false,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+insert into site_pages (slug, title)
+values ('about', '{"ar": "من نحن", "en": "About us"}')
+on conflict (slug) do nothing;
+
+do $$
+declare tbl text;
+begin
+  foreach tbl in array array['site_settings', 'site_languages', 'hero_slides', 'page_seo', 'site_pages'] loop
+    execute format('drop trigger if exists %I on %I', tbl || '_updated_at', tbl);
+    execute format(
+      'create trigger %I before update on %I for each row execute function set_updated_at()',
+      tbl || '_updated_at', tbl
+    );
+    execute format('alter table %I enable row level security', tbl);
+    execute format('drop policy if exists %I on %I', tbl || '_admin_write', tbl);
+    execute format(
+      'create policy %I on %I for all using (is_admin()) with check (is_admin())',
+      tbl || '_admin_write', tbl
+    );
+  end loop;
+end $$;
+
+drop policy if exists site_settings_public_read on site_settings;
+create policy site_settings_public_read on site_settings for select using (true);
+
+drop policy if exists site_languages_public_read on site_languages;
+create policy site_languages_public_read on site_languages for select using (true);
+
+drop policy if exists hero_slides_public_read on hero_slides;
+create policy hero_slides_public_read on hero_slides for select using (active or is_admin());
+
+drop policy if exists page_seo_public_read on page_seo;
+create policy page_seo_public_read on page_seo for select using (true);
+
+drop policy if exists site_pages_public_read on site_pages;
+create policy site_pages_public_read on site_pages for select using (published or is_admin());
+
+-- ── Authoring language, translation fallback and social links ──────────────
+--
+-- The same two language choices a showroom makes on Store settings → Language:
+--
+--   default_locale   how the admin WRITES. 'ar' or 'en' shows one box per
+--                    bilingual field; 'both' shows one box plus a popup holding
+--                    both languages. Both values are always saved either way.
+--   locale_fallback  a text missing in the visitor's language shows the other
+--                    language instead of a blank.
+--
+-- social_links is the same list a showroom keeps (§29) — [{key, url, label,
+-- icon}] — and is what the site footer renders.
+
+alter table site_settings add column if not exists default_locale text not null default 'ar';
+alter table site_settings add column if not exists locale_fallback boolean not null default true;
+
+alter table site_settings drop constraint if exists site_settings_default_locale_check;
+alter table site_settings add constraint site_settings_default_locale_check
+  check (default_locale in ('ar', 'en', 'both'));
+
+-- Seeded ONCE, with the links the footer used to hard-code, at the moment the
+-- column is added — so a re-run never brings back a link an admin deleted.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'site_settings' and column_name = 'social_links'
+  ) then
+    alter table site_settings add column social_links jsonb not null default '[]'::jsonb;
+    update site_settings set social_links = '[
+      {"key": "x",         "url": "https://x.com/Alromaihcars"},
+      {"key": "facebook",  "url": "https://www.facebook.com/alromaihcars"},
+      {"key": "youtube",   "url": "https://www.youtube.com/@alromaihcar"},
+      {"key": "instagram", "url": "https://www.instagram.com/alromaihcars/"},
+      {"key": "tiktok",    "url": "https://www.tiktok.com/@alromaihcars"}
+    ]'::jsonb;
+  end if;
+end $$;
+
+notify pgrst, 'reload schema';

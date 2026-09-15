@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 import { getViewer } from '@/marketplace/auth/session';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -13,11 +16,11 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
  */
 export const instant = false;
 
-export const metadata = {
-  title: 'Sell on Alromaih',
-  description:
-    'List your cars on Alromaih Marketplace. Open your showroom in minutes and reach buyers across Saudi Arabia.',
-};
+/** Managed on Admin → Website content → Pages SEO (defaults in lib/sitePages.js). */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('sell', locale);
+}
 
 /**
  * The page that turns a visitor into a seller.
@@ -41,7 +44,8 @@ export default async function SellPage({ params }) {
   const isAr = locale === 'ar';
   const t = (ar, en) => (isAr ? ar : en);
 
-  const viewer = await getViewer();
+  const [viewer, site] = await Promise.all([getViewer(), getSiteSettings()]);
+  const siteName = isAr ? site.name.ar : site.name.en;
 
   // A showroom that exists but is suspended or rejected is not "already
   // selling" — those people belong on the status page, which explains why.
@@ -122,6 +126,7 @@ export default async function SellPage({ params }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:py-16">
+      <SeoJsonLd pageKey="sell" locale={locale} />
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div className="text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 px-3 py-1 text-xs font-medium text-brand-primary">
@@ -130,7 +135,7 @@ export default async function SellPage({ params }) {
         </span>
 
         <h1 className="mx-auto mt-5 max-w-3xl text-3xl font-bold leading-tight text-brand-primary sm:text-4xl md:text-5xl">
-          {t('بِع سياراتك على سوق الرميح', 'Sell your cars on Alromaih Marketplace')}
+          {t(`بِع سياراتك على ${siteName}`, `Sell your cars on ${siteName}`)}
         </h1>
 
         <p className="mx-auto mt-4 max-w-2xl text-base text-gray-600 sm:text-lg dark:text-gray-400">

@@ -7,6 +7,7 @@ import { getBrandBySlug, getBrandsIndex } from '@/marketplace/db/queries/cars';
 import { getCarsFacets } from '../../cars/_apicalls/carsPageApi';
 import CarsBrowse from '../../cars/_components/CarsBrowse';
 import ModelTrimBar from './_components/ModelTrimBar';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 /**
  * One make's page: its logo and stock, then the full browse grid scoped to it.
@@ -34,7 +35,11 @@ import ModelTrimBar from './_components/ModelTrimBar';
 export async function generateMetadata({ params }) {
   const { slug, locale } = await params;
   const isAr = locale === 'ar';
-  const brand = await getBrandBySlug(slug, locale).catch(() => null);
+  const [brand, site] = await Promise.all([
+    getBrandBySlug(slug, locale).catch(() => null),
+    getSiteSettings(),
+  ]);
+  const siteName = isAr ? site.name.ar : site.name.en;
 
   if (!brand) {
     return {
@@ -48,8 +53,8 @@ export async function generateMetadata({ params }) {
   return {
     title: isAr ? `سيارات ${name}` : `${name} Cars`,
     description: isAr
-      ? `تصفّح ${brand.count} من سيارات ${name} المعروضة في سوق الرميح من معارض موثوقة، بأسعار واضحة ومواصفات كاملة.`
-      : `Browse ${brand.count} ${name} ${brand.count === 1 ? 'car' : 'cars'} listed on Alromaih Marketplace by verified showrooms, with clear pricing and full specifications.`,
+      ? `تصفّح ${brand.count} من سيارات ${name} المعروضة في ${siteName} من معارض موثوقة، بأسعار واضحة ومواصفات كاملة.`
+      : `Browse ${brand.count} ${name} ${brand.count === 1 ? 'car' : 'cars'} listed on ${siteName} by verified showrooms, with clear pricing and full specifications.`,
     alternates: { canonical: `/${locale}/marketplace/brands/${slug}` },
     // noindex until real inventory replaces the seeded demo cars.
     robots: { index: false, follow: false },

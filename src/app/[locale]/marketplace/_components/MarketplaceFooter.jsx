@@ -2,10 +2,19 @@
  * Marketplace footer. Server component — nothing here is interactive, so it
  * costs zero client JS. Mirrors the main site's footer structure (link columns,
  * social row, payment strip, legal bar) without importing it.
+ *
+ * The logo, name, tagline and contact details come from Admin → Settings
+ * (a cached read).
  */
 
 import Link from "next/link";
 import Image from "next/image";
+import {
+  Mail, Phone, Globe, Ghost, Link as LinkIcon, MessageCircle, Send, MapPin, Store, Star,
+  Image as ImageIcon, Video, FileText,
+} from "lucide-react";
+import { getSiteSettings } from "@/marketplace/db/queries/site";
+import { socialLinksOf } from "@/marketplace/lib/social";
 
 const SOCIAL = [
   { href: "https://x.com/Alromaihcars", src: "/images/Twitter.svg", label: "X" },
@@ -43,6 +52,7 @@ const COLUMNS = [
   {
     ar: "المساعدة", en: "Help",
     links: [
+      { ar: "من نحن", en: "About Us", href: "/marketplace/about" },
       { ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
       { ar: "مركز المساعدة", en: "Help Centre", href: "/marketplace/help" },
       { ar: "حماية المشتري", en: "Buyer Protection", href: "/marketplace/buyer-protection" },
@@ -51,10 +61,38 @@ const COLUMNS = [
   },
 ];
 
-export default function MarketplaceFooter({ locale = "ar" }) {
+/** The closed icon set a custom link may wear (lib/social.ts), plus the two platforms with no SVG. */
+const MARKS = {
+  link: LinkIcon, globe: Globe, ghost: Ghost, "message-circle": MessageCircle, send: Send,
+  phone: Phone, mail: Mail, "map-pin": MapPin, store: Store, star: Star, image: ImageIcon,
+  video: Video, "file-text": FileText,
+};
+
+function LucideMark({ name }) {
+  const Icon = MARKS[name] ?? LinkIcon;
+  return (
+    <Icon
+      aria-hidden="true"
+      className="h-[17px] w-[17px] text-brand-primary transition-colors duration-300 group-hover/social:text-brand-dark dark:text-brand-on-dark dark:group-hover/social:text-white"
+    />
+  );
+}
+
+export default async function MarketplaceFooter({ locale = "ar" }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const year = 2026;
+
+  const site = await getSiteSettings();
+  const siteName = isAr ? site.name.ar : site.name.en;
+  const tagline = isAr ? site.tagline.ar : site.tagline.en;
+  const svgLogo = /\.svg($|\?)/i.test(site.logoUrl);
+
+  // Admin → Settings → Contact & links: the same list a showroom keeps. The
+  // built-in links are only used until that column exists.
+  const socials = site.socialLinks
+    ? socialLinksOf({ social_links: site.socialLinks }, locale)
+    : SOCIAL.map((s) => ({ key: s.label, label: s.label, href: s.href, icon: s.src, lucide: null }));
 
   return (
     <footer
@@ -67,25 +105,44 @@ export default function MarketplaceFooter({ locale = "ar" }) {
           <div className="col-span-2 md:col-span-1">
             <div className="relative h-[52px] w-[180px]">
               <Image
-                src="/alromaih/new logo.png"
-                alt="Alromaih"
+                src={site.logoUrl}
+                alt={siteName}
                 fill
                 sizes="180px"
-                className="object-contain"
+                className="object-contain object-start"
                 loading="lazy"
+                unoptimized={svgLogo}
               />
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-              {t(
-                "سوق الرميح — بيع واشترِ السيارات من معارض موثوقة في السعودية.",
-                "Alromaih Marketplace — buy and sell cars through trusted showrooms across Saudi Arabia."
-              )}
+              {tagline}
             </p>
 
+            {site.contactEmail || site.contactPhone ? (
+              <ul className="mt-4 space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+                {site.contactEmail ? (
+                  <li>
+                    <a href={`mailto:${site.contactEmail}`} className="inline-flex items-center gap-2 hover:text-brand-primary">
+                      <Mail className="h-4 w-4" />
+                      <span dir="ltr">{site.contactEmail}</span>
+                    </a>
+                  </li>
+                ) : null}
+                {site.contactPhone ? (
+                  <li>
+                    <a href={`tel:${site.contactPhone.replace(/\s+/g, "")}`} className="inline-flex items-center gap-2 hover:text-brand-primary">
+                      <Phone className="h-4 w-4" />
+                      <span dir="ltr">{site.contactPhone}</span>
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
+            ) : null}
+
             <div className="mt-6 flex items-center gap-2.5">
-              {SOCIAL.map((s) => (
+              {socials.map((s, i) => (
                 <Link
-                  key={s.label}
+                  key={`${s.key}-${i}`}
                   href={s.href}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -110,12 +167,13 @@ export default function MarketplaceFooter({ locale = "ar" }) {
                     the link's aria-label where it belongs — the icon is now
                     decoration and the link is the thing being labelled.
                   */}
+                  {s.icon ? (
                   <span
                     aria-hidden="true"
                     className="block h-[17px] w-[17px] bg-brand-primary transition-colors duration-300 group-hover/social:bg-brand-dark dark:bg-brand-on-dark dark:group-hover/social:bg-white"
                     style={{
-                      maskImage: `url(${s.src})`,
-                      WebkitMaskImage: `url(${s.src})`,
+                      maskImage: `url(${s.icon})`,
+                      WebkitMaskImage: `url(${s.icon})`,
                       maskSize: "contain",
                       WebkitMaskSize: "contain",
                       maskRepeat: "no-repeat",
@@ -124,6 +182,9 @@ export default function MarketplaceFooter({ locale = "ar" }) {
                       WebkitMaskPosition: "center",
                     }}
                   />
+                  ) : (
+                    <LucideMark name={s.lucide} />
+                  )}
                 </Link>
               ))}
             </div>
@@ -179,7 +240,7 @@ export default function MarketplaceFooter({ locale = "ar" }) {
       <div className="border-t border-brand-primary/10 bg-brand-primary/[0.04] dark:border-white/10 dark:bg-white/[0.03]">
         <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:px-8 lg:px-20 xl:px-28">
           <p>
-            © {year} {t("شركة الرميح للسيارات. جميع الحقوق محفوظة.", "Alromaih Cars. All rights reserved.")}
+            © {year} {siteName}. {t("جميع الحقوق محفوظة.", "All rights reserved.")}
           </p>
           <div className="flex items-center gap-5">
             <Link href={`/${locale}/privacy-policy`} className="transition-colors hover:text-brand-primary">

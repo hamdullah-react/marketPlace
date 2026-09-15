@@ -234,6 +234,27 @@ export const ERRORS = {
     en: 'This boost is running and cannot be deleted. The platform team can end it first.',
   },
   BOOST_PRICE_INVALID: { ar: 'أدخل سعراً صحيحاً', en: 'Enter a valid price' },
+
+  // ── website content ──
+  SITE_SETUP: {
+    ar: 'محتوى الموقع غير مفعّل بعد. شغّل قسم WEBSITE CONTENT في schema.sql.',
+    en: 'Website content is not set up yet. Run the WEBSITE CONTENT section of schema.sql.',
+  },
+  SITE_NAME_REQUIRED: { ar: 'أدخل اسم التطبيق بلغة واحدة على الأقل', en: 'Enter the app name in at least one language' },
+  INVALID_URL: { ar: 'أدخل رابطاً صحيحاً يبدأ بـ https://', en: 'Enter a valid link starting with https://' },
+  INVALID_EMAIL: { ar: 'أدخل بريداً إلكترونياً صحيحاً', en: 'Enter a valid email address' },
+  SLIDE_IMAGE_REQUIRED: { ar: 'ارفع صورة للشريحة', en: 'Upload an image for the slide' },
+  SLIDE_TITLE_REQUIRED: { ar: 'أدخل عنوان الشريحة بلغة واحدة على الأقل', en: 'Enter the slide title in at least one language' },
+  HERO_INTERVAL_INVALID: { ar: 'اختر مدة بين ٢ و٣٠ ثانية', en: 'Choose between 2 and 30 seconds' },
+  LANG_DEFAULT_DISABLE: {
+    ar: 'لا يمكن إيقاف اللغة الافتراضية. اختر لغة افتراضية أخرى أولاً.',
+    en: 'The default language cannot be switched off. Make another language the default first.',
+  },
+  LANG_LAST_ENABLED: { ar: 'يجب أن تبقى لغة واحدة مفعّلة على الأقل', en: 'At least one language has to stay on' },
+  SEO_JSON_INVALID: { ar: 'البيانات المنظمة ليست JSON صحيحاً', en: 'The structured data is not valid JSON' },
+  SEO_PRIORITY_INVALID: { ar: 'اختر أولوية بين ٠ و١', en: 'Choose a priority between 0 and 1' },
+  PAGE_UNKNOWN: { ar: 'هذه الصفحة غير موجودة', en: 'That page does not exist' },
+  CONTENT_INVALID: { ar: 'تعذّر قراءة المحتوى. أعد المحاولة.', en: 'Could not read the content. Please try again.' },
 };
 
 /**

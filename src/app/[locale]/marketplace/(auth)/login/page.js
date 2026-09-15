@@ -1,13 +1,17 @@
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import AuthForm from '../_components/AuthForm';
+import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 
-export const metadata = {
-  title: 'Login',
-  // An auth page has nothing to rank for, and a sign-in form in the index is a
-  // phishing lookalike waiting to be cited.
-  robots: { index: false, follow: false },
-};
+/**
+ * Managed on Pages SEO. noindex by default: an auth page has nothing to rank
+ * for, and a sign-in form in the index is a phishing lookalike waiting to be
+ * cited.
+ */
+export async function generateMetadata({ params }) {
+  const { locale } = await params;
+  return pageMetadata('login', locale);
+}
 
 export default async function LoginPage({ params, searchParams }) {
   const { locale } = await params;

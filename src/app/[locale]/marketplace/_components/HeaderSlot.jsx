@@ -1,6 +1,7 @@
 import { getViewer } from '@/marketplace/auth/session';
 import { getNavData } from '@/marketplace/db/queries/cars';
 import { getSavedCount } from '@/marketplace/db/queries/account';
+import { getSiteLanguages, getSiteSettings } from '@/marketplace/db/queries/site';
 import MarketplaceHeader from './MarketplaceHeader';
 
 /**
@@ -33,9 +34,12 @@ export default async function HeaderSlot({ locale = 'ar' }) {
    * never a header that fails — getNavData already swallows its own errors,
    * and .catch here covers the rest.
    */
-  const [viewer, nav] = await Promise.all([
+  // The brand and languages come from Admin → Settings; both reads are cached.
+  const [viewer, nav, site, langs] = await Promise.all([
     getViewer(),
     getNavData().catch(() => ({ brands: [], offerCount: 0 })),
+    getSiteSettings(),
+    getSiteLanguages(),
   ]);
 
   /**
@@ -59,6 +63,12 @@ export default async function HeaderSlot({ locale = 'ar' }) {
       locale={locale}
       offerCount={nav.offerCount}
       savedCount={savedCount}
+      brand={{
+        name: locale === 'en' ? site.name.en : site.name.ar,
+        logoUrl: site.logoUrl,
+        logoDarkUrl: site.logoDarkUrl,
+      }}
+      languages={langs.enabled}
       viewer={
         viewer
           ? {

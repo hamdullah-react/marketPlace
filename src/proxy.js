@@ -151,6 +151,49 @@ async function marketplaceSession(request, pathname, locale) {
   return { jar };
 }
 
+/**
+ * ── The languages an admin has switched on (Admin → Settings) ─────────────
+ *
+ * Read from the public site_languages table with the anon key and kept for a
+ * minute per server instance, so this is one small request a minute rather
+ * than one per page. Fails OPEN: no table, no network, no configuration — every
+ * language stays reachable, exactly as before the setting existed.
+ */
+const LANGUAGE_TTL_MS = 60_000;
+let languageCache = { at: 0, value: null };
+
+async function languagePolicy() {
+  const url = process.env.NEXT_PUBLIC_MARKETPLACE_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_MARKETPLACE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+
+  if (Date.now() - languageCache.at < LANGUAGE_TTL_MS) return languageCache.value;
+
+  let value = null;
+  try {
+    const res = await fetch(`${url}/rest/v1/site_languages?select=code,enabled,is_default`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(1500),
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      const enabled = rows.filter((r) => r.enabled && (r.code === 'ar' || r.code === 'en')).map((r) => r.code);
+      if (enabled.length) {
+        value = { enabled, defaultLocale: rows.find((r) => r.is_default && r.enabled)?.code ?? enabled[0] };
+      }
+    }
+  } catch {
+    value = null;
+  }
+
+  languageCache = { at: Date.now(), value };
+  return value;
+}
+
+/** Staff areas keep both languages whatever the public site offers. */
+const LANGUAGE_EXEMPT = ['/marketplace/admin', '/marketplace/seller', '/marketplace/auth/', '/marketplace/logout'];
+
 /** Carries a refreshed token onto whichever response is going back. */
 function withCookies(response, jar) {
   for (const { name, value, options } of jar) response.cookies.set(name, value, options);
@@ -175,7 +218,23 @@ export default async function proxy(request) {
    * costs no render at all and never reaches that check.
    */
   if (pathname === '/' || pathname === '/ar' || pathname === '/en') {
-    return NextResponse.redirect(`${origin}/${locale}/marketplace`, { status: 307 });
+    // A bare `/` goes to the admin's default language; `/ar` or `/en` keep
+    // theirs unless that language is switched off.
+    const policy = await languagePolicy();
+    const asked = pathname === '/' ? null : locale;
+    const target = asked && (!policy || policy.enabled.includes(asked)) ? asked : policy?.defaultLocale ?? locale;
+    return NextResponse.redirect(`${origin}/${target}/marketplace`, { status: 307 });
+  }
+
+  // A public page in a language the admin switched off → the same page in the
+  // default language.
+  if (MARKETPLACE_PATH.test(pathname) && !LANGUAGE_EXEMPT.some((p) => pathname.includes(p))) {
+    const policy = await languagePolicy();
+    if (policy && !policy.enabled.includes(locale)) {
+      const moved = request.nextUrl.clone();
+      moved.pathname = pathname.replace(/^\/(en|ar)/, `/${policy.defaultLocale}`);
+      return NextResponse.redirect(moved, { status: 307 });
+    }
   }
 
   // The marketplace's Supabase session. Its refreshed cookies ride along on
