@@ -54,6 +54,11 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { SHARED_BUCKET } from '@/marketplace/media/bucket';
 import { vendorForAction } from '@/marketplace/auth/session';
 import { MANIFEST, TEMPLATES } from '@/marketplace/catalog-templates/templates';
+// Car images are not generated into templates.js: they are photos copied into
+// each showroom's own library, not catalog rows. See carImagesTemplate.js.
+import {
+  CAR_IMAGES_KEY, carImagesManifest, installCarImages, removeCarImages,
+} from '@/marketplace/media/carImagesTemplate';
 
 const ASSETS = path.join(process.cwd(), 'public', 'catalog-templates');
 // The SHARED bucket, on purpose. Template artwork backs catalog rows that
@@ -211,7 +216,8 @@ function readTemplate(key) {
 
 /** The manifest, plus how many rows of each template are currently installed. */
 export async function getTemplates(vendorId = null) {
-  const manifest = MANIFEST;
+  const carImages = carImagesManifest();
+  const manifest = carImages ? [...MANIFEST, carImages] : MANIFEST;
 
   const db = getMarketplaceDb();
 
@@ -303,6 +309,18 @@ export async function installTemplate(prevState, formData) {
   if (denied) return { ok: false, error: denied, errors: {}, token: Date.now() };
 
   const key = String(formData.get('template') ?? '');
+
+  if (key === CAR_IMAGES_KEY) {
+    try {
+      const result = await installCarImages(getMarketplaceDb(), vendorId);
+      if (!result.ok) return bad(result.error);
+      bumpMedia();
+      return ok({ added: 0, linked: 0, photos: result.photos, folders: result.folders });
+    } catch (err) {
+      return bad(err.message);
+    }
+  }
+
   const tpl = await readTemplate(key);
   if (!tpl) return bad('UNKNOWN_TEMPLATE');
 
@@ -671,6 +689,14 @@ export async function removeTemplate(prevState, formData) {
   if (denied) return { ok: false, error: denied, errors: {}, token: Date.now() };
 
   const key = String(formData.get('template') ?? '');
+
+  if (key === CAR_IMAGES_KEY) {
+    const result = await removeCarImages(getMarketplaceDb(), vendorId);
+    if (!result.ok) return bad(result.error);
+    bumpMedia();
+    return ok({ removed: result.removed, inUse: result.inUse, files: result.files, keptShared: 0, photos: true });
+  }
+
   const tpl = await readTemplate(key);
   if (!tpl) return bad('UNKNOWN_TEMPLATE');
 
@@ -869,6 +895,12 @@ async function deleteOrphanedImages(db, table, imageColumns, urls) {
   }
 
   return deleted;
+}
+
+/** The car-images template changes the media library, not the catalog. */
+function bumpMedia() {
+  revalidatePath('/[locale]/marketplace/seller/media', 'page');
+  revalidatePath('/[locale]/marketplace/seller/catalog', 'page');
 }
 
 /** Everything that reads the catalog. Same list as catalog-crud's own bump(). */

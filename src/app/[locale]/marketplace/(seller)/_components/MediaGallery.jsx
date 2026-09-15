@@ -20,7 +20,7 @@
  * variants rather than re-uploaded each time.
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "react";
 import {
   Upload, Trash2, Check, Loader2, ImageIcon, AlertCircle, X,
   FolderPlus, Folder, Pencil, Eye, FolderInput, ExternalLink,
@@ -31,6 +31,7 @@ import {
   mediaChanged, createMediaFolder, renameMediaFolder, deleteMediaFolder,
   moveMediaToFolder, copyMediaToFolder, listMediaFolders,
 } from "../_actions/media";
+import { subscribeMedia, getMediaVersion, getServerMediaVersion } from "./mediaStore";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -66,6 +67,32 @@ const KINDS = [
   // two are picked in completely different places.
   { value: "logo", ar: "الشعارات", en: "Logos" },
 ];
+
+/**
+ * Every file in the library, from the API a page at a time — null on failure.
+ *
+ * The route answers at most 200 per request, and one request is what this used
+ * to make: after a Car images install the gallery reloaded 200 of 400-odd
+ * photos. Shared template artwork comes back on every page, hence the Map.
+ */
+async function fetchAllMedia(vendorId) {
+  const PAGE = 200;
+  const byId = new Map();
+
+  for (let offset = 0; offset < 5000; offset += PAGE) {
+    const query = new URLSearchParams({ vendor: vendorId, limit: String(PAGE), offset: String(offset) });
+    const res = await fetch(`/api/marketplace/media?${query}`, { cache: "no-store" });
+    const json = await res.json();
+    const items = Array.isArray(json?.data) ? json.data : json?.data?.items;
+    if (!json?.ok || !Array.isArray(items)) return null;
+
+    const before = byId.size;
+    for (const item of items) if (!byId.has(item.id)) byId.set(item.id, item);
+    const total = Number(json.data?.total);
+    if ((Number.isFinite(total) && byId.size >= total) || byId.size === before) break;
+  }
+  return [...byId.values()];
+}
 
 export default function MediaGallery({
   locale = "ar",
@@ -144,20 +171,76 @@ export default function MediaGallery({
   const [deleting, setDeleting] = useState(null);
   const inputRef = useRef(null);
 
+  /* Files this gallery uploaded or copied itself, since it mounted. */
+  const addedHere = useRef(new Set());
+
   /**
-   * Merge, do not replace.
+   * Merge, do not replace — but only keep what was ADDED here.
    *
    * A straight `setAssets(initialAssets)` threw away everything uploaded since
    * the page loaded the moment the parent re-rendered — the server list has no
-   * knowledge of a file uploaded thirty seconds ago. Locally-added rows are
-   * kept and the server's copy wins on id.
+   * knowledge of a file uploaded thirty seconds ago. So those rows are kept and
+   * the server's copy wins on id.
+   *
+   * It used to keep EVERY row the server did not send, which is also every row
+   * that was deleted elsewhere: removing the Car images template left its
+   * photos on screen, because to this merge a photo missing from the server
+   * looked exactly like one uploaded a moment ago.
    */
   useEffect(() => {
     setAssets((prev) => {
       const seen = new Set(initialAssets.map((a) => a.id));
-      return [...initialAssets, ...prev.filter((a) => !seen.has(a.id))];
+      return [
+        ...initialAssets,
+        ...prev.filter((a) => !seen.has(a.id) && addedHere.current.has(a.id)),
+      ];
     });
   }, [initialAssets]);
+
+  /**
+   * Read the library again when something else changed it.
+   *
+   * Installing or removing a template publishes to mediaStore; so does another
+   * tab. The photos AND the folders are re-read and replace what is here, since
+   * the server is now the only one that knows — an install creates the
+   * Exterior and Interior folders, which this gallery otherwise never asks for
+   * again.
+   *
+   * Compared with the version last LOADED, not the one at the last render. A
+   * Media page kept alive by the router runs this again when it is shown, sees
+   * a newer version and catches up. The version is only recorded once the read
+   * succeeds, so a read cut short (the page hidden again, a failed request) is
+   * retried next time instead of being marked done.
+   */
+  const mediaVersion = useSyncExternalStore(subscribeMedia, getMediaVersion, getServerMediaVersion);
+  const loadedVersion = useRef(mediaVersion);
+
+  useEffect(() => {
+    if (!vendorId || mediaVersion === loadedVersion.current) return undefined;
+
+    let alive = true;
+
+    Promise.all([fetchAllMedia(vendorId), listMediaFolders(vendorId)])
+      .then(([items, shelves]) => {
+        if (!alive) return;
+
+        if (items) {
+          setAssets(items);
+          addedHere.current.clear();
+        }
+
+        if (shelves?.ok) {
+          setFolders(shelves.folders);
+          // A removed template can take the open folder with it.
+          setFolderId((open) => (open && !shelves.folders.some((f) => f.id === open) ? null : open));
+        }
+
+        loadedVersion.current = mediaVersion;
+      })
+      .catch(() => {});
+
+    return () => { alive = false; };
+  }, [mediaVersion, vendorId]);
 
   /**
    * A picker gets the same shelves as the library page.
@@ -252,6 +335,7 @@ export default function MediaGallery({
           const json = await res.json();
 
           if (json?.ok && json.data?.asset) {
+            addedHere.current.add(json.data.asset.id);
             setAssets((prev) => [json.data.asset, ...prev]);
           } else {
             setErrors((e) => [...e, `${file.name}: ${json?.error?.message ?? t("فشل الرفع", "Upload failed")}`]);
@@ -383,6 +467,7 @@ export default function MediaGallery({
 
     if (fileMode === "copy") {
       // The new file is put at the front, where a just-uploaded one goes.
+      addedHere.current.add(res.asset.id);
       setAssets((prev) => [res.asset, ...prev]);
       return;
     }

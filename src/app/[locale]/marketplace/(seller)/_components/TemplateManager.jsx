@@ -20,6 +20,7 @@
 import { useState } from "react";
 import { useActionResult } from "./useActionResult";
 import { installTemplate, removeTemplate } from "../_actions/catalog-templates";
+import { publishMediaChange } from "./mediaStore";
 import {
   Download, Trash2, Check, Loader2, AlertCircle, PackageOpen, Info,
 } from "lucide-react";
@@ -36,15 +37,45 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
   // is a support ticket nobody can reconstruct.
   const [busy, setBusy] = useState(null);
 
+  /* Every install and removal can change the media library — Car images copies
+     photos into it, Brands brings its logos — so each success tells the open
+     galleries to read it again. See mediaStore.js. */
   const install = useActionResult(installTemplate, { ok: false, error: null }, {
     onAny: () => setBusy(null),
+    onSuccess: () => publishMediaChange(),
   });
   const remove = useActionResult(removeTemplate, { ok: false, error: null }, {
     onAny: () => setBusy(null),
+    onSuccess: () => publishMediaChange(),
   });
 
   const card =
     "rounded-xl border bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#161616]";
+
+  /* The car-images template copies photos rather than adding rows, so it
+     reports in photos and folders. */
+  const photos = install.result?.ok ? install.result.photos : null;
+  const photoMessage = photos
+    ? t(
+        `نُسخت ${photos.exterior} صورة خارجية و${photos.interior} صورة داخلية إلى مكتبة الوسائط في مجلدي «Exterior» و«Interior»` +
+          (photos.skipped ? `، و${photos.skipped} صورة كانت لديك مسبقاً` : "") +
+          (photos.failed ? `، وتعذّر نسخ ${photos.failed}` : "") +
+          ".",
+        `Copied ${photos.exterior} exterior and ${photos.interior} interior photos into your media library, in the Exterior and Interior folders` +
+          (photos.skipped ? `. ${photos.skipped} were already there` : "") +
+          (photos.failed ? `. ${photos.failed} could not be copied` : "") +
+          "."
+      )
+    : remove.result?.ok && remove.result.photos
+      ? t(
+          `حُذفت ${remove.result.removed} صورة من مكتبة الوسائط` +
+            (remove.result.inUse ? `، وبقيت ${remove.result.inUse} صورة تستخدمها إعلاناتك` : "") +
+            ".",
+          `Deleted ${remove.result.removed} photos from your media library` +
+            (remove.result.inUse ? `. ${remove.result.inUse} are used by your listings and were kept` : "") +
+            "."
+        )
+      : null;
 
   /**
    * `added` and `linked` are different facts and both belong in the sentence.
@@ -54,7 +85,7 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
    * `added` would tell that second seller "Installed 0 rows" about an install
    * that worked perfectly and filled their catalog.
    */
-  const message = install.result?.ok
+  const message = photoMessage ?? (install.result?.ok
     ? t(
         `أُضيف ${install.result.added} صف إلى كتالوجك` +
           (install.result.linked ? `، ورُبط ${install.result.linked} صف موجود مسبقاً` : "") +
@@ -80,7 +111,7 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
             (remove.result.keptShared ? `. ${remove.result.keptShared} are used by another showroom and stay on the platform.` : "") +
             (remove.result.inUse ? ` ${remove.result.inUse} are in use by your listings and were left alone.` : ".")
         )
-      : null;
+      : null);
 
   const error = install.result?.ok === false && install.result?.error
     ? install.result.error
@@ -165,10 +196,15 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
                   <p className="mt-1 text-xs text-muted-foreground">
                     {localized(tpl.description, locale)}
                   </p>
+                  {tpl.note ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground/80">
+                      {localized(tpl.note, locale)}
+                    </p>
+                  ) : null}
                 </div>
 
                 <span className="shrink-0 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium tabular-nums text-gray-600 dark:bg-white/5 dark:text-gray-400">
-                  {tpl.count} {t("صف", "rows")}
+                  {tpl.count} {tpl.unit === "images" ? t("صورة", "images") : t("صف", "rows")}
                 </span>
               </div>
 
@@ -185,7 +221,9 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
 
               {isInstalled ? (
                 <p className="mt-3 text-[11px] tabular-nums text-muted-foreground">
-                  {t(`${tpl.installed} صف من هذا القالب في الكتالوج.`, `${tpl.installed} rows from this template are in your catalog.`)}
+                  {tpl.unit === "images"
+                    ? t(`${tpl.installed} صورة من هذا القالب في مكتبة الوسائط.`, `${tpl.installed} photos from this template are in your media library.`)
+                    : t(`${tpl.installed} صف من هذا القالب في الكتالوج.`, `${tpl.installed} rows from this template are in your catalog.`)}
                 </p>
               ) : null}
 
@@ -229,10 +267,15 @@ export default function TemplateManager({ locale = "ar", templates = [], vendorI
 
               {isInstalled ? (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {t(
-                    "الإزالة تخرج صفوف هذا القالب من كتالوجك، وتترك أي صف تستخدمه إعلاناتك أو يشاركه بائع آخر.",
-                    "Remove takes this template's rows out of your catalog, and leaves anything your listings use or another showroom shares."
-                  )}
+                  {tpl.unit === "images"
+                    ? t(
+                        "الإزالة تحذف نسختك من هذه الصور، وتترك أي صورة تستخدمها إعلاناتك. صور البائعين الآخرين لا تتأثر.",
+                        "Remove deletes your copies of these photos, except any your listings use. Other showrooms' copies are not affected."
+                      )
+                    : t(
+                        "الإزالة تخرج صفوف هذا القالب من كتالوجك، وتترك أي صف تستخدمه إعلاناتك أو يشاركه بائع آخر.",
+                        "Remove takes this template's rows out of your catalog, and leaves anything your listings use or another showroom shares."
+                      )}
                 </p>
               ) : null}
             </div>

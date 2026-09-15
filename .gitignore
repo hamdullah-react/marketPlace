@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# car-images template: Openverse search results cached between build runs
+/src/marketplace/db/.car-images-search-cache.json
+# …and the downloads, which are only staging for publish-car-images-template.cjs.
+# The compressed master set lives in Supabase (marketplace-media/templates/car-images).
+/public/catalog-templates/car-images/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

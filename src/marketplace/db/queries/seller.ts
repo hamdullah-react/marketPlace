@@ -145,6 +145,24 @@ export async function getVendorOptions() {
   const { data, error } = await query;
 
   if (error) throw new Error(`getVendorOptions: ${error.message}`);
+
+  /**
+   * A staff member's OWN showrooms first.
+   *
+   * Staff get every approved showroom, sorted by name, and every seller page
+   * opens on `vendors[0]` when the URL names none. So an admin who also owns a
+   * showroom opened Catalog, Media and Templates on whichever showroom's name
+   * came first alphabetically — someone else's — and Install wrote into it,
+   * because staff may act for any showroom. The data was never shared, but
+   * from that dashboard it looked exactly as if it were.
+   *
+   * Their own come first, still in name order; everyone else's follow, still
+   * reachable with ?vendor=. Staff who own none see the list as before.
+   */
+  if (viewer.isStaff && viewer.vendorIds.length) {
+    const own = new Set(viewer.vendorIds);
+    return [...(data ?? [])].sort((a, b) => Number(own.has(b.id)) - Number(own.has(a.id)));
+  }
   return data ?? [];
 }
 
