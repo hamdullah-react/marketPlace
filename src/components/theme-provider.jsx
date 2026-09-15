@@ -16,10 +16,25 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes';
  * colours by reading `theme` in JS, which meant it could not be styled until
  * the client mounted. It uses `dark:` variants now, which is the same decision
  * made in the stylesheet where it costs nothing.
+ *
+ * scriptProps: next-themes renders an inline <script> that sets the class
+ * before paint. The server HTML needs it; a client render does not, and React
+ * 19 logs "Encountered a script tag while rendering React component" when one
+ * renders there. It does render there whenever the [locale] root layout
+ * re-renders, which is every language switch. On the client the script gets a
+ * non-executable type, which React does not warn about. next-themes already
+ * sets suppressHydrationWarning on it, so the type difference is silent.
  */
+const scriptProps = typeof window === 'undefined' ? undefined : { type: 'application/json' };
+
 export function ThemeProvider({ children }) {
   return (
-    <NextThemesProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem={false}
+      scriptProps={scriptProps}
+    >
       {children}
     </NextThemesProvider>
   );
