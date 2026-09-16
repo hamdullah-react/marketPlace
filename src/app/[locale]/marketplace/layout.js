@@ -1,5 +1,6 @@
 import '@/marketplace/styles/marketplace.css';
 import { setRequestLocale } from 'next-intl/server';
+import NavProgress from './_components/NavProgress';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
 import { absoluteUrl } from '@/marketplace/seo/pageMetadata';
@@ -80,5 +81,17 @@ export async function generateMetadata({ params }) {
 export default async function MarketplaceLayout({ children, params }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  return children;
+
+  /**
+   * A FRAGMENT, not a wrapper — see the note above: a <div> here collapses the
+   * dashboard's flex chain. NavProgress renders a `fixed` element that takes
+   * part in no layout, so it is safe as a sibling and covers every marketplace
+   * page at once: browse, account, seller and admin.
+   */
+  return (
+    <>
+      <NavProgress />
+      {children}
+    </>
+  );
 }
