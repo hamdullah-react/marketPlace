@@ -750,9 +750,15 @@ export default async function VendorPage({ params, searchParams }) {
         ) : null}
 
         {/* `end-3`, not `right-3` — a logical inset flips itself in Arabic,
-            which is this page's reading direction half the time. */}
+            which is this page's reading direction half the time.
+
+            TOP, not bottom. The identity block below is pulled up over the
+            banner's lower edge (-mt-12) and is positioned, so it paints above
+            the banner — at bottom-3 the pencil was visible but every click
+            landed on that block's invisible box. z-10 as well, so no later
+            positioned sibling can cover it again. */}
         {canEdit ? (
-          <div className="absolute bottom-3 end-3">
+          <div className="absolute top-3 end-3 z-10">
             <PhotoEditButton
               locale={locale}
               vendorId={vendor.id}
