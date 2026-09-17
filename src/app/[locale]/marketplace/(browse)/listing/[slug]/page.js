@@ -502,7 +502,7 @@ async function Related({ slug, locale, t }) {
   return (
     <section className="mt-14">
       <h2 className="text-lg font-semibold text-brand-primary">{t('سيارات مشابهة', 'Similar cars')}</h2>
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
         {related.map((r) => (
           <ListingCard
             key={r.id}

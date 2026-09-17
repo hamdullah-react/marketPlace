@@ -563,7 +563,7 @@ export default function MarketplaceHeader({
               </nav>
 
               {/* ── Right actions ─────────────────────────────────────── */}
-              <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+              <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
                 <button
                   type="button"
                   onClick={() => {

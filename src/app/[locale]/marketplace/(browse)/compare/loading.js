@@ -56,7 +56,7 @@ export default function CompareLoading() {
             a URL the page has not parsed yet), so it draws two — the commonest
             comparison, and the fewest that can be one.
             ---------------------------------------------------------------- */}
-        <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-2">
+        <div className="mx-auto grid max-w-2xl grid-cols-2 gap-3 md:gap-6">
           {[0, 1].map((i) => (
             <ListingCardSkeleton key={i} />
           ))}

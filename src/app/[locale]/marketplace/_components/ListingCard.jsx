@@ -310,7 +310,7 @@ export default function ListingCard({
         />
       ) : null}
 
-    <div className="car-card raised-card group relative z-10 flex h-full w-full flex-col overflow-hidden rounded-[22px] transition-transform duration-500 hover:-translate-y-1 md:rounded-[26px]">
+    <div className="car-card raised-card group relative z-10 flex h-full w-full flex-col overflow-hidden rounded-2xl transition-transform duration-500 hover:-translate-y-1 sm:rounded-[22px] md:rounded-[26px]">
 
       {listing.image ? (
         /* eslint-disable-next-line @next/next/no-img-element */
@@ -345,134 +345,142 @@ export default function ListingCard({
         href={href}
         prefetch={false}
         title={isEnglish ? "View details" : "عرض التفاصيل"}
-        className="raised absolute end-3 top-3 z-30 flex h-7 w-7 items-center justify-center rounded-full md:h-8 md:w-8"
+        className="raised absolute end-2 top-2.5 z-30 flex h-6 w-6 items-center justify-center rounded-full sm:end-3 sm:top-4 sm:h-7 sm:w-7 md:h-8 md:w-8"
       >
-        <Arrow className="h-3.5 w-3.5 transition-transform duration-300 group-hover:scale-110 md:h-4 md:w-4" />
+        <Arrow className="h-3 w-3 sm:h-3.5 sm:w-3.5 transition-transform duration-300 group-hover:scale-110 md:h-4 md:w-4" />
         <span className="sr-only">{isEnglish ? "View details" : "عرض التفاصيل"}</span>
       </Link>
       )}
 
-      <div className="absolute start-4 top-4 z-30 flex items-center gap-1.5">
-        {rank ? (
-          <span
-            aria-label={isEnglish ? `Rank ${rank}` : `المرتبة ${rank}`}
-            className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold shadow-sm md:text-[11px] ${
-              rank === 1
-                ? "bg-brand-gold text-[#2a2100]"
-                : rank === 2
-                  ? "bg-[#D9DEE3] text-gray-800"
-                  : rank === 3
-                    ? "bg-[#E3A76F] text-[#3a1f05]"
-                    : "bg-brand-primary text-white"
-            }`}
-          >
-            #{rank}
-          </span>
-        ) : null}
-        {listing.isFeatured ? (
-          /* Promoted placement is labelled, always — a featured car must not
-             look like it earned the top of the grid on its own. */
-          <span className="rounded-full bg-[#06170E] px-2 py-0.5 text-[9px] font-bold text-brand-gold shadow-sm md:text-[10px]">
-            {isEnglish ? "Featured" : "مميز"}
-          </span>
-        ) : null}
+      {/* ── Header ───────────────────────────────────────────────────────
+          ONE column, top to bottom, at every width: badges, brand and vendor,
+          name, year and mileage, price.
 
-        {listing.offer?.label ? (
-          /* GOLD, not the brand green. The offer is the one thing on the card
-             that is not a fact about the car, and giving it the brand colour
-             made it read as chrome. Gold is what the palette reserves for a
-             deal — and it is the only place the second half of "green and
-             gold" appears, which is what stops the theme being green alone. */
-          <span className="rounded-full bg-brand-gold px-2 py-0.5 text-[9px] font-bold text-[#2a2100] shadow-sm md:text-[10px]">
-            {listing.offer.label}
-            {listing.offer.percent ? ` · ${listing.offer.percent}%` : ""}
-          </span>
-        ) : listing.discountPercent ? (
-          <span className="rounded-full bg-brand-gold px-2 py-0.5 text-[9px] font-bold text-[#2a2100] shadow-sm md:text-[10px]">
-            {isEnglish ? `Save ${listing.discountPercent}%` : `وفّر ${listing.discountPercent}%`}
-          </span>
-        ) : null}
+          The badges used to float absolutely over a fixed pt-14 gap, and the
+          price sat beside the name. Both only held while the card was wide: a
+          two-up phone grid wraps "Featured · Save 10% · New" onto a second
+          line the fixed gap knew nothing about, so it ran into the vendor
+          line, and the name was squeezed to a few characters beside the price
+          — on a four-column desktop row too. In the flow, a badge row that
+          wraps simply pushes everything under it down.
 
-        {condition ? (
-          <span
-            className={`rounded-full px-2 py-0.5 text-[9px] font-bold shadow-sm md:text-[10px] ${
-              condition.isNew
-                ? "bg-brand-primary text-white"
-                : "bg-white/90 text-gray-700 dark:bg-white/15 dark:text-gray-200"
-            }`}
-          >
-            {condition.label}
-          </span>
-        ) : null}
-      </div>
+          pe-9 keeps the badges clear of the corner arrow. */}
+      <div className="relative z-20 flex flex-col px-2.5 pt-2.5 sm:px-4 sm:pt-4 md:px-5">
+        {rank || listing.isFeatured || listing.offer?.label || listing.discountPercent || condition ? (
+          <div className="mb-1.5 flex min-h-6 min-w-0 flex-nowrap items-center gap-0.5 overflow-hidden pe-8 sm:mb-2 sm:min-h-7 sm:gap-1 sm:pe-10">
+            {rank ? (
+              <span
+                aria-label={isEnglish ? `Rank ${rank}` : `المرتبة ${rank}`}
+                className={`flex h-3.5 min-w-3.5 shrink-0 items-center justify-center rounded-full px-1 text-[7px] font-extrabold shadow-sm sm:h-4 sm:min-w-4 sm:text-[8px] md:h-5 md:min-w-5 md:text-[9px] ${
+                  rank === 1
+                    ? "bg-brand-gold text-[#2a2100]"
+                    : rank === 2
+                      ? "bg-[#D9DEE3] text-gray-800"
+                      : rank === 3
+                        ? "bg-[#E3A76F] text-[#3a1f05]"
+                        : "bg-brand-primary text-white"
+                }`}
+              >
+                #{rank}
+              </span>
+            ) : null}
+            {listing.isFeatured ? (
+              /* Promoted placement is labelled, always — a featured car must
+                 not look like it earned the top of the grid on its own. */
+              <span className="rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] shrink-0 bg-[#06170E] text-brand-gold">
+                {isEnglish ? "Featured" : "مميز"}
+              </span>
+            ) : null}
+            {listing.offer?.label ? (
+              /* GOLD: the one thing on the card that is a deal rather than a
+                 fact about the car. */
+              <span className="rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] min-w-0 truncate bg-brand-gold text-[#2a2100]">
+                {listing.offer.label}
+                {listing.offer.percent ? ` · ${listing.offer.percent}%` : ""}
+              </span>
+            ) : listing.discountPercent ? (
+              <span className="rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] shrink-0 bg-brand-gold text-[#2a2100]">
+                {isEnglish ? `Save ${listing.discountPercent}%` : `وفّر ${listing.discountPercent}%`}
+              </span>
+            ) : null}
+            {condition ? (
+              <span
+                className={`rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] shrink-0 ${
+                  condition.isNew
+                    ? "bg-brand-primary text-white"
+                    : "bg-white/90 text-gray-700 dark:bg-white/15 dark:text-gray-200"
+                }`}
+              >
+                {condition.label}
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          /* No badges: the arrow still needs its row, or the name runs under it. */
+          <div className="mb-1.5 h-6 sm:mb-2 sm:h-7" />
+        )}
 
-      {/* ── Header: what it is, and what it costs ────────────────────────
-          The reference pairs these on one line, and it is the right pairing —
-          a buyer scanning a grid is answering "which car, how much" and the
-          old card made them travel past a photo to get the second half.
+        {/* ── Identity and price, side by side ─────────────────────────────
+            The layout the live site shipped with: what the car is on the lead
+            edge, what it costs on the trailing one, so "which car, how much"
+            is one glance. On a phone the whole card is set a size smaller
+            rather than restacked — that is what keeps it the same card in a
+            two-up grid. */}
+        <div className="flex items-start justify-between gap-1.5 sm:gap-2.5 md:gap-3">
+          <div className="min-w-0 flex-1">
+            {listing.vendor || listing.brand ? (
+              <div className="mb-0.5 flex min-w-0 items-center gap-1 sm:mb-1 sm:gap-2">
+                {listing.brand ? (
+                  <span className="flex h-3 shrink-0 items-center sm:h-3.5 md:h-4">
+                    {listing.brand.logo ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={listing.brand.logo}
+                        alt={listing.brand.name ?? ""}
+                        loading="lazy"
+                        className="max-h-3 w-auto max-w-7 object-contain sm:max-h-3.5 sm:max-w-10 md:max-h-4 md:max-w-12"
+                      />
+                    ) : (
+                      <span className="max-w-12 truncate text-[7px] font-bold uppercase tracking-wide text-brand-primary/70 dark:text-brand-on-dark/70 sm:max-w-none sm:text-[9px]">
+                        {listing.brand.name}
+                      </span>
+                    )}
+                  </span>
+                ) : null}
+                {listing.vendor ? (
+                  <p className="min-w-0 truncate text-[7px] text-gray-500 dark:text-gray-400 sm:text-[9px] md:text-[10px]">
+                    {listing.vendor.name}
+                    {listing.vendor.verified ? <span className="text-brand-primary"> ✓</span> : null}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
-          pt-12 leaves the badge row its own airspace, so a name never has to
-          share a line with a "Save 10%" pill. */}
-      <div className="relative z-20 flex items-start justify-between gap-2.5 px-4 pt-14 md:gap-3 md:px-5">
-        <div className="min-w-0 flex-1">
-          {/* Vendor and brand on one line — both were separate bands before,
-              and neither ever needed a full row of its own. */}
-          {listing.vendor || listing.brand ? (
-            <div className="mb-1 flex min-w-0 items-center gap-2">
-              {listing.brand ? (
-                <span className="flex h-3.5 shrink-0 items-center md:h-4">
-                  {listing.brand.logo ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={listing.brand.logo}
-                      alt={listing.brand.name ?? ""}
-                      loading="lazy"
-                      className="max-h-3.5 w-auto max-w-10 object-contain md:max-h-4 md:max-w-12"
-                    />
-                  ) : (
-                    <span className="whitespace-nowrap text-[9px] font-bold uppercase tracking-wide text-brand-primary/70 dark:text-brand-on-dark/70">
-                      {listing.brand.name}
-                    </span>
-                  )}
-                </span>
-              ) : null}
-              {listing.vendor ? (
-                <p className="truncate text-[9px] text-gray-500 dark:text-gray-400 md:text-[10px]">
-                  {listing.vendor.name}
-                  {listing.vendor.verified ? <span className="text-brand-primary"> ✓</span> : null}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+            <h2
+              title={listing.title}
+              className="truncate text-[9px] font-bold leading-snug tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-brand-primary dark:text-neutral-50 dark:group-hover:text-white sm:text-[12px] md:text-[13px]"
+            >
+              <CardLink compact={compact} href={href}>
+                {listing.title}
+              </CardLink>
+            </h2>
 
-          <h2 className="line-clamp-2 wrap-break-word text-[13px] font-bold leading-snug tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-brand-primary dark:text-neutral-50 dark:group-hover:text-white md:text-[15px]">
-            <CardLink compact={compact} href={href}>
-              {listing.title}
-            </CardLink>
-          </h2>
+            {/* Year and mileage, with "Cash price" saying which price this is. */}
+            <p className="mt-0.5 truncate text-[7px] text-gray-500 dark:text-gray-400 sm:text-[9px] md:text-[10px]">
+              {[...meta, isEnglish ? "Cash price" : "سعر الكاش"].join(" · ")}
+            </p>
+          </div>
 
-          {/* The identity line, and the "Cash Price" caption folded into it.
-              The caption was a whole row saying one word about the number two
-              rows below it; beside the year and the mileage it costs nothing
-              and still says which price this is. */}
-          <p className="mt-0.5 truncate text-[9px] text-gray-500 dark:text-gray-400 md:text-[10px]">
-            {[...meta, isEnglish ? "Cash price" : "سعر الكاش"].join(" · ")}
-          </p>
-        </div>
-
-        {/* Price + the way in. */}
-        <div className="flex shrink-0 items-center gap-2 md:gap-2.5">
-          <div className="text-end">
-            <div className="text-[13px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 md:text-sm">
+          <div className="shrink-0 text-end">
+            <div className="whitespace-nowrap text-[10px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:text-[13px] md:text-sm">
               {listing.priceLabel}
             </div>
             {listing.compareAtLabel ? (
-              <div className="text-[9px] text-gray-500 line-through tabular-nums dark:text-gray-400 md:text-[10px]">
+              <div className="whitespace-nowrap text-[7px] text-gray-500 line-through tabular-nums dark:text-gray-400 sm:text-[9px] md:text-[10px]">
                 {listing.compareAtLabel}
               </div>
             ) : null}
           </div>
-
         </div>
       </div>
 
@@ -481,11 +489,11 @@ export default function ListingCard({
           with the spec strip for the eye on a card this dense, and on a small
           tile it read as a rendering artefact rather than as texture.
           ------------------------------------------------------------- */}
-      <div className="relative mt-1.5 px-3 pb-1 md:mt-2">
+      <div className="relative mt-1.5 px-2 pb-1 sm:mt-2 sm:px-3">
         <CardLink
           compact={compact}
           href={href}
-          className="relative z-10 block h-[130px] w-full transition-transform duration-500 group-hover:scale-105 md:h-[160px]"
+          className="relative z-10 block h-[96px] w-full sm:h-[130px] transition-transform duration-500 group-hover:scale-105 md:h-[160px]"
         >
           {listing.image ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -511,10 +519,10 @@ export default function ListingCard({
             in the DOM, so a compact card inside the compare picker really did
             nest <button> in <button>. Not rendered at all now. */}
         {compact ? null : (
-        <div className="absolute end-3 top-0 z-20 flex flex-col gap-1">
+        <div className="absolute end-2 top-0 z-20 flex flex-col gap-1 sm:end-3">
           <button
             onClick={toggleFavorite}
-            className="raised flex h-8 w-8 items-center justify-center rounded-full md:h-9 md:w-9"
+            className="raised flex h-6 w-6 items-center justify-center rounded-full sm:h-8 sm:w-8 md:h-9 md:w-9"
             aria-label={
               isFavorite
                 ? isEnglish ? "Remove from wishlist" : "إزالة من المفضلة"
@@ -522,7 +530,7 @@ export default function ListingCard({
             }
           >
             <Heart
-              className={`h-4 w-4 transition-all duration-300 md:h-[18px] md:w-[18px] ${
+              className={`h-3 w-3 sm:h-4 sm:w-4 transition-all duration-300 md:h-[18px] md:w-[18px] ${
                 isFavorite ? "scale-110 fill-brand-primary text-brand-primary" : "text-brand-primary"
               }`}
             />
@@ -584,7 +592,7 @@ export default function ListingCard({
                states the button is REPORTING, and `raised` is the resting look
                every other control wears. A ticked compare that looked like the
                heart beside it would say nothing. */
-            className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300 md:h-9 md:w-9 ${
+            className={`relative flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-300 md:h-9 md:w-9 ${
               compareFull
                 ? "bg-red-50 shadow-sm ring-2 ring-red-400 dark:bg-red-950/40"
                 : inCompare
@@ -598,7 +606,7 @@ export default function ListingCard({
                 recolour an image's pixels. A stroke icon inherits the button's
                 colour and costs no request; the asset is deleted. */}
             <ArrowLeftRight
-              className={`h-4 w-4 shrink-0 text-brand-primary transition-transform duration-300 dark:text-brand-on-dark ${
+              className={`h-3 w-3 sm:h-4 sm:w-4 shrink-0 text-brand-primary transition-transform duration-300 dark:text-brand-on-dark ${
                 inCompare ? "scale-110" : ""
               }`}
             />
@@ -612,15 +620,15 @@ export default function ListingCard({
         )}
 
         {listing.city ? (
-          <div className="absolute bottom-0 start-3 z-20">
-            <div className="raised rounded-full px-2 py-0.5 text-[9px] font-bold md:text-[10px]">
+          <div className="absolute bottom-0 start-2 z-20 max-w-[60%] sm:start-3">
+            <div className="raised truncate rounded-full px-1.5 py-px text-[7px] font-bold sm:px-2 sm:py-0.5 sm:text-[9px] md:text-[10px]">
               {listing.city}
             </div>
           </div>
         ) : null}
 
         {showViews ? (
-          <div className="absolute bottom-0 end-3 z-20">
+          <div className="absolute bottom-0 end-2 z-20 sm:end-3">
             <div
               className="raised flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold tabular-nums md:text-[10px]"
               title={isEnglish ? "People who viewed this car" : "عدد من شاهد هذه السيارة"}
@@ -648,49 +656,49 @@ export default function ListingCard({
           instead of leaving a gap where a fourth never arrives.
           ------------------------------------------------------------- */}
       {facts.length > 0 ? (
+        /* One row, value over label, hairlines between — the live layout.
+
+           Three columns at most on a phone: a fourth in a two-up card leaves
+           each value about 30px, which is how "Gasoline" and "Dual-Clutch
+           (DCT)" ended up drawn over each other. The fourth comes back from
+           sm. Values that still do not fit are cut with an ellipsis and keep
+           the full text as a tooltip. */
         <div
-          className={`relative z-20 mt-auto grid px-3 pb-4 pt-1.5 md:px-4 ${
+          className={`relative z-20 mt-auto grid px-1.5 pb-2.5 pt-1 sm:px-3 sm:pb-4 sm:pt-1.5 md:px-4 ${
             facts.length === 1
               ? "grid-cols-1"
               : facts.length === 2
                 ? "grid-cols-2"
                 : facts.length === 3
                   ? "grid-cols-3"
-                  : "grid-cols-4"
+                  : "grid-cols-3 sm:grid-cols-4"
           }`}
         >
           {facts.map((f, i) => (
             <div
               key={f.label}
-              className={`flex min-w-0 flex-col items-center justify-start px-1 text-center ${
-                i > 0 ? "border-s border-black/10 dark:border-white/10" : ""
-              }`}
+              title={`${f.label}: ${f.value}`}
+              className={`min-w-0 flex-col items-center justify-start px-0.5 text-center sm:px-1 ${
+                i === 3 ? "hidden sm:flex" : "flex"
+              } ${i > 0 ? "border-s border-black/10 dark:border-white/10" : ""}`}
             >
-              <div className="flex min-w-0 items-center gap-1">
-                {/*
-                  The kind's icon, straight from car_attribute_kinds.icon_url.
-
-                  NO fallback glyph. A generic placeholder on a kind nobody has
-                  given artwork to looks like a real icon that happens to be
-                  wrong, and it hides the gap from the only person who can close
-                  it. Inline beside the value now rather than on a row of its
-                  own, so a card whose specs have no artwork is simply a tidy
-                  row of numbers instead of a row of empty boxes.
-                */}
+              <div className="flex w-full min-w-0 items-center justify-center gap-0.5 sm:gap-1">
+                {/* No fallback glyph: a spec without artwork shows its value
+                    alone rather than a generic icon that looks wrong. */}
                 {f.icon ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={f.icon}
                     alt=""
                     loading="lazy"
-                    className="h-3 w-3 shrink-0 object-contain opacity-70 md:h-3.5 md:w-3.5"
+                    className="h-2.5 w-2.5 shrink-0 object-contain opacity-70 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5"
                   />
                 ) : null}
-                <span className="truncate text-[10px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 md:text-[11px]">
+                <span className="truncate text-[8px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:text-[10px] md:text-[11px]">
                   {f.value}
                 </span>
               </div>
-              <span className="mt-px line-clamp-1 text-[8px] leading-tight text-gray-500 dark:text-gray-400 md:text-[9px]">
+              <span className="mt-px w-full truncate text-[6px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[8px] md:text-[9px]">
                 {f.label}
               </span>
             </div>

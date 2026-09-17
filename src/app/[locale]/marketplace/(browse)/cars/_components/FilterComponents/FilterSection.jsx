@@ -38,7 +38,7 @@ export default function FilterSection({
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
       <div className="raised-card overflow-hidden rounded-xl">
-        <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+        <CollapsibleTrigger className="flex w-full items-center justify-between px-2.5 py-2 transition-colors sm:px-3 sm:py-2.5 hover:bg-gray-50 dark:hover:bg-white/5">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="shrink-0 rounded-[5px] bg-brand-primary/10 p-1.5">
               {iconSrc ? (
@@ -53,7 +53,7 @@ export default function FilterSection({
             </div>
 
             <div className="flex flex-col items-start">
-              <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</span>
+              <span className="truncate text-xs font-semibold text-gray-900 sm:text-sm dark:text-gray-100">{title}</span>
               {selectedCount > 0 ? (
                 <span className="text-[11px] font-medium text-brand-primary">
                   {selectedCount} {isAr ? "محدد" : "selected"}
@@ -70,7 +70,7 @@ export default function FilterSection({
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="p-3 pt-1">{children}</div>
+          <div className="p-2.5 pt-1 sm:p-3 sm:pt-1">{children}</div>
         </CollapsibleContent>
       </div>
     </Collapsible>

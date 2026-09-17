@@ -390,7 +390,10 @@ export default function CompareTable({
         ) : null}
       </div>
 
-      {/* ── Mobile: one card at a time, with the next one peeking ──────────── */}
+      {/* ── Mobile: two cards side by side, the rest a swipe away ──────────
+          Two at a time, like every other car grid on a phone — comparing is
+          reading two cars against each other, and one-at-a-time made the
+          buyer swipe back and forth to do it. */}
       <div className="block md:hidden">
         <Carousel
           setApi={setCarouselApi}
@@ -403,9 +406,12 @@ export default function CompareTable({
               computed margin — which of them wins is stylesheet order, not
               class order, so the gutter would be whatever Tailwind happened to
               emit last. The built-in 1rem gutter is the one that is defined. */}
-          <CarouselContent>
+          {/* py-2 inside the track: Embla's viewport is overflow-hidden, and
+              flush against it the card's rounded foot and shadow were sliced
+              off along the bottom edge. */}
+          <CarouselContent className="pb-6 pt-2">
             {cars.map((car) => (
-              <CarouselItem key={car.id} className="basis-[80%] sm:basis-[70%]">
+              <CarouselItem key={car.id} className="basis-1/2">
                 <div className="relative">
                   <ListingCard
                     listing={car}
@@ -413,7 +419,7 @@ export default function CompareTable({
                     cardSpecs={car.cardSpecs ?? []}
                     compact
                   />
-                  {removeButton(car, "top-2 start-2 p-2.5")}
+                  {removeButton(car, "top-2 end-2 p-1")}
                   {removingOverlay(car)}
                 </div>
               </CarouselItem>
@@ -479,7 +485,7 @@ export default function CompareTable({
               cardSpecs={car.cardSpecs ?? []}
               compact
             />
-            {removeButton(car, "top-3 start-3 p-2")}
+            {removeButton(car, "top-3 end-3 p-2")}
             {removingOverlay(car)}
 
             {/* Only between a PAIR. With three cars the badge would have to sit
@@ -784,9 +790,12 @@ export default function CompareTable({
           </DialogHeader>
 
           {/* ── Find it ──────────────────────────────────────────────────── */}
-          <div className="flex flex-wrap items-center gap-2 border-b pb-3 dark:border-white/10">
-            <div className="relative min-w-0 flex-1 basis-64">
-              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {/* Phone: the search on its own row, the two dropdowns sharing the next
+              one half and half, the count under them. They were a 10rem box
+              each wrapping onto rows of their own beside empty space. */}
+          <div className="grid grid-cols-2 items-center gap-2 border-b pb-3 dark:border-white/10 sm:flex sm:flex-wrap">
+            <div className="relative col-span-2 min-w-0 sm:flex-1 sm:basis-64">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground sm:h-4 sm:w-4" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -799,7 +808,7 @@ export default function CompareTable({
                 brand in the list is not a filter, it is a label. */}
             {brands.length > 1 ? (
               <Select value={brand} onValueChange={setBrand}>
-                <SelectTrigger className="w-[10rem]">
+                <SelectTrigger className="w-full min-w-0 text-xs sm:w-[10rem] sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent dir={isAr ? "rtl" : "ltr"}>
@@ -813,7 +822,7 @@ export default function CompareTable({
 
             {cities.length > 1 ? (
               <Select value={city} onValueChange={setCity}>
-                <SelectTrigger className="w-[10rem]">
+                <SelectTrigger className="w-full min-w-0 text-xs sm:w-[10rem] sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent dir={isAr ? "rtl" : "ltr"}>
@@ -825,16 +834,18 @@ export default function CompareTable({
               </Select>
             ) : null}
 
-            <span className="text-xs text-muted-foreground">
-              {t(`${shown.length} سيارة`, `${shown.length} car${shown.length === 1 ? "" : "s"}`)}
-            </span>
+            <div className="col-span-2 flex items-center justify-between gap-2 sm:contents">
+              <span className="text-xs text-muted-foreground">
+                {t(`${shown.length} سيارة`, `${shown.length} car${shown.length === 1 ? "" : "s"}`)}
+              </span>
 
-            {filtered ? (
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
-                <X className="h-3.5 w-3.5" />
-                {t("مسح", "Clear")}
-              </Button>
-            ) : null}
+              {filtered ? (
+                <Button variant="ghost" size="sm" onClick={resetFilters} className="h-7 px-2 sm:h-9 sm:px-3">
+                  <X className="h-3.5 w-3.5" />
+                  {t("مسح", "Clear")}
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {/* The real card, so a car looks the same here as it does in the grid
@@ -846,7 +857,7 @@ export default function CompareTable({
               designed at, and a chooser whose cards are too small to read is
               not a faster chooser — the search box above is what makes a long
               list quick. */}
-          <div className="grid min-h-0 flex-1 auto-rows-max gap-3 overflow-y-auto px-1 py-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid min-h-0 flex-1 auto-rows-max grid-cols-2 gap-2 overflow-y-auto px-1.5 pb-4 pt-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
             {shown.map((car) => (
               <button
                 key={car.id}

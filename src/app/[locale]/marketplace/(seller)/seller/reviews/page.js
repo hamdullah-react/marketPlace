@@ -64,17 +64,31 @@ export default async function SellerReviewsPage({ params, searchParams }) {
           </p>
         </div>
 
+        {/* ONE loading step. These sections had a boundary each and finished at
+            different moments, so the page filled in piece by piece and read as
+            loading more than once. One boundary swaps every skeleton for the
+            finished page together. */}
+        <Suspense
+          fallback={
+            <>
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<SummarySkeleton />}>
-            <Summary searchParams={searchParams} locale={locale} t={t} />
-          </Suspense>
+          <SummarySkeleton />
         </div>
 
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<ListSkeleton />}>
-            <List searchParams={searchParams} locale={locale} t={t} />
-          </Suspense>
+          <ListSkeleton />
         </div>
+            </>
+          }
+        >
+        <div className="px-4 lg:px-6">
+          <Summary searchParams={searchParams} locale={locale} t={t} />
+        </div>
+
+        <div className="px-4 lg:px-6">
+          <List searchParams={searchParams} locale={locale} t={t} />
+        </div>
+        </Suspense>
       </div>
     </div>
   );

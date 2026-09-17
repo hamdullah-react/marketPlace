@@ -208,11 +208,13 @@ export default function HeroFilter({ facets, locale = "ar" }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="hero-filter-panel"
-        className="raised flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold sm:hidden"
+        /* A compact pill centred over the photo, not a full-width bar — on a
+           phone the bar was the largest thing in the hero after the picture. */
+        className="raised mx-auto flex w-fit items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold sm:hidden"
       >
-        <SlidersHorizontal className="h-4 w-4" />
+        <SlidersHorizontal className="h-3.5 w-3.5" />
         {t("الفلاتر", "Filter")}
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       <form
@@ -278,7 +280,11 @@ export default function HeroFilter({ facets, locale = "ar" }) {
  */
 export function HeroFilterSkeleton() {
   return (
-    <div className={CARD}>
+    <>
+    {/* The phone gets the pill, as the real control does, so the hero does not
+        jump from a whole panel to a small button when it arrives. */}
+    <div className="mx-auto h-[30px] w-24 animate-pulse rounded-full bg-white/70 sm:hidden dark:bg-white/10" />
+    <div className={`hidden sm:block ${CARD}`}>
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5 lg:items-end">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className={i === 4 ? "col-span-2 lg:col-span-1" : ""}>
@@ -288,5 +294,6 @@ export function HeroFilterSkeleton() {
         ))}
       </div>
     </div>
+    </>
   );
 }

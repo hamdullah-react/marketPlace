@@ -49,12 +49,22 @@ export default async function VendorsPage({ params, searchParams }) {
         </p>
       </div>
 
-      <Suspense fallback={<CityBarSkeleton />}>
-        <CityBar searchParams={searchParams} locale={locale} t={t} />
-      </Suspense>
+      {/* ONE loading step. These sections had a boundary each and finished at
+          different moments, so the page filled in piece by piece and read as
+          loading more than once. One boundary swaps every skeleton for the
+          finished page together. */}
+      <Suspense
+        fallback={
+          <>
+      <CityBarSkeleton />
 
-      <Suspense fallback={<GridSkeleton />}>
-        <Grid searchParams={searchParams} locale={locale} t={t} />
+      <GridSkeleton />
+          </>
+        }
+      >
+      <CityBar searchParams={searchParams} locale={locale} t={t} />
+
+      <Grid searchParams={searchParams} locale={locale} t={t} />
       </Suspense>
     </div>
   );
@@ -178,7 +188,7 @@ async function Grid({ searchParams, locale, t }) {
 
   return (
     <>
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-3">
         {items.map((v) => (
           <Link
             key={v.id}
@@ -187,44 +197,44 @@ async function Grid({ searchParams, locale, t }) {
           >
             {/* The banner doubles as the card's colour. A showroom without one
                 keeps the same footprint, so rows never change height. */}
-            <div className="relative h-24 bg-linear-to-br from-brand-primary/10 to-brand-light/30 dark:from-[#1c1420] dark:to-[#221a26]">
+            <div className="relative h-16 bg-linear-to-br sm:h-24 from-brand-primary/10 to-brand-light/30 dark:from-[#1c1420] dark:to-[#221a26]">
               {v.banner_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={v.banner_url} alt="" loading="lazy" className="h-full w-full object-cover" />
               ) : null}
             </div>
 
-            <div className="p-4">
-              <div className="-mt-10 mb-2 flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border-2 border-white bg-white shadow-xs dark:border-[#161616] dark:bg-[#252525]">
+            <div className="p-2.5 sm:p-4">
+              <div className="-mt-7 mb-1.5 flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border-2 sm:-mt-10 sm:mb-2 sm:h-14 sm:w-14 sm:rounded-xl border-white bg-white shadow-xs dark:border-[#161616] dark:bg-[#252525]">
                 {v.logo_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={v.logo_url} alt="" loading="lazy" className="h-full w-full object-contain" />
                 ) : (
-                  <Store className="h-6 w-6 text-brand-primary" />
+                  <Store className="h-4 w-4 text-brand-primary sm:h-6 sm:w-6" />
                 )}
               </div>
 
-              <h2 className="flex items-center gap-1.5 font-semibold text-brand-primary">
+              <h2 className="flex min-w-0 items-center gap-1 text-xs font-semibold text-brand-primary sm:gap-1.5 sm:text-base">
                 <span className="truncate">{localized(v.name, locale)}</span>
                 {v.verified ? (
-                  <BadgeCheck className="h-4 w-4 shrink-0 text-blue-500" aria-label={t('موثّق', 'Verified')} />
+                  <BadgeCheck className="h-3 w-3 shrink-0 text-blue-500 sm:h-4 sm:w-4" aria-label={t('موثّق', 'Verified')} />
                 ) : null}
               </h2>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-gray-500 sm:mt-1.5 sm:gap-x-3 sm:gap-y-1 sm:text-xs dark:text-gray-400">
                 {v.city ? (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />
+                  <span className="flex min-w-0 items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
                     {v.city}
                   </span>
                 ) : null}
                 <span className="flex items-center gap-1 tabular-nums">
-                  <Car className="h-3.5 w-3.5" />
+                  <Car className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   {counts.get(v.id) ?? 0} {t('سيارة', 'cars')}
                 </span>
                 {v.rating_count > 0 ? (
                   <span className="flex items-center gap-1 tabular-nums">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400 sm:h-3.5 sm:w-3.5" />
                     {Number(v.rating_avg).toFixed(1)}
                   </span>
                 ) : null}
@@ -271,13 +281,13 @@ async function Grid({ searchParams, locale, t }) {
 
 function GridSkeleton() {
   return (
-    <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-3">
       {Array.from({ length: 6 }, (_, i) => (
         <div key={i} className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10">
-          <Skeleton className="h-24 rounded-none" />
-          <div className="p-4">
-            <Skeleton className="-mt-10 mb-2 h-14 w-14 rounded-xl" />
-            <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-16 rounded-none sm:h-24" />
+          <div className="p-2.5 sm:p-4">
+            <Skeleton className="-mt-7 mb-1.5 h-10 w-10 rounded-lg sm:-mt-10 sm:mb-2 sm:h-14 sm:w-14 sm:rounded-xl" />
+            <Skeleton className="h-4 w-2/3 sm:h-5" />
             <Skeleton className="mt-2 h-3 w-1/2" />
           </div>
         </div>

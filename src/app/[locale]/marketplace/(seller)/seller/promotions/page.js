@@ -81,18 +81,33 @@ export default async function SellerPromotionsPage({ params, searchParams }) {
           ))}
         </div>
 
+        {/* ONE loading step. These sections had a boundary each and finished at
+            different moments, so the page filled in piece by piece and read as
+            loading more than once. One boundary swaps every skeleton for the
+            finished page together. */}
+        <Suspense
+          fallback={
+            <>
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<Skeleton className="h-72 w-full rounded-xl" />}>
-            <RequestSection searchParams={searchParams} locale={locale} />
-          </Suspense>
+          <Skeleton className="h-72 w-full rounded-xl" />
         </div>
 
         <div className="px-4 lg:px-6">
           <h2 className="mb-3 font-semibold text-brand-primary">{t('طلباتك', 'Your requests')}</h2>
-          <Suspense fallback={<TableSkeleton rows={4} cols={5} />}>
-            <HistorySection searchParams={searchParams} locale={locale} />
-          </Suspense>
+          <TableSkeleton rows={4} cols={5} />
         </div>
+            </>
+          }
+        >
+        <div className="px-4 lg:px-6">
+          <RequestSection searchParams={searchParams} locale={locale} />
+        </div>
+
+        <div className="px-4 lg:px-6">
+          <h2 className="mb-3 font-semibold text-brand-primary">{t('طلباتك', 'Your requests')}</h2>
+          <HistorySection searchParams={searchParams} locale={locale} />
+        </div>
+        </Suspense>
       </div>
     </div>
   );

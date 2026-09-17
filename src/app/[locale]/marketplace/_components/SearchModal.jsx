@@ -288,17 +288,17 @@ export default function SearchModal({ open, onClose, locale = "ar" }) {
           {brands.length === 0 ? (
             /* Chip-shaped, and the same 3rem-high row they will land in, so
                nothing under them jumps when they do. */
-            <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
+            <div className="scrollbar-hide -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 sm:gap-2">
               {[72, 92, 64, 80, 88].map((w, i) => (
                 <div
                   key={i}
                   style={{ width: w }}
-                  className="h-[30px] shrink-0 animate-pulse rounded-full bg-brand-primary/10 dark:bg-white/10"
+                  className="h-[26px] shrink-0 animate-pulse sm:h-[30px] rounded-full bg-brand-primary/10 dark:bg-white/10"
                 />
               ))}
             </div>
           ) : (
-            <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
+            <div className="scrollbar-hide -mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 sm:gap-2">
               <button
                 type="button"
                 onClick={() => pickBrand("")}
@@ -315,14 +315,14 @@ export default function SearchModal({ open, onClose, locale = "ar" }) {
           )}
 
           <form onSubmit={submit} className="relative">
-            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-primary" />
+            <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-primary sm:start-3 sm:h-4 sm:w-4" />
             <input
               ref={inputRef}
               type="text"
               value={term}
               onChange={(e) => onType(e.target.value)}
               placeholder={t("ابحث عن سيارة، ماركة أو موديل...", "Search a car, brand or model...")}
-              className="h-11 w-full rounded-xl border-2 border-gray-200 bg-white ps-10 pe-10 text-sm text-gray-900 outline-hidden transition-shadow placeholder:text-gray-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 dark:border-white/10 dark:bg-[#111] dark:text-gray-100"
+              className="h-8 w-full rounded-lg border border-gray-200 bg-white ps-8 pe-8 text-xs text-gray-900 outline-hidden transition-shadow placeholder:text-gray-400 focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20 sm:h-11 sm:rounded-xl sm:border-2 sm:ps-10 sm:pe-10 sm:text-sm sm:focus:ring-2 dark:border-white/10 dark:bg-[#111] dark:text-gray-100"
             />
             {loading ? (
               <Loader2 className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-primary" />
@@ -466,7 +466,7 @@ function RowSkeleton({ count = 3 }) {
  * re-renders on every keystroke by design.
  */
 function chip(active) {
-  return `shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+  return `shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors sm:px-3 sm:py-1.5 sm:text-xs ${
     active
       ? "border-brand-primary bg-brand-primary text-white"
       : "border-gray-200 bg-white text-gray-700 hover:border-brand-primary hover:text-brand-primary dark:border-white/10 dark:bg-[#1a1a1a] dark:text-gray-300"

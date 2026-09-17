@@ -92,6 +92,27 @@ export default async function MarketplaceHomePage({ params }) {
   const site = await getSiteSettings();
   const siteName = isAr ? site.name.ar : site.name.en;
 
+  /**
+   * ONE loading step for the whole page.
+   *
+   * The filter, Featured, Most viewed, the vendors and the sell-panel car each
+   * had their own boundary and arrived one after another — measured on a phone
+   * as five separate reveals over several seconds, so the home page looked like
+   * it loaded again and again. The layout is now drawn twice from one function:
+   * once with skeletons as the fallback, once with the data, so the skeleton is
+   * replaced a single time by the finished page.
+   *
+   * The hero photograph keeps its own invisible boundary (fallback null) in
+   * both: it is the background, and the dark hero is already the placeholder.
+   */
+  return (
+    <Suspense fallback={<HomeLayout skeleton locale={locale} isAr={isAr} t={t} siteName={siteName} />}>
+      <HomeLayout locale={locale} isAr={isAr} t={t} siteName={siteName} />
+    </Suspense>
+  );
+}
+
+function HomeLayout({ skeleton = false, locale, isAr, t, siteName }) {
   return (
     <main className="pb-24">
       <SeoJsonLd pageKey="home" locale={locale} />
@@ -166,9 +187,7 @@ export default async function MarketplaceHomePage({ params }) {
               listed, which is a database read, and the headline above must not
               wait for it. */}
           <div className="pointer-events-auto mx-auto mt-auto w-full max-w-5xl pt-16 sm:pt-24">
-            <Suspense fallback={<HeroFilterSkeleton />}>
-              <HeroFilterSlot locale={locale} />
-            </Suspense>
+            {skeleton ? <HeroFilterSkeleton /> : <HeroFilterSlot locale={locale} />}
           </div>
 
           {/* Static, so they paint with the hero — a visitor who already knows
@@ -205,9 +224,7 @@ export default async function MarketplaceHomePage({ params }) {
             linkLabel={t('عرض الكل', 'View all')}
             isAr={isAr}
           />
-          <Suspense fallback={<ListingCardGridSkeleton count={4} columns={4} />}>
-            <FeaturedGrid locale={locale} />
-          </Suspense>
+          {skeleton ? <ListingCardGridSkeleton count={4} columns={4} /> : <FeaturedGrid locale={locale} />}
         </section>
 
         {/* ── Most viewed — ordered by the real view counter ─────────────── */}
@@ -226,9 +243,7 @@ export default async function MarketplaceHomePage({ params }) {
                 linkLabel={t('عرض الكل', 'View all')}
                 isAr={isAr}
               />
-              <Suspense fallback={<ListingCardGridSkeleton count={4} columns={4} />}>
-                <MostViewedGrid locale={locale} />
-              </Suspense>
+              {skeleton ? <ListingCardGridSkeleton count={4} columns={4} /> : <MostViewedGrid locale={locale} />}
             </div>
           </div>
         </section>
@@ -242,9 +257,7 @@ export default async function MarketplaceHomePage({ params }) {
             linkLabel={t('كل البائعين', 'All vendors')}
             isAr={isAr}
           />
-          <Suspense fallback={<VendorGridSkeleton />}>
-            <VendorGrid locale={locale} t={t} />
-          </Suspense>
+          {skeleton ? <VendorGridSkeleton /> : <VendorGrid locale={locale} t={t} />}
         </section>
 
         {/* ── Sell CTA ──────────────────────────────────────────────────────
@@ -285,9 +298,7 @@ export default async function MarketplaceHomePage({ params }) {
             </div>
 
             <div className="relative h-[150px] w-full sm:h-[200px] md:h-[230px]">
-              <Suspense fallback={null}>
-                <SellCtaCar locale={locale} />
-              </Suspense>
+              {skeleton ? null : <SellCtaCar locale={locale} />}
             </div>
           </div>
         </section>
@@ -372,7 +383,7 @@ async function FeaturedGrid({ locale }) {
     : null;
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
       {items.map((item, i) => (
         <ListingCard
           key={item.id}
@@ -414,7 +425,7 @@ async function MostViewedGrid({ locale }) {
       <div className="-mt-3 mb-5">
         <LiveViews locale={locale} initial={items.map((i) => ({ id: i.id, views: i.views ?? 0 }))} />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
         {items.map((item, i) => (
           <ListingCard
             key={item.id}
@@ -436,10 +447,10 @@ async function VendorGrid({ locale, t }) {
   const vendors = await getHomeVendors(locale);
 
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5">
       {vendors.map((v) => (
-        <Link key={v.id} href={`/${locale}${v.path}`} className={`${CARD} p-6`}>
-          <div className="flex items-center gap-3.5">
+        <Link key={v.id} href={`/${locale}${v.path}`} className={`${CARD} flex flex-col p-3 sm:p-6`}>
+          <div className="flex items-center gap-2 sm:gap-3.5">
             {/* The logo when there is one, the initial when there is not —
                 rather than an empty circle, which reads as a failed image. */}
             {v.logo ? (
@@ -448,35 +459,37 @@ async function VendorGrid({ locale, t }) {
                 src={v.logo}
                 alt=""
                 loading="lazy"
-                className="h-12 w-12 shrink-0 rounded-full border border-neutral-200 object-cover dark:border-neutral-700"
+                className="h-8 w-8 shrink-0 rounded-full border sm:h-12 sm:w-12 border-neutral-200 object-cover dark:border-neutral-700"
               />
             ) : (
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-primary/8 text-lg font-bold text-brand-primary dark:bg-[var(--brand-on-dark)]/10 dark:text-[var(--brand-on-dark)]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary/8 text-sm font-bold sm:h-12 sm:w-12 sm:text-lg text-brand-primary dark:bg-[var(--brand-on-dark)]/10 dark:text-[var(--brand-on-dark)]">
                 {v.name?.trim()?.[0] ?? '?'}
               </span>
             )}
 
             <div className="min-w-0">
-              <p className="flex items-center gap-1.5 truncate font-semibold transition-colors group-hover:text-brand-primary dark:group-hover:text-[var(--brand-on-dark)]">
+              <p className="flex min-w-0 items-center gap-1 truncate text-xs font-semibold sm:gap-1.5 sm:text-base transition-colors group-hover:text-brand-primary dark:group-hover:text-[var(--brand-on-dark)]">
                 {v.name}
                 {v.verified ? (
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-brand-primary dark:text-[var(--brand-on-dark)]" />
+                  <ShieldCheck className="h-3 w-3 shrink-0 sm:h-4 sm:w-4 text-brand-primary dark:text-[var(--brand-on-dark)]" />
                 ) : null}
               </p>
-              <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">{v.city}</p>
+              <p className="mt-0.5 truncate text-[10px] text-neutral-500 dark:text-neutral-400 sm:text-xs">{v.city}</p>
             </div>
           </div>
 
-          <p className="mt-4 line-clamp-2 min-h-[2.5rem] text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+          {v.bio ? (
+            <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed sm:mt-4 sm:text-xs mb-2 sm:mb-4 text-neutral-500 dark:text-neutral-400">
             {v.bio}
           </p>
+          ) : <div className="mb-2 sm:mb-4" />}
 
-          <div className="mt-4 flex items-center gap-1.5 border-t border-neutral-100 pt-3.5 text-xs tabular-nums text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          <div className="mt-auto flex items-center gap-1 border-t border-neutral-100 pt-2 text-[10px] tabular-nums sm:gap-1.5 sm:pt-3.5 sm:text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+            <Star className="h-3 w-3 fill-amber-400 sm:h-3.5 sm:w-3.5 text-amber-400" />
             <span className="font-semibold text-neutral-700 dark:text-neutral-200">
               {v.rating.toFixed(1)}
             </span>
-            <span>· {v.ratingCount} {t('تقييم', 'reviews')}</span>
+            <span className="truncate">· {v.ratingCount} {t('تقييم', 'reviews')}</span>
           </div>
         </Link>
       ))}

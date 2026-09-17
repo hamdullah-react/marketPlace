@@ -44,58 +44,53 @@ export function ListingCardSkeleton() {
       If you change ListingCard's structure, change this. They are one design in
       two files and there is no test that will tell you they have drifted.
     */
-    <div className="raised-card flex h-full w-full flex-col overflow-hidden rounded-[22px] md:rounded-[26px]">
-      {/* Header: brand + vendor, title, meta — with price and the round arrow
-          on the trailing edge. pt-14 clears the badge row, exactly as the card
-          does. */}
-      <div className="flex items-start justify-between gap-2.5 px-4 pt-14 md:gap-3 md:px-5">
-        <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-center gap-2">
-            <Skeleton className="h-3.5 w-10 md:h-4 md:w-12" />
-            <Skeleton className="h-2.5 w-16" />
-          </div>
-          {/* Two lines, because the title is line-clamp-2 and most are two. */}
-          <Skeleton className="h-3.5 w-full md:h-4" />
-          <Skeleton className="mt-1 h-3.5 w-3/5 md:h-4" />
-          <Skeleton className="mt-1.5 h-2.5 w-28" />
-        </div>
+    <div className="raised-card relative flex h-full w-full flex-col overflow-hidden rounded-2xl sm:rounded-[22px] md:rounded-[26px]">
+      <Skeleton className="absolute end-2 top-2.5 h-6 w-6 rounded-full sm:end-3 sm:top-4 sm:h-7 sm:w-7 md:h-8 md:w-8" />
 
-        <div className="flex shrink-0 items-center gap-2 md:gap-2.5">
-          <div className="flex flex-col items-end gap-1">
-            <Skeleton className="h-3.5 w-20 md:h-4" />
-            <Skeleton className="h-2.5 w-14" />
+      {/* Header: badge row, then identity on the lead edge and price on the
+          trailing one — the same as ListingCard. */}
+      <div className="flex flex-col px-2.5 pt-2.5 sm:px-4 sm:pt-4 md:px-5">
+        <div className="mb-1.5 flex min-h-6 items-center gap-1 pe-8 sm:mb-2 sm:min-h-7 sm:pe-10">
+          <Skeleton className="h-4 w-11 rounded-full sm:h-5 sm:w-14" />
+          <Skeleton className="h-4 w-9 rounded-full sm:h-5 sm:w-10" />
+        </div>
+        <div className="flex items-start justify-between gap-1.5 sm:gap-2.5 md:gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-center gap-1 sm:mb-1 sm:gap-2">
+              <Skeleton className="h-3 w-7 sm:h-3.5 sm:w-10 md:h-4 md:w-12" />
+              <Skeleton className="h-2 w-10 sm:h-2.5 sm:w-16" />
+            </div>
+            <Skeleton className="h-2.5 w-full sm:h-3.5 md:h-4" />
+            <Skeleton className="mt-1 h-2 w-3/4 sm:h-2.5 sm:w-28" />
           </div>
-          <Skeleton className="h-7 w-7 shrink-0 rounded-full md:h-8 md:w-8" />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Skeleton className="h-2.5 w-12 sm:h-3.5 sm:w-20 md:h-4" />
+            <Skeleton className="h-2 w-9 sm:h-2.5 sm:w-14" />
+          </div>
         </div>
       </div>
 
-      {/* Stage: the photo, with the two floating controls and the city pill
-          sitting exactly where the card puts them. */}
-      <div className="relative mt-1.5 px-3 pb-1 md:mt-2">
-        <Skeleton className="h-[130px] w-full rounded-2xl md:h-[160px]" />
-
-        <div className="absolute end-3 top-0 flex flex-col gap-1">
-          <Skeleton className="h-8 w-8 rounded-full md:h-9 md:w-9" />
-          <Skeleton className="h-8 w-8 rounded-full md:h-9 md:w-9" />
+      {/* Stage */}
+      <div className="relative mt-1.5 px-2 pb-1 sm:mt-2 sm:px-3">
+        <Skeleton className="h-[96px] w-full rounded-xl sm:h-[130px] sm:rounded-2xl md:h-[160px]" />
+        <div className="absolute end-2 top-0 flex flex-col gap-1 sm:end-3">
+          <Skeleton className="h-6 w-6 rounded-full sm:h-8 sm:w-8 md:h-9 md:w-9" />
+          <Skeleton className="h-6 w-6 rounded-full sm:h-8 sm:w-8 md:h-9 md:w-9" />
         </div>
-
-        <Skeleton className="absolute bottom-0 start-3 h-4 w-16 rounded-full" />
+        <Skeleton className="absolute bottom-0 start-3 h-3 w-10 rounded-full sm:h-4 sm:w-14" />
       </div>
 
-      {/* Spec strip: value over label, three across, with the same hairlines
-          between columns. Three rather than four — it is the count most cards
-          resolve to, and a column that disappears shifts less than one that
-          appears. */}
-      <div className="mt-auto grid grid-cols-3 px-3 pb-4 pt-1.5 md:px-4">
+      {/* Spec strip: one row of three. */}
+      <div className="mt-auto grid grid-cols-3 px-1.5 pb-2.5 pt-1 sm:px-3 sm:pb-4 sm:pt-1.5 md:px-4">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className={`flex flex-col items-center px-1 ${
+            className={`flex flex-col items-center px-0.5 sm:px-1 ${
               i > 0 ? "border-s border-black/10 dark:border-white/10" : ""
             }`}
           >
-            <Skeleton className="h-3 w-12 md:h-3.5 md:w-14" />
-            <Skeleton className="mt-1 h-2 w-10 md:w-12" />
+            <Skeleton className="h-2 w-7 sm:h-3 sm:w-12 md:h-3.5 md:w-14" />
+            <Skeleton className="mt-1 h-1.5 w-6 sm:h-2 sm:w-10 md:w-12" />
           </div>
         ))}
       </div>
@@ -117,11 +112,11 @@ export function ListingCardSkeleton() {
 export function ListingCardGridSkeleton({ count = 6, columns = 3 }) {
   const cols =
     columns === 4
-      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3";
+      ? "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      : "grid-cols-2 lg:grid-cols-2 xl:grid-cols-3";
 
   return (
-    <div className={`grid gap-4 sm:gap-6 ${cols}`}>
+    <div className={`grid gap-3 sm:gap-6 ${cols}`}>
       {Array.from({ length: count }, (_, i) => (
         <ListingCardSkeleton key={i} />
       ))}

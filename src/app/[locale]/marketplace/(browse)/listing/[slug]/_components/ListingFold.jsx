@@ -201,7 +201,7 @@ export default function ListingFold({
             listing holds both — one tab is not a choice. */}
         {tabs.length > 1 ? (
           <div className="flex justify-center">
-            <div className="raised-card flex overflow-hidden rounded-xl">
+            <div className="raised-card flex gap-0.5 overflow-hidden rounded-full p-0.5 sm:gap-1 sm:p-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -209,14 +209,14 @@ export default function ListingFold({
                     key={tab.key}
                     type="button"
                     onClick={() => setView(tab.key)}
-                    className={`flex min-w-[60px] flex-col items-center gap-1 px-3 py-2.5 text-sm font-medium transition-colors sm:min-w-auto sm:flex-row sm:gap-2 md:px-4 ${
+                    className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 font-medium transition-colors sm:gap-1.5 sm:px-4 sm:py-1.5 ${
                       activeTab === tab.key
                         ? "bg-brand-primary text-white"
-                        : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-[#161616] dark:text-gray-300 dark:hover:bg-[#1c1c1c]"
+                        : "text-gray-700 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span className="text-xs sm:text-sm">{tab.label}</span>
+                    <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="text-[10px] sm:text-sm">{tab.label}</span>
                   </button>
                 );
               })}
@@ -250,18 +250,18 @@ export default function ListingFold({
               <button
                 type="button"
                 onClick={() => step(-1)}
-                className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-xs transition-all hover:bg-black/70 md:left-4 md:h-12 md:w-12"
+                className="absolute left-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-xs transition-all hover:bg-black/70 md:left-4 md:h-12 md:w-12"
                 aria-label={t("الصورة السابقة", "Previous image")}
               >
-                <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
               </button>
               <button
                 type="button"
                 onClick={() => step(1)}
-                className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-xs transition-all hover:bg-black/70 md:right-4 md:h-12 md:w-12"
+                className="absolute right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-black/50 text-white shadow-lg backdrop-blur-xs transition-all hover:bg-black/70 md:right-4 md:h-12 md:w-12"
                 aria-label={t("الصورة التالية", "Next image")}
               >
-                <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
               </button>
             </>
           ) : null}

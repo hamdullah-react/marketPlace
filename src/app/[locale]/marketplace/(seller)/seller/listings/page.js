@@ -79,19 +79,35 @@ export default async function SellerListingsPage({ params, searchParams }) {
           </Link>
         </div>
 
+        {/* ONE loading step. These sections had a boundary each and finished at
+            different moments, so the page filled in piece by piece and read as
+            loading more than once. One boundary swaps every skeleton for the
+            finished page together. */}
+        <Suspense
+          fallback={
+            <>
         {/* ── State tabs ─────────────────────────────────────────────────── */}
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<StateTabsSkeleton />}>
-            <StateTabs searchParams={searchParams} locale={locale} t={t} />
-          </Suspense>
+          <StateTabsSkeleton />
         </div>
 
         {/* ── Table ──────────────────────────────────────────────────────── */}
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<ListingsSkeleton />}>
-            <ListingsSection searchParams={searchParams} locale={locale} isAr={isAr} t={t} />
-          </Suspense>
+          <ListingsSkeleton />
         </div>
+            </>
+          }
+        >
+        {/* ── State tabs ─────────────────────────────────────────────────── */}
+        <div className="px-4 lg:px-6">
+          <StateTabs searchParams={searchParams} locale={locale} t={t} />
+        </div>
+
+        {/* ── Table ──────────────────────────────────────────────────────── */}
+        <div className="px-4 lg:px-6">
+          <ListingsSection searchParams={searchParams} locale={locale} isAr={isAr} t={t} />
+        </div>
+        </Suspense>
       </div>
     </div>
   );

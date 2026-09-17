@@ -102,27 +102,30 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
       dir={isAr ? "rtl" : "ltr"}
       className="mt-16 border-t border-brand-primary/10 bg-[var(--app-bg)] font-noto dark:border-white/10 dark:bg-[var(--app-bg-dark)]"
     >
-      <div className="mx-auto max-w-[1600px] px-4 py-12 sm:px-8 lg:px-20 xl:px-28">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+      <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-8 sm:py-12 lg:px-20 xl:px-28">
+        {/* Three link columns side by side on a phone, under the brand block,
+            rather than two and a stragglers' row — the footer was a long
+            single-file scroll of links on a small screen. */}
+        <div className="grid grid-cols-3 gap-x-3 gap-y-6 sm:gap-8 md:grid-cols-4">
           {/* ── Brand ─────────────────────────────────────────────────── */}
-          <div className="col-span-2 md:col-span-1">
-            <div className="relative h-[52px] w-[180px]">
+          <div className="col-span-3 md:col-span-1">
+            <div className="relative h-[40px] w-[140px] sm:h-[52px] sm:w-[180px]">
               <Image
                 src={site.logoUrl}
                 alt={siteName}
                 fill
-                sizes="180px"
+                sizes="(max-width: 640px) 140px, 180px"
                 className="object-contain object-start"
                 loading="lazy"
                 unoptimized={directLogo}
               />
             </div>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+            <p className="mt-3 max-w-xs text-xs leading-relaxed text-gray-600 dark:text-gray-400 sm:mt-4 sm:text-sm">
               {tagline}
             </p>
 
             {site.contactEmail || site.contactPhone ? (
-              <ul className="mt-4 space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+              <ul className="mt-3 space-y-1.5 text-xs text-gray-600 sm:mt-4 sm:text-sm dark:text-gray-400">
                 {site.contactEmail ? (
                   <li>
                     <a href={`mailto:${site.contactEmail}`} className="inline-flex items-center gap-2 hover:text-brand-primary">
@@ -142,7 +145,7 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
               </ul>
             ) : null}
 
-            <div className="mt-6 flex items-center gap-2.5">
+            <div className="mt-4 flex items-center gap-2 sm:mt-6 sm:gap-2.5">
               {socials.map((s, i) => (
                 <Link
                   key={`${s.key}-${i}`}
@@ -150,7 +153,7 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={s.label}
-                  className="group/social raised flex h-9 w-9 items-center justify-center rounded-full"
+                  className="group/social raised flex h-8 w-8 items-center justify-center rounded-full sm:h-9 sm:w-9"
                 >
                   {/*
                     MASKED, not drawn.
@@ -173,7 +176,7 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
                   {s.icon ? (
                   <span
                     aria-hidden="true"
-                    className="block h-[17px] w-[17px] bg-brand-primary transition-colors duration-300 group-hover/social:bg-brand-dark dark:bg-brand-on-dark dark:group-hover/social:bg-white"
+                    className="block h-[15px] w-[15px] bg-brand-primary sm:h-[17px] sm:w-[17px] transition-colors duration-300 group-hover/social:bg-brand-dark dark:bg-brand-on-dark dark:group-hover/social:bg-white"
                     style={{
                       maskImage: `url(${s.icon})`,
                       WebkitMaskImage: `url(${s.icon})`,
@@ -195,9 +198,9 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
 
           {/* ── Link columns ──────────────────────────────────────────── */}
           {COLUMNS.map((col) => (
-            <div key={col.en}>
-              <h3 className="text-sm font-bold text-brand-primary">{t(col.ar, col.en)}</h3>
-              <ul className="mt-4 space-y-2.5">
+            <div key={col.en} className="min-w-0">
+              <h3 className="text-xs font-bold text-brand-primary sm:text-sm">{t(col.ar, col.en)}</h3>
+              <ul className="mt-2 space-y-1 sm:mt-4 sm:space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.href}>
                     <Link
@@ -206,7 +209,7 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
                          click. Flat at rest because a column of twelve
                          permanently-raised chips reads as a keypad, not a list
                          of links. See globals.css. */
-                      className="raised-hover -mx-2 inline-block rounded-lg px-2 py-1 text-sm font-bold text-gray-600 dark:text-gray-400"
+                      className="raised-hover -mx-1 inline-block rounded-lg px-1 py-0.5 text-[11px] font-bold leading-snug text-gray-600 dark:text-gray-400 sm:-mx-2 sm:px-2 sm:py-1 sm:text-sm"
                     >
                       {t(l.ar, l.en)}
                     </Link>
@@ -218,11 +221,11 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
         </div>
 
         {/* ── Payments ────────────────────────────────────────────────── */}
-        <div className="mt-10 flex flex-col items-start gap-4 border-t border-gray-100 pt-8 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        <div className="mt-6 flex flex-row items-center justify-between gap-3 border-t border-gray-100 pt-5 dark:border-gray-800 sm:mt-10 sm:gap-4 sm:pt-8">
+          <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 sm:text-xs">
             {t("طرق الدفع المقبولة", "Accepted payment methods")}
           </p>
-          <div className="flex items-center gap-6">
+          <div className="flex shrink-0 items-center gap-3 sm:gap-6">
             {PAYMENTS.map((p) => (
               <Image
                 key={p.label}
@@ -230,8 +233,8 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
                 alt={p.label}
                 width={45}
                 height={30}
-                style={{ width: "auto", height: 30 }}
-                className="object-contain"
+                style={{ width: "auto" }}
+                className="h-5 object-contain sm:h-[30px]"
                 loading="lazy"
               />
             ))}
@@ -241,11 +244,11 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
 
       {/* ── Legal bar ─────────────────────────────────────────────────── */}
       <div className="border-t border-brand-primary/10 bg-brand-primary/[0.04] dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-gray-500 dark:text-gray-400 sm:flex-row sm:px-8 lg:px-20 xl:px-28">
+        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-2 px-4 py-4 text-[11px] text-gray-500 sm:gap-3 sm:py-5 sm:text-xs dark:text-gray-400 sm:flex-row sm:px-8 lg:px-20 xl:px-28">
           <p>
             © {year} {siteName}. {t("جميع الحقوق محفوظة.", "All rights reserved.")}
           </p>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4 sm:gap-5">
             <Link href={`/${locale}/privacy-policy`} className="transition-colors hover:text-brand-primary">
               {t("سياسة الخصوصية", "Privacy Policy")}
             </Link>

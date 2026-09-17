@@ -59,17 +59,31 @@ export default async function PayoutsPage({ params, searchParams }) {
           </p>
         </div>
 
+        {/* ONE loading step. These sections had a boundary each and finished at
+            different moments, so the page filled in piece by piece and read as
+            loading more than once. One boundary swaps every skeleton for the
+            finished page together. */}
+        <Suspense
+          fallback={
+            <>
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<TotalsSkeleton />}>
-            <Totals searchParams={searchParams} locale={locale} t={t} />
-          </Suspense>
+          <TotalsSkeleton />
         </div>
 
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<TableSkeleton rows={6} cols={5} />}>
-            <PayoutTable searchParams={searchParams} locale={locale} t={t} />
-          </Suspense>
+          <TableSkeleton rows={6} cols={5} />
         </div>
+            </>
+          }
+        >
+        <div className="px-4 lg:px-6">
+          <Totals searchParams={searchParams} locale={locale} t={t} />
+        </div>
+
+        <div className="px-4 lg:px-6">
+          <PayoutTable searchParams={searchParams} locale={locale} t={t} />
+        </div>
+        </Suspense>
       </div>
     </div>
   );

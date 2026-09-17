@@ -70,8 +70,12 @@ export function MobileFilters({ facets, locale = "ar", total = 0 }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="raised mb-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-bold lg:hidden">
-          <SlidersHorizontal className="h-5 w-5" />
+        {/* Solid brand green with white text, set explicitly. It used to add
+            `raised` over the Button default, which swapped the green fill for
+            a pale panel but left the default white text — so on a phone the
+            button was a blank bar with no words on it. */}
+        <Button className="raised-solid mb-4 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 font-bold text-white hover:bg-brand-dark lg:hidden">
+          <SlidersHorizontal className="h-4 w-4" />
           <span>{t("فلترة النتائج", "Filter Results")}</span>
           {activeCount > 0 ? (
             <Badge className="rounded-[5px] border-white/30 bg-white/20 text-white hover:bg-white/20">
@@ -249,8 +253,8 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
       <div className="shrink-0 bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-4">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-white" />
-            <h2 className="text-lg font-bold text-white">{t("الفلاتر", "Filters")}</h2>
+            <Filter className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+            <h2 className="text-base font-bold text-white sm:text-lg">{t("الفلاتر", "Filters")}</h2>
             {activeCount > 0 ? (
               <Badge className="rounded-[5px] border-white/30 bg-white/20 text-white hover:bg-white/20">
                 {activeCount}
@@ -287,7 +291,7 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
             Enter still commits immediately (and cancels the pending timer), so
             nobody who expects Enter to work is made to wait for it. */}
         <div className="relative">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 sm:h-4 sm:w-4" />
           <Input
             value={term}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -297,7 +301,7 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
               setSingle("q", e.currentTarget.value, { replace: true });
             }}
             placeholder={t("ابحث عن سيارة...", "Search cars...")}
-            className="h-10 rounded-[5px] border-0 bg-white ps-10 pe-10 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-white/50"
+            className="h-9 rounded-[5px] border-0 bg-white ps-9 pe-9 text-xs text-gray-900 sm:h-10 sm:ps-10 sm:pe-10 sm:text-sm placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-white/50"
           />
           {isPending ? (
             <Loader2 className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-brand-primary" />
@@ -508,10 +512,10 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
           browser chrome on a short phone — the panel is h-[calc(100vh-4rem)]
           and iOS Safari's toolbar eats into that. */}
       {isMobile ? (
-        <div className="sticky bottom-0 shrink-0 border-t border-gray-200 bg-white p-4 dark:border-white/10 dark:bg-[#0f0f0f]">
+        <div className="sticky bottom-0 shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-[#0f0f0f]">
           <Button
             onClick={onClose}
-            className="w-full gap-2 rounded-lg bg-linear-to-b from-[var(--brand-primary)] to-[#095A30] py-6 text-base font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(var(--brand-rgb),0.35),0_8px_16px_-5px_rgba(var(--brand-rgb),0.45)] transition-all active:translate-y-px active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
+            className="h-10 w-full gap-2 rounded-lg bg-linear-to-b from-[var(--brand-primary)] to-[#095A30] text-sm font-bold sm:h-12 sm:text-base text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(var(--brand-rgb),0.35),0_8px_16px_-5px_rgba(var(--brand-rgb),0.45)] transition-all active:translate-y-px active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
           >
             {isPending ? (
               <>

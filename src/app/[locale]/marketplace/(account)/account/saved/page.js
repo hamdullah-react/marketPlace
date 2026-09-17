@@ -107,7 +107,7 @@ async function Grid({ searchParams, locale, t }) {
       {/* Same steps as the home and related grids, which is also what
           ListingCardGridSkeleton columns={4} draws — the skeleton laid out
           two columns here where this resolved to three. */}
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {items.map((row, i) => {
           const listing = normalizeListing(row, locale);
           return (

@@ -69,6 +69,7 @@ export default async function CarsBrowse({
 }) {
   const isAr = locale === 'ar';
   const t = (ar, en) => (isAr ? ar : en);
+  const breadcrumb = <BrowseBreadcrumb locale={locale} crumbs={crumbs} t={t} />;
 
   return (
     /* The marketplace's own frame, NOT Tailwind's `container`.
@@ -87,26 +88,69 @@ export default async function CarsBrowse({
     <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-8 sm:py-8 lg:px-20 xl:px-28">
       {header}
 
+      {/* ── ONE boundary for the rail, the phone button and the results ──────
+          They were three, each with its own skeleton, and they finished at
+          different times: in production the rail and the filter button
+          arrived ~1.3s in and the cars ~0.5s later, so the page visibly loaded
+          twice — a skeleton, then half a page, then the rest. Under one
+          boundary the skeleton is replaced once, by the whole page.
+
+          Nothing is lost on a filter change: that navigation is a transition,
+          so the page on screen stays up until the new one is ready (measured:
+          no skeleton appears), and getCarsFacets is memoised per request, so
+          the three readers still share one query. */}
       <div className="flex flex-col gap-6 lg:flex-row">
-        {/* ── The rail ───────────────────────────────────────────────────────
-            Its own boundary, and it reads no searchParams: the available
-            filters are the same whatever is currently selected, so this
-            resolves once and then stays put while the grid re-runs.
-            ------------------------------------------------------------- */}
+        <Suspense
+          fallback={
+            <>
+              {showFilters ? (
+                <aside className="lg:w-[320px] lg:shrink-0">
+                  <FilterSidebarSkeleton />
+                </aside>
+              ) : null}
+              <div className="min-w-0 flex-1">
+                {breadcrumb}
+                {showFilters ? <MobileFilterButtonSkeleton /> : null}
+                <ResultsHeaderSkeleton />
+                <ListingCardGridSkeleton count={9} />
+              </div>
+            </>
+          }
+        >
         {/* Width only. The rail brings its own sticky, height, radius and
-            shadow, and so does its skeleton — the two swap without the frame
-            around them moving. */}
+            shadow, and so does its skeleton. */}
         {showFilters ? (
           <aside className="lg:w-[320px] lg:shrink-0">
-            <Suspense fallback={<FilterSidebarSkeleton />}>
-              <Filters locale={locale} scopeKey={scopeKey} />
-            </Suspense>
+            <Filters locale={locale} scopeKey={scopeKey} />
           </aside>
         ) : null}
 
-        {/* ── Everything else ────────────────────────────────────────────── */}
         <div className="min-w-0 flex-1">
-          {/* Breadcrumb — static, so it paints with the frame. */}
+          {breadcrumb}
+          {showFilters ? <MobileFilterTrigger locale={locale} scopeKey={scopeKey} /> : null}
+
+          <Results
+            searchParams={searchParams}
+            locale={locale}
+            t={t}
+            lock={lock}
+            scopeKey={scopeKey}
+            basePath={basePath}
+            showFilters={showFilters}
+          />
+        </div>
+        </Suspense>
+      </div>
+    </main>
+  );
+}
+
+/* Static, drawn in both the skeleton and the page so it never moves. The
+   separator is a SIBLING of the item — both render an <li>, and nesting them
+   was a hydration error. The last crumb is text: a link to the page you are on
+   does nothing. */
+function BrowseBreadcrumb({ locale, crumbs, t }) {
+  return (
           <Breadcrumb className="mb-4">
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -137,38 +181,6 @@ export default async function CarsBrowse({
               ))}
             </BreadcrumbList>
           </Breadcrumb>
-
-          {/* The phone's filter button lives HERE, above the results, and not
-              in the rail — on a narrow screen the rail is below everything it
-              would be filtering. Same facets as the rail, resolved from one
-              request-memoised query. */}
-          {showFilters ? (
-            <Suspense fallback={<MobileFilterButtonSkeleton />}>
-              <MobileFilterTrigger locale={locale} scopeKey={scopeKey} />
-            </Suspense>
-          ) : null}
-
-          <Suspense
-            fallback={
-              <>
-                <ResultsHeaderSkeleton />
-                <ListingCardGridSkeleton count={9} />
-              </>
-            }
-          >
-            <Results
-              searchParams={searchParams}
-              locale={locale}
-              t={t}
-              lock={lock}
-              scopeKey={scopeKey}
-              basePath={basePath}
-              showFilters={showFilters}
-            />
-          </Suspense>
-        </div>
-      </div>
-    </main>
   );
 }
 
@@ -278,8 +290,8 @@ async function Results({ searchParams, locale, t, lock, scopeKey, basePath, show
         <div
           className={
             showFilters
-              ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-2 xl:grid-cols-3'
-              : 'grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
+              ? 'grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-2 xl:grid-cols-3'
+              : 'grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4'
           }
         >
           {cars.map((car, i) => (

@@ -1633,6 +1633,25 @@
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
+/*
+  Opting OUT of the scrollbar above, for rows that scroll by swipe or by their
+  own arrows — the search modal's brand chips, the gallery thumbnail strips.
+
+  Unlayered and !important on purpose. The `*` rule above is unlayered, so it
+  outranks anything inside @layer, including the `.scrollbar-hide` utility and
+  Tailwind classes. Chrome 121+ honours `scrollbar-width` over the webkit
+  pseudo-elements, so the result was a thin green bar drawn under every row
+  that asked not to have one.
+*/
+.scrollbar-hide {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+}
+
 /* ============================================ */
 /* Dark Theme - Text Colors */
 /* ============================================ */
@@ -1828,4 +1847,26 @@ input[cmdk-input]:focus-visible {
 .count-pop { animation: count-pop 0.6s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .count-pop { animation: none; }
+}
+
+/*
+  ── Phones: the whole marketplace one size smaller ─────────────────────────
+
+  Tailwind 4 sizes text AND spacing in rem, so the root font size is the one
+  dial that moves every page together — headings, body copy, buttons, padding,
+  gaps — instead of re-sizing each page by hand and having them drift apart.
+  At 14px everything below sm reads at 87.5%, in step with the listing card,
+  which already drops a size on a phone.
+
+  Fixed px sizes (text-[11px] and the like) are deliberately untouched; they
+  were chosen as px because they are already small.
+
+  Form controls follow the same scale. iOS would normally zoom into an input
+  under 16px on focus; the viewport in [locale]/layout.js caps the page scale
+  so it does not.
+*/
+@media (max-width: 639.98px) {
+  html {
+    font-size: 14px;
+  }
 }

@@ -49,6 +49,21 @@ const notoSansArabic = Noto_Sans_Arabic({
  * Both locales, prerendered. Without this every page under [locale] would opt
  * into dynamic rendering the moment setRequestLocale ran.
  */
+/**
+ * maximumScale 1 is what lets form controls be smaller than 16px on a phone.
+ *
+ * iOS Safari zooms into any input whose text is under 16px the moment it is
+ * focused, and stays zoomed. With the page scale capped it does not, and since
+ * iOS 10 a pinch still zooms anyway — Apple ignores the cap for gestures. Some
+ * Android browsers DO honour it for pinch; that is the trade for a phone layout
+ * whose search box matches the rest of the page instead of towering over it.
+ */
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }

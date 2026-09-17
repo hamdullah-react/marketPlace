@@ -46,25 +46,37 @@ export default async function SellerDashboardPage({ params, searchParams }) {
   return (
     <div className="@container/main flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <Suspense fallback={null}>
-          <Picker searchParams={searchParams} locale={locale} />
-        </Suspense>
-
-        <Suspense fallback={<StatCardsSkeleton />}>
-          <Stats searchParams={searchParams} locale={locale} t={t} />
-        </Suspense>
+        {/* ONE loading step. These sections had a boundary each and finished at
+            different moments, so the page filled in piece by piece and read as
+            loading more than once. One boundary swaps every skeleton for the
+            finished page together. */}
+        <Suspense
+          fallback={
+            <>
+        <StatCardsSkeleton />
 
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<ChartSkeleton />}>
-            <Chart searchParams={searchParams} locale={locale} />
-          </Suspense>
+          <ChartSkeleton />
         </div>
 
         <div className="px-4 lg:px-6">
-          <Suspense fallback={<ListingsTableSkeleton />}>
-            <Listings searchParams={searchParams} locale={locale} t={t} />
-          </Suspense>
+          <ListingsTableSkeleton />
         </div>
+            </>
+          }
+        >
+        <Picker searchParams={searchParams} locale={locale} />
+
+        <Stats searchParams={searchParams} locale={locale} t={t} />
+
+        <div className="px-4 lg:px-6">
+          <Chart searchParams={searchParams} locale={locale} />
+        </div>
+
+        <div className="px-4 lg:px-6">
+          <Listings searchParams={searchParams} locale={locale} t={t} />
+        </div>
+        </Suspense>
       </div>
     </div>
   );

@@ -163,7 +163,7 @@ export function FilterSidebarSkeleton() {
 
 /** The phone's filter button. The mirror image: shown only where the rail is not. */
 export function MobileFilterButtonSkeleton() {
-  return <Skeleton className="mb-4 h-[52px] w-full rounded-[5px] lg:hidden" />;
+  return <Skeleton className="mb-4 h-11 w-full rounded-lg lg:hidden" />;
 }
 
 /** The white card over the grid: title and count on one side, sort on the other. */
@@ -222,12 +222,12 @@ export function ListingGridSkeleton({ count = 8 }) {
 
 export function VendorGridSkeleton({ count = 3 }) {
   return (
-    <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="raised-card rounded-xl p-5">
-          <Skeleton className="h-5 w-32" />
+        <div key={i} className="raised-card rounded-xl p-3 sm:p-5">
+          <Skeleton className="h-4 w-20 sm:h-5 sm:w-32" />
           <SkeletonLines count={2} className="mt-3" />
-          <Skeleton className="mt-4 h-3 w-40" />
+          <Skeleton className="mt-4 h-3 w-16 sm:w-40" />
         </div>
       ))}
     </div>
