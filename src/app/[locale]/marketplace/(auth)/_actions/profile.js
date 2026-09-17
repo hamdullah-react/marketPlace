@@ -26,7 +26,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { currentViewer } from '@/marketplace/auth/session';
-import { SAUDI_PHONE } from '@/marketplace/lib/form-fields';
+import { isAllowedPhone } from '@/marketplace/lib/phone';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -57,8 +58,13 @@ export async function saveEssentials(prevState, formData) {
    */
   const errors = {};
 
+  /* Which countries' numbers are accepted is Admin → Settings → Contact. A
+     cached read, and it must not stop someone finishing their profile if it
+     fails — the built-in list stands in. */
+  const { phoneCountries } = await getSiteSettings().catch(() => ({ phoneCountries: ['SA'] }));
+
   if (!phone) errors.phone = 'PHONE_REQUIRED';
-  else if (!SAUDI_PHONE.test(phone)) errors.phone = 'PHONE_INVALID';
+  else if (!isAllowedPhone(phone, phoneCountries)) errors.phone = 'PHONE_INVALID';
 
   if (!city) errors.city = 'REQUIRED';
   if (!district) errors.district = 'REQUIRED';

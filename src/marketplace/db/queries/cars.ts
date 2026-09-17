@@ -250,7 +250,40 @@ export async function getCars(opts: CarFilters = {}) {
      stable, so every other car keeps the order the query gave it. The price
      sorts are left alone: a buyer who asked for cheapest first means it. */
   if (sort !== 'price_asc' && sort !== 'price_desc') {
-    filtered.sort((a: CarRow, b: CarRow) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)));
+    /**
+     * Featured first, and among them the order the admin dragged into on
+     * Admin → Boost requests → Running (listings.featured_rank, 1 first).
+     *
+     * The ranks are read in a SECOND query rather than added to SELECT above,
+     * and that is not laziness: featured_rank arrives with schema.sql, code
+     * ships before the SQL is run, and a select naming a column the database
+     * does not have fails the WHOLE query — All Cars would go blank over an
+     * ordering nicety. Here a missing column is simply no ranks.
+     *
+     * It costs a round trip only when a page actually holds two or more
+     * featured cars, and it asks for two columns of a handful of rows.
+     */
+    const ranks = new Map<string, number>();
+    const featuredIds = filtered.filter((r: CarRow) => r.is_featured).map((r: CarRow) => r.id);
+
+    if (featuredIds.length > 1) {
+      const { data: rankRows } = await getMarketplaceDb()
+        .from('listings')
+        .select('id, featured_rank')
+        .in('id', featuredIds);
+
+      for (const row of (rankRows ?? []) as CarRow[]) {
+        const value = Number(row.featured_rank);
+        if (Number.isFinite(value) && value > 0) ranks.set(row.id, value);
+      }
+    }
+
+    // Unranked featured cars keep their place behind the ranked ones; everyone
+    // else keeps the order the query gave them, because sort() is stable.
+    const rank = (row: CarRow) =>
+      row.is_featured ? ranks.get(row.id) ?? Number.MAX_SAFE_INTEGER - 1 : Number.MAX_SAFE_INTEGER;
+
+    filtered.sort((a: CarRow, b: CarRow) => rank(a) - rank(b));
   }
 
   /**

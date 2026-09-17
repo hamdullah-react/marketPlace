@@ -22,7 +22,9 @@ const MESSAGES = {
   CHECK_FIELDS: { ar: "راجع الحقول المميزة بالأحمر.", en: "Check the fields marked in red." },
   SAVE_FAILED: { ar: "تعذّر الحفظ. حاول مرة أخرى.", en: "Could not save. Try again." },
   PHONE_REQUIRED: { ar: "رقم الجوال مطلوب.", en: "Your mobile number is required." },
-  PHONE_INVALID: { ar: "أدخل رقم جوال سعودي صحيح.", en: "Enter a valid Saudi mobile number." },
+  // Which countries are accepted is an admin setting, so the message cannot
+  // name one — see lib/phone.ts.
+  PHONE_INVALID: { ar: "أدخل رقم جوال صحيح.", en: "Enter a valid mobile number." },
   REQUIRED: { ar: "هذا الحقل مطلوب.", en: "This field is required." },
   TOO_LONG: { ar: "هذه القيمة طويلة جداً.", en: "That is too long." },
 };

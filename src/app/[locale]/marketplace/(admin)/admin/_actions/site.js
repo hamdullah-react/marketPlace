@@ -16,6 +16,7 @@ import { writeAudit } from '@/marketplace/db/queries/admin';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
 import { keywordList } from '@/marketplace/lib/seo';
 import { parseSocialLinks } from '@/marketplace/lib/social';
+import { PHONE_COUNTRY_BY_CODE } from '@/marketplace/lib/phone';
 import {
   SITE_TAGS, SEO_PAGE_BY_KEY, CONTENT_PAGE_BY_SLUG, CHANGEFREQ, OG_TYPES, TWITTER_CARDS, pageRoute,
 } from '@/marketplace/lib/sitePages';
@@ -148,6 +149,22 @@ export async function saveSiteSettings(prevState, formData) {
 
     // Contact tab — the same link list a showroom keeps, validated the same way.
     if (has('socialLinks')) row.social_links = parseSocialLinks(formData.get('socialLinks'));
+
+    /* Which countries' phone numbers every form on the site accepts. Checked
+       against the known list rather than stored as sent, so a hand-posted
+       "ZZ" cannot become a rule nothing can satisfy. An empty list is a real
+       answer and means any country. */
+    if (has('phoneCountries')) {
+      let picked = [];
+      try {
+        picked = JSON.parse(str(formData, 'phoneCountries') || '[]');
+      } catch {
+        return bad('SAVE_FAILED');
+      }
+      row.phone_countries = Array.isArray(picked)
+        ? [...new Set(picked.map((c) => String(c).toUpperCase()))].filter((c) => PHONE_COUNTRY_BY_CODE.has(c))
+        : [];
+    }
   } catch (err) {
     if (err instanceof Invalid) return bad(err.code);
     throw err;

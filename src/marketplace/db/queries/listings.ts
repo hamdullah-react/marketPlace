@@ -199,13 +199,25 @@ export async function getLiveListingSlugs(limit = 500) {
  * row. A marketplace with no boosts running still shows a full row.
  */
 export async function getFeaturedListings(limit = 8) {
-  const { data, error } = await getMarketplaceDb()
-    .from('listings')
-    .select(SELECT)
-    .eq('state', 'live')
-    .eq('is_featured', true)
+  const featuredQuery = () =>
+    getMarketplaceDb().from('listings').select(SELECT).eq('state', 'live').eq('is_featured', true);
+
+  /* The admin's own order first (Admin → Boost requests → Running, dragged).
+     nullsFirst: false, so a car featured before anyone dragged anything falls
+     in behind the ranked ones instead of jumping to the front. Views break the
+     tie among the unranked, as they always did. */
+  let { data, error } = await featuredQuery()
+    .order('featured_rank', { ascending: true, nullsFirst: false })
     .order('views', { ascending: false })
     .limit(limit);
+
+  /* 42703: featured_rank arrives with schema.sql and code ships before the SQL
+     is run — the order in this repo. The row is the point and the ordering is
+     an improvement on top, so a database without the column still gets its
+     featured cars, by views, exactly as before. */
+  if (error?.code === '42703') {
+    ({ data, error } = await featuredQuery().order('views', { ascending: false }).limit(limit));
+  }
 
   if (error) throw new Error(`getFeaturedListings: ${error.message}`);
 

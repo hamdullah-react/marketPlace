@@ -8,6 +8,7 @@ import { sweepExpiredBoosts } from '@/marketplace/db/queries/engagement';
 import { localized, formatPrice } from '@/marketplace/lib/listing';
 import SafeThumb from '../../../../_components/SafeThumb';
 import BoostRowActions from '../../../_components/BoostRowActions';
+import BoostOrderList from '../../../_components/BoostOrderList';
 
 export const instant = false;
 
@@ -138,6 +139,23 @@ async function BoostsSection({ searchParams, locale }) {
             {tab === 'pending' ? t('لا توجد طلبات بانتظارك', 'No requests waiting') : t('لا شيء هنا', 'Nothing here')}
           </p>
         </div>
+      ) : tab === 'active' ? (
+        /* Running promotions are a LIST IN ORDER, not a table: the order is the
+           point, and it is what a visitor meets on the home page. Localised
+           here, on the server, so the client component takes plain strings. */
+        <BoostOrderList
+          locale={locale}
+          rows={items.map((b) => {
+            const media = Array.isArray(b.listings?.media) ? b.listings.media : [];
+            return {
+              id: b.id,
+              title: b.listings ? localized(b.listings.name, locale) : t('إعلان محذوف', 'Deleted listing'),
+              vendorName: b.vendors ? localized(b.vendors.name, locale) : '',
+              image: (media.find((m) => m?.primary) ?? media[0])?.url ?? null,
+              endsLabel: b.ends_at ? t(`ينتهي ${date(b.ends_at)}`, `ends ${date(b.ends_at)}`) : '',
+            };
+          })}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
           <table className="w-full min-w-[820px] text-sm">

@@ -48,6 +48,10 @@ function shapeSettings(row, ready) {
     // null = the column does not exist yet (SQL not run) — the footer keeps its
     // built-in links until then. [] = the admin removed them all.
     socialLinks: Array.isArray(row?.social_links) ? row.social_links : null,
+    /* Which countries' phone numbers every form accepts (Admin → Settings →
+       Contact). [] means any country; a database without the column yet keeps
+       the Saudi-only rule the code had before it. */
+    phoneCountries: Array.isArray(row?.phone_countries) ? row.phone_countries : ['SA'],
     name: fill(name, BRAND_FALLBACK.name),
     tagline: fill(tagline, BRAND_FALLBACK.tagline),
     logoUrl: row?.logo_url || BRAND_FALLBACK.logoUrl,

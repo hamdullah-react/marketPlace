@@ -43,7 +43,9 @@ import { currentViewer } from '@/marketplace/auth/session';
 import { getVendorFormFields } from '@/marketplace/db/queries/forms';
 import { getOpenLead } from '@/marketplace/db/queries/leads';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
-import { validateAnswer, isMultiValue, SAUDI_PHONE } from '@/marketplace/lib/form-fields';
+import { validateAnswer, isMultiValue } from '@/marketplace/lib/form-fields';
+import { isAllowedPhone } from '@/marketplace/lib/phone';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -132,9 +134,14 @@ export async function sendLead(prevState, formData) {
    * can call is a row that wastes a salesperson's morning. It is prefilled from
    * the profile, so for most people this is not a question.
    */
+  /* Admin → Settings → Contact decides which countries' numbers are accepted,
+     here and in the seller's own phone fields below. Cached; the built-in list
+     stands in if the read fails, rather than refusing every buyer. */
+  const { phoneCountries } = await getSiteSettings().catch(() => ({ phoneCountries: ['SA'] }));
+
   const cleanPhone = phone.replace(/[\s-]/g, '');
   if (!cleanPhone) errors.phone = 'PHONE_REQUIRED';
-  else if (!SAUDI_PHONE.test(cleanPhone)) errors.phone = 'PHONE_INVALID';
+  else if (!isAllowedPhone(cleanPhone, phoneCountries)) errors.phone = 'PHONE_INVALID';
 
   /**
    * The message is required only when the seller asks nothing else.
@@ -155,7 +162,7 @@ export async function sendLead(prevState, formData) {
       ? formData.getAll(name).map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean)
       : str(formData, name);
 
-    const checked = validateAnswer(field, raw);
+    const checked = validateAnswer(field, raw, { phoneCountries });
     if (checked.error) errors[name] = checked.error;
     else if (!checked.skip) answers[field.field_key] = checked.value;
   }

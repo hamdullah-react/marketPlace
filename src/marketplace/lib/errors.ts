@@ -23,7 +23,9 @@ export const ERRORS = {
 
   // ── contact ──
   EMAIL_INVALID: { ar: 'بريد إلكتروني غير صالح', en: 'Invalid email address' },
-  PHONE_INVALID: { ar: 'رقم جوال سعودي غير صالح', en: 'Invalid Saudi mobile number' },
+  // Not "Saudi": which countries are accepted is an admin setting now
+  // (site_settings.phone_countries), so the message cannot name one.
+  PHONE_INVALID: { ar: 'رقم جوال غير صالح', en: 'Invalid mobile number' },
   // PHONE_REQUIRED and EMAIL_REQUIRED are further down, with the lead form and
   // the admin messages. One key each — the promotion form uses those.
 
@@ -216,6 +218,10 @@ export const ERRORS = {
   },
 
   // ── boosts ──
+  BOOST_RANK_SETUP: {
+    ar: 'لتحديد ترتيب السيارات المميزة شغّل قسم BOOSTS في src/marketplace/db/schema.sql داخل Supabase.',
+    en: 'To order featured cars, run the BOOSTS section of src/marketplace/db/schema.sql in Supabase.',
+  },
   BOOST_SETUP: {
     ar: 'التمييز غير مفعّل بعد. يجب تشغيل قسم BOOSTS في schema.sql.',
     en: 'Boosts are not set up yet. Run the BOOSTS section of schema.sql.',

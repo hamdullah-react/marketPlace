@@ -157,6 +157,69 @@ export async function deleteBoost(prevState, formData) {
   return ok({ deleted: boostId });
 }
 
+/**
+ * The ORDER featured cars appear in — set by dragging the Running tab.
+ *
+ * Takes the running boosts in the order the admin dragged them and writes
+ * 1, 2, 3 … onto their listings (listings.featured_rank). The home page's
+ * featured row and the top of All Cars read that column, so first here is
+ * first there.
+ *
+ * Only boosts that are actually RUNNING can be ordered: the ids are checked
+ * against the same query the tab is built from rather than trusted, so a stale
+ * page cannot rank a boost that has ended.
+ *
+ * A running boost the admin did not send — one that started after their page
+ * loaded — keeps whatever rank it had; it is not silently pushed to the end.
+ */
+export async function reorderFeatured(prevState, formData) {
+  const { viewer, error: denied } = await adminForAction();
+  if (denied) return bad(denied);
+
+  let ids;
+  try {
+    ids = JSON.parse(str(formData, 'order') || '[]');
+  } catch {
+    return bad('SAVE_FAILED');
+  }
+  if (!Array.isArray(ids) || !ids.length || ids.length > 200) return bad('SAVE_FAILED');
+  if (ids.some((id) => typeof id !== 'string' || !UUID.test(id))) return bad('NOT_FOUND');
+
+  const db = getMarketplaceDb();
+
+  const { data: running, error } = await db
+    .from('listing_boosts')
+    .select('id, listing_id')
+    .eq('state', 'approved')
+    .gt('ends_at', new Date().toISOString())
+    .in('id', ids);
+
+  if (error) return bad(isMissingSchema(error) ? 'BOOST_SETUP' : 'SAVE_FAILED', { detail: error.message });
+
+  const listingOf = new Map((running ?? []).map((b) => [b.id, b.listing_id]));
+  const ordered = ids.map((id) => listingOf.get(id)).filter(Boolean);
+  if (!ordered.length) return bad('NOT_FOUND');
+
+  // One statement per car: a handful of rows, and a single failure says which.
+  for (let i = 0; i < ordered.length; i += 1) {
+    const { error: rankError } = await db
+      .from('listings')
+      .update({ featured_rank: i + 1 })
+      .eq('id', ordered[i]);
+
+    if (rankError) {
+      // 42703: schema.sql has not been run since featured_rank was added.
+      if (rankError.code === '42703') return bad('BOOST_RANK_SETUP');
+      return bad('SAVE_FAILED', { detail: rankError.message });
+    }
+  }
+
+  await writeAudit(viewer, 'boost.reorder', 'listings', null, null, { order: ordered });
+
+  refresh();
+  return ok({ ordered: ordered.length });
+}
+
 /* ── Boost plans — created, priced and removed by an admin ────────────────── */
 
 const refreshPlans = () => {

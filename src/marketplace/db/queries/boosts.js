@@ -16,9 +16,14 @@ import { isMissingSchema } from './engagement';
 // price column (BOOST PLANS AND PRICES section) exists yet.
 const BOOST_SELECT = `
   *,
-  listings ( id, slug, name, price, media, state, views, is_featured ),
+  listings ( id, slug, name, price, media, state, views, is_featured, featured_rank ),
   vendors ( id, slug, name, verified )
 `;
+
+/* featured_rank arrives with schema.sql and code ships before the SQL is run.
+   A select naming a column the database lacks fails the WHOLE query, and the
+   admin's boost queue must not go blank over an ordering column. */
+const BOOST_SELECT_BASE = BOOST_SELECT.replace(', featured_rank', '');
 
 /**
  * For the seller's table: each listing's open request and running boost.
@@ -60,25 +65,54 @@ export async function getBoostsForListings(listingIds) {
  */
 export async function listBoosts({ tab = 'pending', limit = 100 } = {}) {
   const nowIso = new Date().toISOString();
-  let query = getMarketplaceDb().from('listing_boosts').select(BOOST_SELECT).limit(limit);
 
-  if (tab === 'active') {
-    query = query.eq('state', 'approved').gt('ends_at', nowIso).order('ends_at', { ascending: true });
-  } else if (tab === 'history') {
-    query = query
-      .or(`state.in.(rejected,cancelled,expired),and(state.eq.approved,ends_at.lte.${nowIso})`)
-      .order('created_at', { ascending: false });
-  } else {
-    query = query.eq('state', 'pending').order('created_at', { ascending: true });
-  }
+  const build = (select) => {
+    let query = getMarketplaceDb().from('listing_boosts').select(select).limit(limit);
 
-  const { data, error } = await query;
+    if (tab === 'active') {
+      query = query.eq('state', 'approved').gt('ends_at', nowIso).order('ends_at', { ascending: true });
+    } else if (tab === 'history') {
+      query = query
+        .or(`state.in.(rejected,cancelled,expired),and(state.eq.approved,ends_at.lte.${nowIso})`)
+        .order('created_at', { ascending: false });
+    } else {
+      query = query.eq('state', 'pending').order('created_at', { ascending: true });
+    }
+    return query;
+  };
+
+  let { data, error } = await build(BOOST_SELECT);
+  if (error?.code === '42703') ({ data, error } = await build(BOOST_SELECT_BASE));
+
   if (error) {
     const missing = isMissingSchema(error);
     if (!missing) console.error('[boosts] listBoosts:', error.message);
     return { ready: !missing, items: [] };
   }
-  return { ready: true, items: data ?? [] };
+
+  const items = data ?? [];
+
+  /**
+   * Running promotions come back in the order a VISITOR meets them.
+   *
+   * This listed them by end date, which is why dragging looked broken: the
+   * drag wrote listings.featured_rank, the page refreshed, and the server
+   * handed back the same rows sorted by when each boost expires — so the car
+   * just dragged to the top jumped straight back to wherever its end date put
+   * it. The order shown has to be the order being edited.
+   *
+   * Sorted here rather than in SQL because the column lives on the EMBEDDED
+   * listing; ends_at above still decides it for anything not yet ranked.
+   */
+  if (tab === 'active') {
+    const rankOf = (b) => {
+      const value = Number(b.listings?.featured_rank);
+      return Number.isFinite(value) && value > 0 ? value : Number.MAX_SAFE_INTEGER;
+    };
+    items.sort((a, b) => rankOf(a) - rankOf(b));
+  }
+
+  return { ready: true, items };
 }
 
 /** A seller's own requests, newest first, for their Promotions page. */

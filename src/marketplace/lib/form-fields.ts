@@ -9,6 +9,10 @@
  * rejects.
  */
 
+/* Which phone numbers are acceptable is an admin setting now, not a constant in
+   this file — see lib/phone.ts, which is pure for the same reasons this is. */
+import { isAllowedPhone, DEFAULT_PHONE_COUNTRIES } from '@/marketplace/lib/phone';
+
 /**
  * The field types a seller can ask for, and whether each carries choices.
  *
@@ -44,9 +48,6 @@ export const TYPES_WITH_OPTIONS = new Set(
 
 export const isMultiValue = (type: string | null | undefined) => type === 'multiselect';
 
-/** Saudi mobile, in the shapes people actually type it. */
-export const SAUDI_PHONE = /^(?:\+?966|0)?5\d{8}$/;
-
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /** Long enough to be useful, short enough that a lead card stays readable. */
@@ -75,7 +76,15 @@ export type FormFieldDef = {
   [key: string]: unknown;
 };
 
-export function validateAnswer(field: FormFieldDef, raw: unknown) {
+export function validateAnswer(
+  field: FormFieldDef,
+  raw: unknown,
+  /* Which countries a `phone` answer may come from — site_settings
+     .phone_countries, passed in by the action. Undefined keeps the old
+     Saudi-only rule, so a caller that has not been updated is not silently
+     loosened. */
+  options: { phoneCountries?: unknown } = {},
+) {
   const multi = isMultiValue(field.type);
   const empty = multi
     ? !(Array.isArray(raw) ? raw.length : 0)
@@ -96,7 +105,7 @@ export function validateAnswer(field: FormFieldDef, raw: unknown) {
     value = n;
   }
 
-  if (field.type === 'phone' && !SAUDI_PHONE.test(String(value).replace(/[\s-]/g, ''))) {
+  if (field.type === 'phone' && !isAllowedPhone(value, options.phoneCountries ?? DEFAULT_PHONE_COUNTRIES)) {
     return { error: 'PHONE_INVALID' };
   }
 

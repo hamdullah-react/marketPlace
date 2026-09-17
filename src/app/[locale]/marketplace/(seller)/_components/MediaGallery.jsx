@@ -243,6 +243,39 @@ export default function MediaGallery({
   }, [mediaVersion, vendorId]);
 
   /**
+   * A PICKER reads the library itself when it opens.
+   *
+   * Every dialog was limited to whatever list its page happened to pass in, and
+   * the pages pass a first page — the storefront reads 100 of 425. That was
+   * survivable while everything sat loose in Photos, and stopped being so once
+   * templates started filing their photos away: a Car images install puts all
+   * 400-odd into Exterior and Interior, the kind tabs deliberately show only
+   * what is NOT on a shelf, and the 100 newest assets are all filed. So the
+   * pencil on a showroom's own cover opened on "Nothing here yet" — with the
+   * seller's entire library present and none of it reachable, which reads as a
+   * picker that cannot offer anything rather than as a page that is missing.
+   *
+   * Only for `pick`. The Media page reads the whole library on the server and
+   * passes the folders with it, so the same fetch there would be the same list
+   * fetched twice.
+   *
+   * Folders are left to the effect below, which already loads them for a picker
+   * and shows tab-shaped skeletons while it does — asking for them here as well
+   * would be two requests for one list on every open.
+   */
+  useEffect(() => {
+    if (mode !== "pick" || !vendorId) return undefined;
+
+    let alive = true;
+
+    fetchAllMedia(vendorId)
+      .then((items) => { if (alive && items) setAssets(items); })
+      .catch(() => {});
+
+    return () => { alive = false; };
+  }, [mode, vendorId]);
+
+  /**
    * A picker gets the same shelves as the library page.
    *
    * A seller who files two hundred photos into "Exteriors" and "Interiors" and

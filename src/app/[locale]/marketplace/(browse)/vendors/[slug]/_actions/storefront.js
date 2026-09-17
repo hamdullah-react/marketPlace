@@ -6,6 +6,8 @@ import { vendorForAction } from '@/marketplace/auth/session';
 import { updateVendor } from '@/marketplace/db/queries/settings';
 import { keywordList } from '@/marketplace/lib/seo';
 import { parseSocialLinks, legacySocialObject } from '@/marketplace/lib/social';
+import { isAllowedPhone } from '@/marketplace/lib/phone';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 /**
  * Editing a showroom FROM its own storefront.
@@ -238,14 +240,16 @@ const SECTIONS = {
   },
 
   /* How to reach them, and whether the number may be shown at all. */
-  contact: (fd, vendor) => {
+  contact: (fd, vendor, opts = {}) => {
     const email = str(fd, 'contactEmail');
     const phone = str(fd, 'contactPhone');
 
     const errors = {};
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.contactEmail = 'EMAIL_INVALID';
-    // Saudi mobile, with or without the country code — same rule as Settings.
-    if (phone && !/^(\+?966|0)?5\d{8}$/.test(phone.replace(/[\s-]/g, ''))) {
+    /* Whichever countries Admin → Settings → Contact accepts — the same rule
+       as the seller's own Settings page. These builders are sync, so the
+       action reads the setting and hands it in. */
+    if (phone && !isAllowedPhone(phone, opts.phoneCountries)) {
       errors.contactPhone = 'PHONE_INVALID';
     }
     if (Object.keys(errors).length) return { errors };
@@ -409,7 +413,11 @@ export async function saveStorefrontSection(prevState, formData) {
     return bad('SAVE_FAILED');
   }
 
-  const built = build(formData, vendor);
+  /* The accepted phone countries, for the `contact` builder. Cached, and a
+     failed read falls back to the built-in list rather than refusing a save. */
+  const { phoneCountries } = await getSiteSettings().catch(() => ({ phoneCountries: ['SA'] }));
+
+  const built = build(formData, vendor, { phoneCountries });
   if (built.errors) return bad(null, built.errors);
 
   try {

@@ -17,6 +17,8 @@ import {
 
 import { SHARED_BUCKET, vendorBucket } from '@/marketplace/media/bucket';
 import { parseSocialLinks, legacySocialObject } from '@/marketplace/lib/social';
+import { isAllowedPhone } from '@/marketplace/lib/phone';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 const BUCKET = SHARED_BUCKET;
 
@@ -110,8 +112,10 @@ export async function saveContact(prevState, formData) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.contactEmail = 'EMAIL_INVALID';
   }
-  // Saudi mobile, with or without country code.
-  if (phone && !/^(\+?966|0)?5\d{8}$/.test(phone.replace(/[\s-]/g, ''))) {
+  // Whichever countries Admin → Settings → Contact accepts, in either the
+  // local or the international form. See lib/phone.ts.
+  const { phoneCountries } = await getSiteSettings().catch(() => ({ phoneCountries: ['SA'] }));
+  if (phone && !isAllowedPhone(phone, phoneCountries)) {
     errors.contactPhone = 'PHONE_INVALID';
   }
   if (Object.keys(errors).length) return { ok: false, error: null, token: stamp(), errors };

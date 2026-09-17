@@ -63,7 +63,7 @@ const MESSAGES = {
     ar: "رقم الجوال مطلوب — به يتصل بك البائع.",
     en: "A mobile number is required — it is how the seller calls you back.",
   },
-  PHONE_INVALID: { ar: "رقم جوال سعودي غير صالح.", en: "That is not a valid Saudi mobile number." },
+  PHONE_INVALID: { ar: "رقم جوال غير صالح.", en: "That is not a valid mobile number." },
   NO_PHONE: {
     ar: "هذا المعرض لم يضف رقماً. أرسل طلباً بدلاً من ذلك.",
     en: "This showroom has not added a number. Send a request instead.",

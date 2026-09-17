@@ -4285,6 +4285,28 @@ alter table listings add column if not exists featured_until timestamptz;
 
 create index if not exists listings_featured_idx on listings (featured_until) where is_featured;
 
+-- ── 2.1 WHICH featured car comes first ──────────────────────────────────────
+--
+-- Approving a boost says a car is featured; it does not say whether it is the
+-- first one a visitor sees. Until now the featured row and the top of All Cars
+-- ordered themselves by publish date, so a showroom that paid for the top spot
+-- got whatever position its listing date happened to give it.
+--
+-- The admin drags the running promotions into order on Admin → Boost requests →
+-- Running, and this is where that order is kept: 1 is first.
+--
+-- On the LISTING rather than on the boost, because the pages that read it —
+-- the home page's featured row and the All Cars grid — read listings. Keeping
+-- it on listing_boosts would put a join on the hottest query in the app to
+-- answer a question about one row.
+--
+-- Nullable, and null sorts last: a car featured before anyone dragged anything
+-- keeps its old behaviour and falls in behind the ranked ones by publish date.
+alter table listings add column if not exists featured_rank integer;
+
+create index if not exists listings_featured_rank_idx on listings (featured_rank)
+  where is_featured and featured_rank is not null;
+
 -- ── 3. Only the platform decides what is featured ───────────────────────────
 
 create or replace function listings_protect_promotion()
@@ -4657,6 +4679,20 @@ create policy site_pages_public_read on site_pages for select using (published o
 
 alter table site_settings add column if not exists default_locale text not null default 'ar';
 alter table site_settings add column if not exists locale_fallback boolean not null default true;
+
+-- ── Which phone numbers the marketplace accepts ───────────────────────────
+--
+-- Every form that asks for a number enforced one rule written out five times —
+-- a Saudi mobile — so a buyer with a Pakistani number could not finish signing
+-- up and a showroom could not list a UAE line.
+--
+-- A list of ISO country codes, e.g. ["SA"] or ["SA","PK"]. An EMPTY list means
+-- any country: no rule beyond "7 to 15 digits". Default is Saudi Arabia, which
+-- is what the code did before this column existed, so nothing changes until an
+-- admin changes it. What each country's numbers look like is in
+-- src/marketplace/lib/phone.ts, not here: adding a country must not be a
+-- migration.
+alter table site_settings add column if not exists phone_countries jsonb not null default '["SA"]'::jsonb;
 
 alter table site_settings drop constraint if exists site_settings_default_locale_check;
 alter table site_settings add constraint site_settings_default_locale_check

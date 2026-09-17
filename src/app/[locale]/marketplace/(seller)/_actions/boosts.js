@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { sendBoostRequestEmail } from '@/marketplace/auth/mailer';
+import { isAllowedPhone } from '@/marketplace/lib/phone';
 import { getSiteSettings, getSiteLanguages } from '@/marketplace/db/queries/site';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
 import { vendorForAction } from '@/marketplace/auth/session';
@@ -97,8 +98,11 @@ export async function requestBoost(prevState, formData) {
 
   if (!listingId) return bad('NOT_FOUND');
   if (!Number.isInteger(days) || days < 1) return bad('BOOST_DAYS');
+  // The countries Admin → Settings → Contact accepts, not a Saudi-only rule.
+  const { phoneCountries } = await getSiteSettings().catch(() => ({ phoneCountries: ['SA'] }));
+
   if (!contactPhone) return bad('PHONE_REQUIRED', { field: 'contactPhone' });
-  if (!/^(\+?966|0)?5\d{8}$/.test(contactPhone)) return bad('PHONE_INVALID', { field: 'contactPhone' });
+  if (!isAllowedPhone(contactPhone, phoneCountries)) return bad('PHONE_INVALID', { field: 'contactPhone' });
   if (!contactEmail) return bad('EMAIL_REQUIRED', { field: 'contactEmail' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return bad('EMAIL_INVALID', { field: 'contactEmail' });
 

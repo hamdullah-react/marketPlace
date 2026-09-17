@@ -36,6 +36,7 @@ import { saveSiteSettings } from "../admin/_actions/site";
 import { errorText } from "@/marketplace/lib/errors";
 import SiteImageField from "./SiteImageField";
 import LanguagesTable from "./LanguagesTable";
+import PhoneCountriesField from "./PhoneCountriesField";
 
 const INITIAL = { ok: false, error: null };
 
@@ -276,6 +277,22 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
             />
             {!newColumns ? <SqlNote locale={locale} /> : null}
             <SocialLinksEditor locale={locale} name="socialLinks" value={row?.social_links ?? []} />
+
+            {/* ── Which phone numbers the site accepts ───────────────────────
+                Signing up, a showroom's contact details, a promotion request
+                and a buyer's enquiry are all checked against this. */}
+            <Heading
+              title={t("أرقام الجوال المقبولة", "Accepted mobile numbers")}
+              hint={t(
+                "الدول التي تُقبل أرقامها في التسجيل وبيانات المعارض وطلبات الترويج ونماذج التواصل.",
+                "The countries whose numbers are accepted at signup, in showroom details, promotion requests and enquiry forms."
+              )}
+            />
+            <PhoneCountriesField
+              locale={locale}
+              name="phoneCountries"
+              value={row?.phone_countries ?? ["SA"]}
+            />
 
             <SaveBar locale={locale} state={contact.result} pending={contact.pending} />
           </form>
