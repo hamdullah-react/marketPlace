@@ -59,13 +59,30 @@ export async function attachOffers<T>(rows: T): Promise<T> {
      */
     const nowIso = new Date().toISOString();
 
-    const result = await getMarketplaceDb()
-      .from('listing_offers')
-      .select('id, listing_id, label, discount_type, discount_value, starts_at, ends_at, active')
-      .in('listing_id', ids)
-      .eq('active', true)
-      .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
-      .or(`ends_at.is.null,ends_at.gte.${nowIso}`);
+    const BASE = 'id, listing_id, label, discount_type, discount_value, starts_at, ends_at, active';
+
+    /**
+     * The badge colour rides along on the offer NAME.
+     *
+     * An embed rather than a second query: the colour is wanted on the same
+     * rows, and a grid of 24 cars must not become 24 lookups.
+     *
+     * Tried, then dropped — `offer_names.color` arrives with a later schema.sql
+     * than `listing_offers` itself, and naming a column the database lacks
+     * fails the WHOLE select. An unpainted badge is the default gold; a query
+     * that threw would be a grid with no prices on it.
+     */
+    const run = (select: string) =>
+      getMarketplaceDb()
+        .from('listing_offers')
+        .select(select)
+        .in('listing_id', ids)
+        .eq('active', true)
+        .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
+        .or(`ends_at.is.null,ends_at.gte.${nowIso}`);
+
+    let result = await run(`${BASE}, offer_names ( color, icon_url )`);
+    if (result.error) result = await run(BASE);
 
     if (result.error) throw new Error(result.error.message);
     data = result.data;
@@ -86,7 +103,11 @@ export async function attachOffers<T>(rows: T): Promise<T> {
   }
 
   const byListing = new Map<string, unknown[]>();
-  for (const offer of data ?? []) {
+  /* The select is built at runtime (the embed is dropped on a database without
+     offer_names.color), so postgrest-js cannot infer a row type for it and
+     falls back to its error shape. The columns are real; only the static parse
+     is missing — the same note cars.ts makes about its own dynamic selects. */
+  for (const offer of (data ?? []) as unknown as { listing_id: string }[]) {
     const bucket = byListing.get(offer.listing_id);
     if (bucket) bucket.push(offer);
     else byListing.set(offer.listing_id, [offer]);

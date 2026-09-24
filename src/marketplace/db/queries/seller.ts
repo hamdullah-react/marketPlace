@@ -2,6 +2,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { getViewer } from '@/marketplace/auth/session';
 import { OPEN_STAGES } from '@/marketplace/db/queries/leads';
 import type { Enum } from '@/marketplace/db/types';
+import type { LooseRow } from '@/marketplace/lib/row';
 
 /**
  * Seller-side reads, scoped to one vendor.
@@ -299,52 +300,79 @@ export async function getReviewSummary(vendorId: string) {
 export async function getVendorOffers(vendorId: string) {
   if (!vendorId) return [];
 
-  const { data, error } = await getMarketplaceDb()
+  const db = getMarketplaceDb();
+
+  /**
+   * Every column the EDIT FORM prefills from, not just the ones the list
+   * prints.
+   *
+   * `offer_name_id` was missing once, and the failure was silent and
+   * destructive: the row is what openForm() reads, so the name picker came up
+   * blank on every edit — and because the form posts what the picker holds,
+   * saving a date change then cleared the offer's name.
+   *
+   * The rule this is an instance of: an in-place edit reads the LIST row, so
+   * the list query has to select everything the form writes back, or the form
+   * silently blanks the difference.
+   */
+  const COLUMNS = `id, listing_id, label, offer_name_id, discount_type, discount_value,
+       starts_at, ends_at, active, created_at`;
+
+  const { data, error } = await db
     .from('listing_offers')
-    .select(
-      /**
-       * Every column the EDIT FORM prefills from, not just the ones the list
-       * prints.
-       *
-       * `offer_name_id` was missing, and the failure was silent and
-       * destructive: the row is what openForm() reads, so the name picker came
-       * up blank on every edit — and because the form posts what the picker
-       * holds, saving a date change then cleared the offer's name. A field the
-       * seller never touched, wiped by opening the form.
-       *
-       * The rule this is an instance of: an in-place edit reads the LIST row,
-       * so the list query has to select everything the form writes back, or the
-       * form silently blanks the difference.
-       */
-      /**
-       * A plain COLUMN, not an `offer_names ( … )` embed.
-       *
-       * The embed would resolve through the schema cache, so on a database
-       * where §25.1 has not been run the whole select fails and the seller's
-       * offers vanish — the same failure attachOffers() exists to avoid. It is
-       * not needed either: the list prints the `label` snapshot, and the edit
-       * picker resolves the current name from the catalog list by this id.
-       */
-      `id, label, offer_name_id, discount_type, discount_value,
-       starts_at, ends_at, active, created_at,
-       listings ( id, slug, name, price, state, media )`
-    )
+    .select(`${COLUMNS}, listings ( id, slug, name, price, state, media )`)
     .eq('vendor_id', vendorId)
     .order('created_at', { ascending: false });
 
+  if (!error) return data ?? [];
+
   /**
-   * Tolerant for the same reason attachOffers() is: schema.sql §25 may not have
-   * been run yet, and a seller opening Offers should be told there are none
-   * rather than shown a 500 with a Postgres error in it.
+   * The embed failed — so fetch the cars separately and join them here.
+   *
+   * ── Why this is not paranoia ────────────────────────────────────────────
+   *
+   * An embed is resolved through PostgREST's schema cache, which only knows
+   * the FOREIGN KEYS. On this database `listing_offers` has none to `listings`
+   * or `vendors` (verified: both directions report "Could not find a
+   * relationship"), because the table was created by a run that predates them
+   * and `create table if not exists` adds no constraints to a table that is
+   * already there. The whole select failed, the tolerant branch below returned
+   * [], and a seller who had just created an offer was shown an empty table —
+   * on their Offers page AND on their storefront's Offers tab.
+   *
+   * schema.sql now adds those constraints, but the fix cannot depend on
+   * somebody having run it: two queries and a Map cost one extra round trip
+   * and work either way.
    */
-  if (error) {
+  const fallback = await db
+    .from('listing_offers')
+    .select(COLUMNS)
+    .eq('vendor_id', vendorId)
+    .order('created_at', { ascending: false });
+
+  if (fallback.error) {
+    // Now it really is missing — §25 has not been run at all.
     console.warn(
-      `[offers] getVendorOffers: ${error.message}. Run src/marketplace/db/schema.sql §25 on this database.`
+      `[offers] getVendorOffers: ${fallback.error.message}. ` +
+        'Run src/marketplace/db/schema.sql §25 on this database.'
     );
     return [];
   }
-  return data ?? [];
+
+  const rows = fallback.data ?? [];
+  const ids = [...new Set(rows.map((r: LooseRow) => r.listing_id).filter(Boolean))];
+  if (!ids.length) return rows;
+
+  const cars = await db
+    .from('listings')
+    .select('id, slug, name, price, state, media')
+    .in('id', ids as string[])
+    .then(({ data: list }) => list ?? [], () => []);
+
+  const byId = new Map((cars as LooseRow[]).map((c) => [c.id, c]));
+  return rows.map((r: LooseRow) => ({ ...r, listings: byId.get(r.listing_id) ?? null }));
 }
+
 
 /**
  * The cars this seller can put an offer on.

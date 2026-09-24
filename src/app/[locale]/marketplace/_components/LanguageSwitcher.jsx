@@ -13,7 +13,7 @@
 
 import { useState, useTransition, Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
+import { Languages } from 'lucide-react';
 
 function LanguageSwitcherInternal() {
   const router = useRouter();
@@ -80,13 +80,15 @@ function LanguageSwitcherInternal() {
          announced an Arabic label to screen readers and vice versa. */
       aria-label={lang === 'ar' ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
     >
-      <Image
-        src={lang === 'ar' ? '/arbic.svg' : '/english.svg'}
-        width={22}
-        height={22}
-        alt={lang === 'ar' ? 'Arabic' : 'English'}
-        className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]"
-      />
+      {/* A LINE icon, not the /english.svg artwork.
+
+          Those files have fill="#0B6B3A" painted inside them, and nothing in
+          CSS can recolour an image — so on a themed site the language button
+          was the one control in the header still wearing the old green while
+          the search, wishlist and account buttons beside it had followed the
+          brand colour. A lucide icon inherits `currentColor`, which is what
+          every other icon in this row already does. */}
+      <Languages className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" aria-hidden="true" />
     </button>
   );
 }
@@ -98,13 +100,7 @@ export default function LanguageSwitcher() {
         /* Same box as the real button at both sizes — a fallback that is a
            different size is a layout shift on hydration. */
         <button className="raised flex h-8 w-8 items-center justify-center rounded-full sm:h-10 sm:w-10">
-          <Image
-            src="/english.svg"
-            width={22}
-            height={22}
-            alt="Language"
-            className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]"
-          />
+          <Languages className="h-[18px] w-[18px] sm:h-[22px] sm:w-[22px]" aria-hidden="true" />
         </button>
       }
     >

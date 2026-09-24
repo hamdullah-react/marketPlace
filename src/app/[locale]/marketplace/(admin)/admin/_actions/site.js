@@ -17,6 +17,7 @@ import { isMissingSchema } from '@/marketplace/db/queries/engagement';
 import { keywordList } from '@/marketplace/lib/seo';
 import { parseSocialLinks } from '@/marketplace/lib/social';
 import { PHONE_COUNTRY_BY_CODE } from '@/marketplace/lib/phone';
+import { normalizeTheme, isDefaultTheme } from '@/marketplace/lib/theme';
 import {
   SITE_TAGS, SEO_PAGE_BY_KEY, CONTENT_PAGE_BY_SLUG, CHANGEFREQ, OG_TYPES, TWITTER_CARDS, pageRoute,
 } from '@/marketplace/lib/sitePages';
@@ -164,6 +165,22 @@ export async function saveSiteSettings(prevState, formData) {
       row.phone_countries = Array.isArray(picked)
         ? [...new Set(picked.map((c) => String(c).toUpperCase()))].filter((c) => PHONE_COUNTRY_BY_CODE.has(c))
         : [];
+    }
+    /* Appearance tab — colours, corner radius and shadow strength, posted as
+       one JSON field. normalizeTheme() is the same function the page render
+       uses, so anything it will not accept (a colour that is not a hex, a
+       radius off the offered scale) becomes the default here rather than
+       reaching the stylesheet. null when it is the built-in theme, so "reset"
+       clears the row instead of storing a copy of the defaults. */
+    if (has('theme')) {
+      let sent = {};
+      try {
+        sent = JSON.parse(str(formData, 'theme') || '{}');
+      } catch {
+        return bad('SAVE_FAILED');
+      }
+      const theme = normalizeTheme(sent);
+      row.theme = isDefaultTheme(theme) ? null : theme;
     }
   } catch (err) {
     if (err instanceof Invalid) return bad(err.code);

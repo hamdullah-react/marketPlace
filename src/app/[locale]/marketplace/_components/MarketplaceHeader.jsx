@@ -418,7 +418,7 @@ export default function MarketplaceHeader({
     <>
       <header
         dir={isAr ? "rtl" : "ltr"}
-        className="fixed inset-x-0 top-0 z-50 h-16 w-full bg-linear-to-b from-[#F7FCF9] to-[#DCEFE4] font-noto shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_1px_0_rgba(var(--brand-rgb),0.14),0_6px_16px_-6px_rgba(var(--brand-rgb),0.28),0_16px_32px_-18px_rgba(0,0,0,0.28)] transition-colors duration-300 dark:from-[#1B4029] dark:to-[#12301F] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_32px_-18px_rgba(0,0,0,0.7)] sm:h-20"
+        className="fixed inset-x-0 top-0 z-50 h-16 w-full bg-linear-to-b from-[var(--surface-header-from)] to-[var(--surface-header-to)] font-noto shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_1px_0_rgba(var(--brand-rgb),0.14),0_6px_16px_-6px_rgba(var(--brand-rgb),0.28),0_16px_32px_-18px_rgba(0,0,0,0.28)] transition-colors duration-300 dark:from-[var(--surface-dark-from)] dark:to-[var(--surface-dark-to)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_32px_-18px_rgba(0,0,0,0.7)] sm:h-20"
       >
         <div className="w-full bg-transparent transition-colors duration-300">
           <div className="mx-auto max-w-[1600px] px-4 sm:px-8 lg:px-20 xl:px-28">

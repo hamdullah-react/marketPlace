@@ -65,6 +65,7 @@ import {
   subscribeSaved, getSavedOverrides, getServerSavedOverrides, markSaved,
 } from "./savedStore";
 import { subscribeViews, getViews, getServerViews } from "./viewsStore";
+import PromoBadges from "./PromoBadges";
 
 /**
  * Where a saved car lives.
@@ -238,19 +239,9 @@ export default function ListingCard({
    */
   const facts = cardSpecs.slice(0, MAX_FACTS);
 
-  /**
-   * New or used, kept as its own badge.
-   *
-   * The one fact that survived the kinds removal as a first-class field: it is
-   * on every car, it is two values and never more, and it changes what the
-   * price MEANS. A buyer scanning a grid reads it before anything else, which
-   * is why it is a badge rather than one of four rotating spec slots.
-   */
-  const condition = a.condition === "new"
-    ? { label: isEnglish ? "New" : "جديد", isNew: true }
-    : a.condition === "used"
-      ? { label: isEnglish ? "Used" : "مستعمل", isNew: false }
-      : null;
+  /* New or used is read from `attributes` by PromoBadges, which now owns every
+     mark on the card — it was built here as well, and two places deciding what
+     "used" looks like is how they drift apart. */
 
   // Identity line: what the car IS, as opposed to how it is specified.
   const meta = [
@@ -366,59 +357,18 @@ export default function ListingCard({
 
           pe-9 keeps the badges clear of the corner arrow. */}
       <div className="relative z-20 flex flex-col px-2.5 pt-2.5 sm:px-4 sm:pt-4 md:px-5">
-        {rank || listing.isFeatured || listing.offer?.label || listing.discountPercent || condition ? (
-          <div className="mb-1.5 flex min-h-6 min-w-0 flex-nowrap items-center gap-0.5 overflow-hidden pe-8 sm:mb-2 sm:min-h-7 sm:gap-1 sm:pe-10">
-            {rank ? (
-              <span
-                aria-label={isEnglish ? `Rank ${rank}` : `المرتبة ${rank}`}
-                className={`flex h-3.5 min-w-3.5 shrink-0 items-center justify-center rounded-full px-1 text-[7px] font-extrabold shadow-sm sm:h-4 sm:min-w-4 sm:text-[8px] md:h-5 md:min-w-5 md:text-[9px] ${
-                  rank === 1
-                    ? "bg-brand-gold text-[#2a2100]"
-                    : rank === 2
-                      ? "bg-[#D9DEE3] text-gray-800"
-                      : rank === 3
-                        ? "bg-[#E3A76F] text-[#3a1f05]"
-                        : "bg-brand-primary text-white"
-                }`}
-              >
-                #{rank}
-              </span>
-            ) : null}
-            {listing.isFeatured ? (
-              /* Promoted placement is labelled, always — a featured car must
-                 not look like it earned the top of the grid on its own. */
-              <span className="rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] shrink-0 bg-[#06170E] text-brand-gold">
-                {isEnglish ? "Featured" : "مميز"}
-              </span>
-            ) : null}
-            {listing.offer?.label ? (
-              /* GOLD: the one thing on the card that is a deal rather than a
-                 fact about the car. */
-              <span className="rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] min-w-0 truncate bg-brand-gold text-[#2a2100]">
-                {listing.offer.label}
-                {listing.offer.percent ? ` · ${listing.offer.percent}%` : ""}
-              </span>
-            ) : listing.discountPercent ? (
-              <span className="rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] shrink-0 bg-brand-gold text-[#2a2100]">
-                {isEnglish ? `Save ${listing.discountPercent}%` : `وفّر ${listing.discountPercent}%`}
-              </span>
-            ) : null}
-            {condition ? (
-              <span
-                className={`rounded-full px-1 text-[7px] font-bold leading-[14px] whitespace-nowrap shadow-sm sm:px-1.5 sm:text-[8px] sm:leading-4 md:text-[9px] shrink-0 ${
-                  condition.isNew
-                    ? "bg-brand-primary text-white"
-                    : "bg-white/90 text-gray-700 dark:bg-white/15 dark:text-gray-200"
-                }`}
-              >
-                {condition.label}
-              </span>
-            ) : null}
-          </div>
-        ) : (
-          /* No badges: the arrow still needs its row, or the name runs under it. */
-          <div className="mb-1.5 h-6 sm:mb-2 sm:h-7" />
-        )}
+        {/* ── Promotions, as marks ─────────────────────────────────────────
+            Icons rather than words, with the wording one tap away. Four text
+            pills — Featured, the offer, the saving, new/used — filled the top
+            of the tile and wrapped onto a second line on a phone, which is
+            what pushed the car's name down. See PromoBadges.
+
+            The row keeps its height whether or not there is anything in it, so
+            the corner arrow always has its own airspace and a card with no
+            promotions lines up with one that has three. */}
+        <div className="mb-1.5 flex min-h-6 items-center gap-1 pe-8 sm:mb-2 sm:min-h-7 sm:pe-10">
+          <PromoBadges listing={listing} locale={locale} rank={rank} />
+        </div>
 
         {/* ── Identity and price, side by side ─────────────────────────────
             The layout the live site shipped with: what the car is on the lead

@@ -43,7 +43,11 @@ export default async function AdminBoostPlansPage({ params }) {
           </p>
         </div>
 
-        <div className="max-w-4xl px-4 lg:px-6">
+        {/* Full width, not max-w-4xl. The plans are a PRICING TABLE now, and
+            capping the page at 56rem let three cards use half the screen and
+            wrap the fourth onto a row of its own — the comparison they exist to
+            make is the thing the cap was breaking. */}
+        <div className="px-4 lg:px-6">
           <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
             <PlansSection locale={locale} />
           </Suspense>

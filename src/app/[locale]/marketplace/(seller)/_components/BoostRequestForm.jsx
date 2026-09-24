@@ -11,7 +11,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Sparkles, Send, Loader2, CheckCircle2, AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +55,17 @@ export default function BoostRequestForm({
 
   // Only the plans an admin has created and switched on — nothing built in.
   const days = plans.some((p) => p.days === pickedDays) ? pickedDays : (plans[0]?.days ?? null);
+
+  /* Which plan costs least PER DAY — the badge on the cards below. Derived
+     rather than stored: an admin repricing a plan moves the badge with it,
+     and it can never sit on a plan that stopped being the best deal. */
+  const bestValueDays = plans.length
+    ? plans.reduce((best, p) => {
+        if (!(p.days > 0)) return best;
+        const rate = p.price / p.days;
+        return best == null || rate < best.rate ? { days: p.days, rate } : best;
+      }, null)?.days ?? null
+    : null;
   const plan = plans.find((p) => p.days === days) ?? null;
 
   if (!listings.length) {
@@ -133,23 +144,90 @@ export default function BoostRequestForm({
               )}
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {plans.map((p) => (
-                <button
-                  key={p.id ?? p.days}
-                  type="button"
-                  onClick={() => setPickedDays(p.days)}
-                  aria-pressed={days === p.days}
-                  className={`flex flex-col items-center rounded-lg px-2 py-2.5 ${
-                    days === p.days ? "raised-solid bg-brand-primary text-white" : "raised"
-                  }`}
-                >
-                  <span className="text-sm font-semibold">{t(`${p.days} يوم`, `${p.days} days`)}</span>
-                  <span className={`text-xs tabular-nums ${days === p.days ? "text-white/85" : "text-muted-foreground"}`}>
-                    {money(p.price)}
-                  </span>
-                </button>
-              ))}
+            /* ── Pricing cards ───────────────────────────────────────────
+               The plans as a pricing table, because that is what they are:
+               the same choice, the same question ("which one is worth it?"),
+               and the same answer a seller needs in front of them — what it
+               costs, what a day of it costs, and what it buys.
+
+               The per-day figure is the one that makes a long plan legible.
+               Two pills reading "7 days · 150" and "30 days · 500" are not
+               comparable at a glance; "21 a day" against "17 a day" is. It is
+               computed here rather than stored, so it can never disagree with
+               the price beside it.
+
+               BEST VALUE is worked out, not configured: the lowest daily rate
+               among the plans on offer. An admin who reprices does not have to
+               remember to move a flag, and the badge cannot end up on a plan
+               that stopped being the best deal months ago. */
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {plans.map((p) => {
+                const picked = days === p.days;
+                const perDay = p.days > 0 ? p.price / p.days : null;
+                const best = bestValueDays != null && p.days === bestValueDays && plans.length > 1;
+
+                return (
+                  <button
+                    key={p.id ?? p.days}
+                    type="button"
+                    onClick={() => setPickedDays(p.days)}
+                    aria-pressed={picked}
+                    className={`relative flex flex-col rounded-xl p-4 text-start transition-transform ${
+                      picked
+                        ? "raised-card ring-2 ring-brand-primary"
+                        : "raised-card hover:-translate-y-0.5"
+                    }`}
+                  >
+                    {best ? (
+                      <span className="absolute -top-2 end-3 rounded-full bg-brand-gold px-2 py-0.5 text-[10px] font-bold text-[#2a2100] shadow-sm">
+                        {t("الأفضل قيمة", "Best value")}
+                      </span>
+                    ) : null}
+
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                      <Sparkles className="h-3.5 w-3.5 text-brand-gold" />
+                      {t(`${p.days} يوم`, `${p.days} days`)}
+                    </span>
+
+                    {/* The number, at the size a price is read at. */}
+                    <span className="mt-1.5 text-2xl font-bold tabular-nums text-brand-primary">
+                      {money(p.price)}
+                    </span>
+
+                    {perDay != null ? (
+                      <span className="text-[11px] tabular-nums text-muted-foreground">
+                        {t(`${money(perDay)} / يوم`, `${money(perDay)} per day`)}
+                      </span>
+                    ) : null}
+
+                    <ul className="mt-3 space-y-1 border-t pt-3 text-[11px] text-muted-foreground">
+                      <li className="flex items-start gap-1.5">
+                        <Check className="mt-px h-3 w-3 shrink-0 text-brand-primary" />
+                        {t("في صف السيارات المميزة بالصفحة الرئيسية", "In the featured row on the home page")}
+                      </li>
+                      <li className="flex items-start gap-1.5">
+                        <Check className="mt-px h-3 w-3 shrink-0 text-brand-primary" />
+                        {t("أعلى صفحة كل السيارات", "Top of the All cars page")}
+                      </li>
+                      <li className="flex items-start gap-1.5">
+                        <Check className="mt-px h-3 w-3 shrink-0 text-brand-primary" />
+                        {t("شارة «مميز» على البطاقة", '"Featured" badge on the card')}
+                      </li>
+                    </ul>
+
+                    {/* The state, said in words as well as by the ring —
+                        a colour alone is not an answer for everyone. */}
+                    <span
+                      className={`mt-3 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold ${
+                        picked ? "raised-solid bg-brand-primary text-white" : "raised text-brand-primary"
+                      }`}
+                    >
+                      {picked ? <Check className="h-3.5 w-3.5" /> : null}
+                      {picked ? t("مختارة", "Selected") : t("اختر", "Choose")}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

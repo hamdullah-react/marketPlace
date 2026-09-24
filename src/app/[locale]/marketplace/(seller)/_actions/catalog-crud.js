@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { staffForAction, vendorForAction } from '@/marketplace/auth/session';
 import { slugify, kindSlug } from '@/marketplace/lib/slug';
+import { badgeToken } from '@/marketplace/lib/badge';
 
 import {
   ENTITIES, nameFieldOf, iconFieldOf, sequenceFieldOf, lacksColumn,
@@ -109,6 +110,10 @@ function buildRow(key, formData) {
 
   if (entity.hasIcon || entity.iconField) row[iconFieldOf(key)] = str(formData, 'iconUrl') || null;
   if (entity.hasImage) row.image_url = str(formData, 'imageUrl') || null;
+  /* Checked against the known tokens rather than stored as sent: the column is
+     a plain text field, and a hand-posted value would reach a card as classes
+     that do not exist — a badge with no background and white text on it. */
+  if (entity.hasColor) row.color = badgeToken(str(formData, 'color'));
   if (entity.hasLogo) row.logo_url = str(formData, 'logoUrl') || null;
   if (entity.hasSequence || entity.sequenceField) row[sequenceFieldOf(key)] = num(formData, 'sequence') ?? 0;
   if (entity.hasActive) row.active = bool(formData, 'active');

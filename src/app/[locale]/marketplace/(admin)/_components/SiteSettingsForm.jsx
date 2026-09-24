@@ -21,7 +21,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Palette, Languages, Phone, Search, Loader2, Check,
+  Palette, Languages, Phone, Search, Loader2, Check, Paintbrush,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,11 +37,13 @@ import { errorText } from "@/marketplace/lib/errors";
 import SiteImageField from "./SiteImageField";
 import LanguagesTable from "./LanguagesTable";
 import PhoneCountriesField from "./PhoneCountriesField";
+import ThemeField from "./ThemeField";
 
 const INITIAL = { ok: false, error: null };
 
 const TABS = [
   { id: "branding", icon: Palette, ar: "الهوية والشعار", en: "Branding" },
+  { id: "appearance", icon: Paintbrush, ar: "الألوان والمظهر", en: "Appearance" },
   { id: "languages", icon: Languages, ar: "اللغة والتفضيلات", en: "Language & preferences" },
   { id: "contact", icon: Phone, ar: "التواصل والروابط", en: "Contact & links" },
   { id: "seo", icon: Search, ar: "إعدادات SEO العامة", en: "SEO defaults" },
@@ -67,6 +69,7 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
   const language = useActionResult(saveSiteSettings, INITIAL, { onSuccess: () => router.refresh() });
   const contact = useActionResult(saveSiteSettings, INITIAL, { onSuccess: () => router.refresh() });
   const seo = useActionResult(saveSiteSettings, INITIAL, { onSuccess: () => router.refresh() });
+  const appearance = useActionResult(saveSiteSettings, INITIAL, { onSuccess: () => router.refresh() });
 
   // The SAVED authoring language drives the fields — the same as a showroom,
   // where the choice takes effect once Language is saved.
@@ -119,7 +122,7 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
             />
 
             {/* What the header will look like. */}
-            <div className="flex flex-wrap items-center gap-4 rounded-lg bg-linear-to-b from-[#F7FCF9] to-[#DCEFE4] px-4 py-3 dark:from-[#1B4029] dark:to-[#12301F]">
+            <div className="flex flex-wrap items-center gap-4 rounded-lg bg-linear-to-b from-[var(--surface-header-from)] to-[var(--surface-header-to)] px-4 py-3 dark:from-[var(--surface-dark-from)] dark:to-[var(--surface-dark-to)]">
               {logo ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={logo} alt="" className="h-10 w-auto max-w-[180px] object-contain" />
@@ -295,6 +298,23 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
             />
 
             <SaveBar locale={locale} state={contact.result} pending={contact.pending} />
+          </form>
+        ) : null}
+
+        {/* ── Appearance ───────────────────────────────────────────────────── */}
+        {tab === "appearance" ? (
+          <form key={`appearance-${stamp}`} action={appearance.formAction} className={card}>
+            <Heading
+              title={t("الألوان والمظهر", "Colours and appearance")}
+              hint={t(
+                "لون واحد يسري على الموقع كله — الأزرار والبطاقات والظلال — مع انحناء الزوايا وقوة الظل.",
+                "One colour drives the whole site — buttons, cards and shadows — alongside corner roundness and shadow strength."
+              )}
+            />
+
+            <ThemeField locale={locale} value={row?.theme ?? null} />
+
+            <SaveBar locale={locale} state={appearance.result} pending={appearance.pending} />
           </form>
         ) : null}
 

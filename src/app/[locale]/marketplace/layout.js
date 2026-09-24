@@ -1,6 +1,7 @@
 import '@/marketplace/styles/marketplace.css';
 import { setRequestLocale } from 'next-intl/server';
 import NavProgress from './_components/NavProgress';
+import ThemeStyle from './_components/ThemeStyle';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
 import { absoluteUrl } from '@/marketplace/seo/pageMetadata';
@@ -90,6 +91,10 @@ export default async function MarketplaceLayout({ children, params }) {
    */
   return (
     <>
+      {/* The admin's colours, radius and shadow strength (Settings →
+          Appearance), as CSS variables over the ones globals.css defines.
+          Renders nothing while the theme is the built-in one. */}
+      <ThemeStyle />
       <NavProgress />
       {children}
     </>

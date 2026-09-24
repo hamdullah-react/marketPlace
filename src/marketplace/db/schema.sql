@@ -4717,4 +4717,113 @@ begin
   end if;
 end $$;
 
+
+-- ============================================================================
+-- APPEARANCE — the admin's theme
+-- ============================================================================
+--
+-- One jsonb object holding what Admin → Settings → Appearance writes:
+--
+--   { "primary": "#0B6B3A", "gold": "#D4AF37", "bgLight": "#EAF4EE",
+--     "bgDark": "#0B130E", "radius": 1, "shadow": 1 }
+--
+-- Only these six keys, because the rest of the palette is DERIVED from the
+-- brand colour at render time (src/marketplace/lib/theme.js): the pressed
+-- shade, the pale tint, the lighter version dark mode needs, and the rgb
+-- triplet the shadows are tinted with. Storing those too would be five more
+-- values to keep in step with one choice.
+--
+-- `radius` and `shadow` are multipliers over Tailwind's radius scale and the
+-- shadow alphas in globals.css, so one number moves the whole app.
+--
+-- Nothing is seeded and no default is set: an absent or empty object means
+-- "the look the stylesheet already has", which is what every existing install
+-- gets before this runs.
+alter table site_settings add column if not exists theme jsonb;
+
+
+-- ── Promotion badge colours ────────────────────────────────────────────────
+--
+-- Which colour the badge wears on a card, chosen once per offer NAME rather
+-- than per offer: "Ramadan deal" is gold everywhere, "Clearance" is red
+-- everywhere, and a seller running the same promotion twice cannot end up with
+-- two colours for one thing.
+--
+-- A token ('gold', 'red', 'blue' …), not a hex — the list and the ink that
+-- reads on each background live in src/marketplace/lib/badge.js. Null means
+-- gold, which is what every offer badge was before this column existed.
+alter table offer_names add column if not exists color text;
+
+
+-- ── listing_offers: the foreign keys it was missing ────────────────────────
+--
+-- Found on a live database: `listing_offers` had NO constraint to `listings`
+-- or `vendors`. The table itself was created by a run that predates them, and
+-- `create table if not exists` adds nothing to a table that already exists —
+-- so the columns were there, the data was right, and the RELATIONSHIP was
+-- absent.
+--
+-- Two consequences, one visible and one not:
+--
+--   · PostgREST resolves an embed through the foreign keys, so
+--     `listing_offers … listings ( … )` failed with "Could not find a
+--     relationship". The seller's Offers table and the storefront's Offers tab
+--     both read that query, caught the error and showed nothing — a seller who
+--     had just created an offer saw an empty list.
+--
+--   · Nothing cascaded. Deleting a car left its offers behind, pointing at a
+--     listing that no longer exists.
+--
+-- ── The rows that have to go first ────────────────────────────────────────
+--
+-- Adding the constraint FAILS while a single orphan exists, and aborts the
+-- whole run with 23503 — which is what happened here: one offer pointed at a
+-- listing (and a vendor) that had already been deleted.
+--
+-- These rows are deleted rather than kept, and the argument is simply what the
+-- constraint says: with the foreign key in place they would ALREADY be gone,
+-- removed by the cascade when their car or their showroom was. They survived
+-- only because the rule was missing. They are also unreachable — every reader
+-- of listing_offers starts from a listing or a vendor, and neither exists — so
+-- nothing can show them, edit them or price against them.
+--
+-- The count is raised as a NOTICE rather than done silently: deleting rows is
+-- not something a schema file should do without saying so.
+do $$
+declare
+  gone int;
+begin
+  delete from listing_offers o
+  where not exists (select 1 from listings l where l.id = o.listing_id)
+     or not exists (select 1 from vendors  v where v.id = o.vendor_id);
+
+  get diagnostics gone = row_count;
+
+  if gone > 0 then
+    raise notice
+      'Offers: removed % orphaned offer(s) whose car or showroom no longer exists. They were unreachable, and the cascade below would have removed them when the parent was deleted.',
+      gone;
+  end if;
+end $$;
+
+-- Added by name so a database that already has them is untouched.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'listing_offers_listing_id_fkey'
+  ) then
+    alter table listing_offers
+      add constraint listing_offers_listing_id_fkey
+      foreign key (listing_id) references listings (id) on delete cascade;
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'listing_offers_vendor_id_fkey'
+  ) then
+    alter table listing_offers
+      add constraint listing_offers_vendor_id_fkey
+      foreign key (vendor_id) references vendors (id) on delete cascade;
+  end if;
+end $$;
+
 notify pgrst, 'reload schema';

@@ -250,7 +250,7 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
   return (
     <div className="raised-card flex h-full flex-col overflow-hidden rounded-xl">
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="shrink-0 bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-4">
+      <div className="shrink-0 bg-linear-to-r from-[var(--brand-primary)] to-[var(--brand-dark)] p-4">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-white sm:h-5 sm:w-5" />
@@ -515,7 +515,7 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
         <div className="sticky bottom-0 shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4 dark:border-white/10 dark:bg-[#0f0f0f]">
           <Button
             onClick={onClose}
-            className="h-10 w-full gap-2 rounded-lg bg-linear-to-b from-[var(--brand-primary)] to-[#095A30] text-sm font-bold sm:h-12 sm:text-base text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(var(--brand-rgb),0.35),0_8px_16px_-5px_rgba(var(--brand-rgb),0.45)] transition-all active:translate-y-px active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
+            className="h-10 w-full gap-2 rounded-lg bg-linear-to-b from-[var(--brand-primary)] to-[var(--brand-dark)] text-sm font-bold sm:h-12 sm:text-base text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_2px_4px_rgba(var(--brand-rgb),0.35),0_8px_16px_-5px_rgba(var(--brand-rgb),0.45)] transition-all active:translate-y-px active:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]"
           >
             {isPending ? (
               <>

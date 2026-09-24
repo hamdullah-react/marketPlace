@@ -67,7 +67,7 @@ async function BrandsGrid({ locale }) {
       </Breadcrumb>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="mb-6 rounded-2xl bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-6 text-white shadow-lg sm:p-8">
+      <div className="mb-6 rounded-2xl bg-linear-to-r from-[var(--brand-primary)] to-[var(--brand-dark)] p-6 text-white shadow-lg sm:p-8">
         <h1 className="text-2xl font-bold sm:text-3xl">{t('الماركات', 'Car Brands')}</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/80">
           {t(

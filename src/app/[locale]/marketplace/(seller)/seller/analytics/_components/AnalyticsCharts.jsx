@@ -48,7 +48,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
   }));
 
   const seriesConfig = {
-    listings: { label: t("إعلانات مضافة", "Listings added"), color: "#0B6B3A" },
+    listings: { label: t("إعلانات مضافة", "Listings added"), color: "var(--brand-primary)" },
     leads: { label: t("عملاء محتملون", "Leads"), color: "#0ea5e9" },
   };
 
@@ -183,7 +183,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
             </p>
           ) : (
             <ChartContainer
-              config={{ views: { label: t("مشاهدات", "Views"), color: "#0B6B3A" } }}
+              config={{ views: { label: t("مشاهدات", "Views"), color: "var(--brand-primary)" } }}
               className="h-[240px] w-full"
             >
               <BarChart
@@ -205,7 +205,7 @@ export default function AnalyticsCharts({ locale = "ar", data }) {
                   tickFormatter={(v) => (v.length > 16 ? `${v.slice(0, 15)}…` : v)}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="views" fill="#0B6B3A" radius={4} />
+                <Bar dataKey="views" fill="var(--brand-primary)" radius={4} />
               </BarChart>
             </ChartContainer>
           )}

@@ -145,6 +145,36 @@ export default function OffersManager({
   };
 
   const draftCar = listings.find((l) => l.id === draft.listingId) ?? null;
+
+  /**
+   * Cars that already have an offer running or waiting to start.
+   *
+   * §25 allows ONE live offer per car (an exclusion constraint enforces it),
+   * so picking a car that has one produces a save that the database refuses —
+   * an error after the form is filled in, about a rule the picker never
+   * mentioned. The row is disabled and says why instead.
+   *
+   * The offer being EDITED is excluded, or reopening it would find its own car
+   * unavailable and the seller could not change the dates on an offer without
+   * first deleting it.
+   */
+  const takenBy = new Map();
+  for (const offer of offers) {
+    if (current?.id && offer.id === current.id) continue;
+    const carId = offer.listings?.id ?? offer.listing_id;
+    if (!carId) continue;
+
+    const status = offerStatus(offer);
+    if (status === 'running' || status === 'scheduled') takenBy.set(carId, status);
+  }
+
+  const carUnavailable = (car) => {
+    const status = takenBy.get(car.id);
+    if (!status) return null;
+    return status === 'scheduled'
+      ? t("عرض مجدول", "Offer scheduled")
+      : t("عليه عرض حالياً", "Already offered");
+  };
   const draftPrice =
     draftCar && draft.discountValue
       ? discountedPrice(draftCar.price, {
@@ -257,6 +287,7 @@ export default function OffersManager({
               value={draft.listingId}
               onChange={(id) => setDraft({ ...draft, listingId: id })}
               placeholder={t("ابحث عن سيارة…", "Search for a car…")}
+              unavailable={carUnavailable}
               labelOf={(l) =>
                 `${localized(l.name, locale)} — ${formatPrice(l.price, locale)}` +
                 (l.state !== "live" ? ` (${t("غير منشورة", "not published")})` : "")

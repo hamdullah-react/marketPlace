@@ -26,6 +26,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useOnChange } from "@/hooks/use-on-change";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
+import { badgeClass } from "@/marketplace/lib/badge";
 import { priceWithOffer } from "@/marketplace/lib/offer";
 import LeadPanel from "./LeadPanel";
 import {
@@ -570,9 +571,13 @@ export default function ListingFold({
                     argued with from a query string. */}
                 {listing.offer ? (
                   <div className="mt-2 rounded-xl bg-brand-primary/5 px-3 py-2 dark:bg-brand-primary/10">
-                    <p className="text-xs font-semibold text-brand-primary">
-                      {listing.offer.label ?? t("عرض خاص", "Special offer")}
-                      {" · "}
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-brand-primary">
+                      {/* The promotion's own colour, the same one its badge
+                          wears on the card — so a buyer arriving from the grid
+                          sees the same promotion, not a different-looking one. */}
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeClass(listing.offer.color)}`}>
+                        {listing.offer.label ?? t("عرض خاص", "Special offer")}
+                      </span>
                       {t("توفير", "save")} {listing.offer.savingLabel}
                     </p>
                     {listing.offer.endsAt ? (

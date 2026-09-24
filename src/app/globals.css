@@ -92,59 +92,59 @@
    ========================================================================== */
 
 @utility raised {
-  background-image: linear-gradient(to bottom, #fcfefd, #eaf6ef);
+  background-image: linear-gradient(to bottom, var(--surface-from), var(--surface-to));
   color: var(--brand-primary);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.8),
     inset 0 0 0 1px rgb(255 255 255 / 0.55),
-    0 1px 2px rgba(var(--brand-rgb), 0.10),
-    0 3px 6px -3px rgba(var(--brand-rgb), 0.16);
+    0 1px 2px rgba(var(--brand-rgb), calc(0.10 * var(--shadow-strength))),
+    0 3px 6px -3px rgba(var(--brand-rgb), calc(0.16 * var(--shadow-strength)));
   transition: background-image 200ms, box-shadow 200ms, transform 200ms;
 
   &:hover {
-    background-image: linear-gradient(to bottom, #ffffff, #e0f0e7);
+    background-image: linear-gradient(to bottom, var(--surface-hover-from), var(--surface-hover-to));
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.8),
       inset 0 0 0 1px rgb(255 255 255 / 0.55),
-      0 2px 4px rgba(var(--brand-rgb), 0.13),
-      0 6px 12px -5px rgba(var(--brand-rgb), 0.20);
+      0 2px 4px rgba(var(--brand-rgb), calc(0.13 * var(--shadow-strength))),
+      0 6px 12px -5px rgba(var(--brand-rgb), calc(0.20 * var(--shadow-strength)));
   }
 
   &:active {
     transform: translateY(1px);
-    box-shadow: inset 0 1px 3px rgba(var(--brand-rgb), 0.18);
+    box-shadow: inset 0 1px 3px rgba(var(--brand-rgb), calc(0.18 * var(--shadow-strength)));
   }
 
   .dark & {
-    background-image: linear-gradient(to bottom, #1b4029, #12301f);
+    background-image: linear-gradient(to bottom, var(--surface-dark-from), var(--surface-dark-to));
     color: var(--brand-on-dark);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.08),
       inset 0 0 0 1px rgb(255 255 255 / 0.10),
-      0 4px 8px -3px rgb(0 0 0 / 0.55);
+      0 4px 8px -3px rgb(0 0 0 / calc(0.55 * var(--shadow-strength)));
   }
 
   .dark &:hover {
-    background-image: linear-gradient(to bottom, #214d32, #163925);
+    background-image: linear-gradient(to bottom, var(--surface-dark-hover-from), var(--surface-dark-hover-to));
   }
 }
 
 @utility raised-card {
-  background-image: linear-gradient(to bottom, #fbfefc, #edf7f1);
+  background-image: linear-gradient(to bottom, var(--surface-card-from), var(--surface-card-to));
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.8),
-    inset 0 -1px 0 rgba(var(--brand-rgb), 0.06),
+    inset 0 -1px 0 rgba(var(--brand-rgb), calc(0.06 * var(--shadow-strength))),
     inset 0 0 0 1px rgb(255 255 255 / 0.55),
-    0 1px 3px rgba(var(--brand-rgb), 0.09),
-    0 8px 16px -8px rgba(var(--brand-rgb), 0.16),
-    0 28px 56px -16px rgb(0 0 0 / 0.45);
+    0 1px 3px rgba(var(--brand-rgb), calc(0.09 * var(--shadow-strength))),
+    0 8px 16px -8px rgba(var(--brand-rgb), calc(0.16 * var(--shadow-strength))),
+    0 28px 56px -16px rgb(0 0 0 / calc(0.45 * var(--shadow-strength)));
 
   .dark & {
-    background-image: linear-gradient(to bottom, #163925, #0e2517);
+    background-image: linear-gradient(to bottom, var(--surface-dark-card-from), var(--surface-dark-card-to));
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.08),
       inset 0 0 0 1px rgb(255 255 255 / 0.10),
-      0 28px 56px -16px rgb(0 0 0 / 0.7);
+      0 28px 56px -16px rgb(0 0 0 / calc(0.7 * var(--shadow-strength)));
   }
 }
 
@@ -164,22 +164,22 @@
   */
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.22),
-    0 1px 2px rgba(var(--brand-rgb), 0.30),
-    0 6px 12px -5px rgba(var(--brand-rgb), 0.40);
+    0 1px 2px rgba(var(--brand-rgb), calc(0.30 * var(--shadow-strength))),
+    0 6px 12px -5px rgba(var(--brand-rgb), calc(0.40 * var(--shadow-strength)));
   transition: box-shadow 200ms, transform 200ms, filter 200ms;
 
   &:hover {
     filter: brightness(1.06);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.22),
-      0 2px 4px rgba(var(--brand-rgb), 0.34),
-      0 10px 20px -6px rgba(var(--brand-rgb), 0.45);
+      0 2px 4px rgba(var(--brand-rgb), calc(0.34 * var(--shadow-strength))),
+      0 10px 20px -6px rgba(var(--brand-rgb), calc(0.45 * var(--shadow-strength)));
   }
 
   &:active {
     transform: translateY(1px);
     filter: brightness(0.97);
-    box-shadow: inset 0 1px 4px rgb(0 0 0 / 0.28);
+    box-shadow: inset 0 1px 4px rgb(0 0 0 / calc(0.28 * var(--shadow-strength)));
   }
 
   &:disabled {
@@ -193,22 +193,22 @@
   transition: background-image 200ms, box-shadow 200ms, transform 200ms, color 200ms;
 
   &:hover {
-    background-image: linear-gradient(to bottom, #f7fcf9, #eaf6ef);
+    background-image: linear-gradient(to bottom, var(--surface-header-from), var(--surface-to));
     color: var(--brand-primary);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.8),
       inset 0 0 0 1px rgb(255 255 255 / 0.55),
-      0 1px 2px rgba(var(--brand-rgb), 0.10),
-      0 3px 6px -3px rgba(var(--brand-rgb), 0.15);
+      0 1px 2px rgba(var(--brand-rgb), calc(0.10 * var(--shadow-strength))),
+      0 3px 6px -3px rgba(var(--brand-rgb), calc(0.15 * var(--shadow-strength)));
   }
 
   &:active {
     transform: translateY(1px);
-    box-shadow: inset 0 1px 3px rgba(var(--brand-rgb), 0.16);
+    box-shadow: inset 0 1px 3px rgba(var(--brand-rgb), calc(0.16 * var(--shadow-strength)));
   }
 
   .dark &:hover {
-    background-image: linear-gradient(to bottom, #1b4029, #12301f);
+    background-image: linear-gradient(to bottom, var(--surface-dark-from), var(--surface-dark-to));
     color: var(--brand-on-dark);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.08),
@@ -550,6 +550,65 @@
 
     /* Radius */
     --radius: 0.5rem;
+
+    /*
+      How strongly the raised surfaces are lit — a multiplier over the alpha of
+      every shadow in the `raised` family, so Admin → Settings → Appearance can
+      flatten or deepen the whole app with one value. 1 is the design as drawn;
+      0 removes the shadows without removing the surfaces.
+    */
+    --shadow-strength: 1;
+
+    /*
+      ── The lit surfaces, as tokens ──────────────────────────────────────
+      Every `raised` surface in the app is a vertical gradient, and the eight
+      of them had their greens typed in: #fcfefd → #eaf6ef for a button,
+      #1b4029 → #12301f for the same button in the dark, and so on. That made
+      the brand colour in Admin → Settings → Appearance a half-measure — the
+      text and the shadows followed it, while every panel, chip, card and the
+      header itself stayed green.
+
+      They are the SAME values as before, named. theme.js recomputes them from
+      the admin's brand colour (a wash of it over white for the light ones, the
+      same hue taken down to near-black for the dark ones), so a crimson theme
+      gets crimson-tinted surfaces instead of green ones.
+    */
+    /*
+      ── Promotion badges ───────────────────────────────────────────────────
+      The five pills a car card can carry. Each is a background and an ink,
+      and the ink paints the ICON as well — the marks are drawn in
+      currentColor, so one choice covers both.
+
+      Admin → Settings → Appearance overrides any of them; two follow the
+      theme unless overridden (New takes the brand colour, the offer and
+      saving pills take the accent), which is why those two are written here
+      as the brand tokens rather than as literals.
+    */
+    --badge-featured-bg: #06170E;
+    --badge-featured-fg: var(--gold);
+    --badge-offer-bg: var(--gold);
+    --badge-offer-fg: #2a2100;
+    --badge-discount-bg: var(--gold);
+    --badge-discount-fg: #2a2100;
+    --badge-isNew-bg: var(--brand-primary);
+    --badge-isNew-fg: #ffffff;
+    --badge-used-bg: #ffffff;
+    --badge-used-fg: #374151;
+
+    --surface-from: #fcfefd;
+    --surface-to: #eaf6ef;
+    --surface-header-from: #f7fcf9;
+    --surface-header-to: #dcefe4;
+    --surface-hover-from: #ffffff;
+    --surface-hover-to: #e0f0e7;
+    --surface-card-from: #fbfefc;
+    --surface-card-to: #edf7f1;
+    --surface-dark-from: #1b4029;
+    --surface-dark-to: #12301f;
+    --surface-dark-hover-from: #214d32;
+    --surface-dark-hover-to: #163925;
+    --surface-dark-card-from: #163925;
+    --surface-dark-card-to: #0e2517;
   }
 
   /* ==================== DARK THEME ==================== */
@@ -704,7 +763,7 @@
     box-shadow:
       0 0 15px rgba(255, 191, 0, 0.2),
       0 0 30px rgba(255, 191, 0, 0.1),
-      0 8px 24px rgba(var(--brand-rgb), 0.25);
+      0 8px 24px rgba(var(--brand-rgb), calc(0.25 * var(--shadow-strength)));
     transition:
       box-shadow 0.3s,
       border-color 0.3s;
@@ -715,7 +774,7 @@
     box-shadow:
       0 0 20px rgba(255, 191, 0, 0.3),
       0 0 40px rgba(255, 191, 0, 0.15),
-      0 16px 40px rgba(var(--brand-rgb), 0.35);
+      0 16px 40px rgba(var(--brand-rgb), calc(0.35 * var(--shadow-strength)));
   }
 
   /* Custom shimmer animation */

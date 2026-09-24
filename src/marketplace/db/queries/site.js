@@ -20,6 +20,7 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { isMissingSchema } from './engagement';
 import { BRAND_FALLBACK, SITE_TAGS, SEO_PAGE_BY_KEY } from '@/marketplace/lib/sitePages';
+import { normalizeTheme } from '@/marketplace/lib/theme';
 
 const LANGUAGE_FALLBACK = [
   { code: 'ar', label: 'Arabic', nativeLabel: 'العربية', dir: 'rtl', enabled: true, isDefault: true, sort: 0, updatedAt: null },
@@ -66,6 +67,11 @@ function shapeSettings(row, ready) {
     googleSiteVerification: row?.google_site_verification || null,
     bingSiteVerification: row?.bing_site_verification || null,
     heroIntervalMs: Number(row?.hero_interval_ms) || 6000,
+    /* Colours, corner radius and shadow strength (Admin → Settings →
+       Appearance). Normalised here rather than at the point of use, so a
+       missing column or a malformed value is the built-in look instead of a
+       broken stylesheet. */
+    theme: normalizeTheme(row?.theme),
   };
 }
 

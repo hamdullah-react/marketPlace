@@ -30,6 +30,8 @@ export type CatalogEntity = {
   hasDescription?: boolean;
   hasIcon?: boolean;
   hasImage?: boolean;
+  /* The row carries a badge colour (offer names). See lib/badge.js. */
+  hasColor?: boolean;
   hasLogo?: boolean;
   hasActive?: boolean;
   hasSequence?: boolean;
@@ -127,6 +129,9 @@ export const ENTITIES = {
     parent: null,
     hasSlug: true, hasDescription: true, hasIcon: true, hasImage: true,
     hasActive: true, hasSequence: true,
+    /* The colour its badge wears on every card (schema.sql, offer_names.color).
+       Picked here rather than on each offer so one promotion is one colour. */
+    hasColor: true,
   },
   specs: {
     table: 'spec_attributes',
@@ -201,6 +206,7 @@ export function selectFor(key: string): string {
   if (e.hasDescription) cols.push('description');
   if (e.hasIcon || e.iconField) cols.push(iconFieldOf(key));
   if (e.hasImage) cols.push('image_url');
+  if (e.hasColor) cols.push('color');
   if (e.hasLogo) cols.push('logo_url');
   if (e.hasSequence || e.sequenceField) cols.push(sequenceFieldOf(key));
   if (e.hasActive) cols.push('active');

@@ -231,7 +231,7 @@ function HomeLayout({ skeleton = false, locale, isAr, t, siteName }) {
         <section className="pt-16">
           {/* A panel of its own — green easing into gold — so the one row that
               changes while you watch reads as live rather than as another grid. */}
-          <div className="relative overflow-hidden rounded-3xl border border-brand-primary/10 bg-linear-to-br from-[#F7FCF9] via-[var(--app-bg)] to-[#FBF6E4] p-4 sm:p-6 lg:p-8 dark:border-white/10 dark:from-[#0F1D15] dark:via-[var(--app-bg-dark)] dark:to-[#1C180B]">
+          <div className="relative overflow-hidden rounded-3xl border border-brand-primary/10 bg-linear-to-br from-[var(--surface-header-from)] via-[var(--app-bg)] to-[var(--gold-light)]/25 p-4 sm:p-6 lg:p-8 dark:border-white/10 dark:from-[var(--surface-dark-card-to)] dark:via-[var(--app-bg-dark)] dark:to-[var(--gold)]/10">
             <div aria-hidden="true" className="pointer-events-none absolute -end-24 -top-24 h-64 w-64 rounded-full bg-brand-gold/20 blur-3xl" />
             <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -start-24 h-64 w-64 rounded-full bg-brand-primary/10 blur-3xl" />
 

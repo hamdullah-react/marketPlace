@@ -165,6 +165,12 @@ export function shapeOffer(
   return {
     id: offer.id,
     label: offer.label ?? null,
+    /* Which colour this promotion's badge wears, from the offer name it was
+       picked from (offer_names.color). Null is gold — see lib/badge.js. */
+    color: (offer.offer_names as { color?: string | null } | null)?.color ?? offer.color ?? null,
+    /* The artwork uploaded against the offer name, so a promotion can be a
+       mark on the card rather than a word — see PromoBadges. */
+    icon: (offer.offer_names as { icon_url?: string | null } | null)?.icon_url ?? null,
     discountType: offer.discount_type,
     discountValue: Number(offer.discount_value),
     price: final,

@@ -23,6 +23,16 @@ export default function BoostPricesForm({ locale = "ar", plans = [], ready = tru
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
+  /* The cheapest per DAY, which is what the seller's cards badge. Derived
+     here too rather than passed around, so the two pages cannot disagree. */
+  const bestValueId = plans.length
+    ? plans.reduce((best, p) => {
+        if (!(p.days > 0)) return best;
+        const rate = p.price / p.days;
+        return best == null || rate < best.rate ? { id: p.id, rate } : best;
+      }, null)?.id ?? null
+    : null;
+
   return (
     <div className="raised-card rounded-xl p-4 sm:p-5">
       <h2 className="flex items-center gap-2 font-semibold text-brand-primary">
@@ -46,16 +56,31 @@ export default function BoostPricesForm({ locale = "ar", plans = [], ready = tru
           )}
         </p>
       ) : (
-        <div className="mt-4 grid gap-2">
+        /* Laid out as the PRICING TABLE a seller sees, not as a settings
+           list. The admin is setting what the seller will compare, and a
+           stack of horizontal rows shows nothing about how three plans read
+           against each other — which is the entire decision being made here.
+
+           The per-day rate and the best-value mark are computed exactly as
+           they are on the seller's side (BoostRequestForm), so this page is a
+           preview of that one rather than a second opinion about it. */
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {plans.length === 0 ? (
-            <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+            <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground sm:col-span-2 lg:col-span-3 xl:col-span-4">
               {t(
                 "لا توجد خطط بعد — لن يتمكن البائعون من طلب التمييز حتى تضيف خطة.",
                 "No plans yet — sellers cannot request a boost until you add one."
               )}
             </p>
           ) : (
-            plans.map((plan) => <PlanRow key={plan.id} plan={plan} locale={locale} />)
+            plans.map((plan) => (
+              <PlanRow
+                key={plan.id}
+                plan={plan}
+                locale={locale}
+                best={bestValueId != null && plan.id === bestValueId && plans.length > 1}
+              />
+            ))
           )}
 
           <PlanRow locale={locale} />
@@ -71,7 +96,14 @@ export default function BoostPricesForm({ locale = "ar", plans = [], ready = tru
  * Module scope, so each row keeps its own form state across the refresh a save
  * triggers.
  */
-function PlanRow({ plan = null, locale }) {
+/* The same formatter the seller's cards use: a plain number in the reader's
+   own digits. No currency is fixed in code anywhere in the boost feature. */
+const moneyIn = (locale) => (n) =>
+  new Intl.NumberFormat(locale === "ar" ? "ar-SA" : "en", { maximumFractionDigits: 2 })
+    .format(Number(n ?? 0));
+
+function PlanRow({ plan = null, locale, best = false }) {
+  const money = moneyIn(locale);
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const router = useRouter();
@@ -90,15 +122,57 @@ function PlanRow({ plan = null, locale }) {
   const failed = save.result?.error ? save.result : remove.result?.error ? remove.result : null;
 
   return (
-    <div className={`rounded-lg p-3 ${isNew ? "border border-dashed border-brand-primary/30" : "raised"}`}>
+    <div
+      className={`relative flex flex-col rounded-xl p-4 ${
+        isNew ? "border border-dashed border-brand-primary/30" : "raised-card"
+      } ${plan && !plan.active ? "opacity-60" : ""}`}
+    >
+      {/* Cheapest per day — the same mark the seller sees on this plan. */}
+      {best ? (
+        <span className="absolute -top-2 end-3 rounded-full bg-brand-gold px-2 py-0.5 text-[10px] font-bold text-[#2a2100] shadow-sm">
+          {t("الأفضل قيمة", "Best value")}
+        </span>
+      ) : null}
+
+      {/* The plan as a seller will read it, above the boxes that set it: the
+          length, the price at price size, and what a day costs. A switched-off
+          plan says so here rather than only in a checkbox further down — it is
+          the thing that decides whether this card exists for a seller at all. */}
+      {plan ? (
+        <div className="mb-3 border-b pb-3">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <BadgeDollarSign className="h-3.5 w-3.5 text-brand-gold" />
+            {t(`${plan.days} يوم`, `${plan.days} days`)}
+            {!plan.active ? (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                {t("موقوفة", "Off")}
+              </span>
+            ) : null}
+          </span>
+          <span className="mt-1 block text-2xl font-bold tabular-nums text-brand-primary">
+            {money(plan.price)}
+          </span>
+          {plan.days > 0 ? (
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {t(`${money(plan.price / plan.days)} / يوم`, `${money(plan.price / plan.days)} per day`)}
+            </span>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mb-3 flex items-center gap-1.5 border-b pb-3 text-xs font-semibold text-brand-primary">
+          <Plus className="h-3.5 w-3.5" />
+          {t("خطة جديدة", "New plan")}
+        </p>
+      )}
       {/* A new row is keyed on its success token, so the inputs clear once added. */}
       <form
         key={isNew && save.raw?.ok ? save.raw.token : "plan"}
         action={save.formAction}
-        className="flex flex-wrap items-end gap-3"
+        className="flex flex-1 flex-col gap-3"
       >
         {plan ? <input type="hidden" name="planId" value={plan.id} /> : null}
 
+        <div className="grid grid-cols-2 gap-2">
         <label className="grid gap-1 text-xs">
           <span className="text-muted-foreground">{t("الأيام", "Days")}</span>
           <Input
@@ -111,7 +185,7 @@ function PlanRow({ plan = null, locale }) {
             required
             defaultValue={plan?.days ?? ""}
             placeholder={isNew ? t("مثلاً ١٠", "e.g. 10") : undefined}
-            className="h-9 w-24 tabular-nums"
+            className="h-9 w-full tabular-nums"
           />
         </label>
 
@@ -126,11 +200,13 @@ function PlanRow({ plan = null, locale }) {
             required
             defaultValue={plan?.price ?? ""}
             placeholder={isNew ? t("مثلاً ١٥٠", "e.g. 150") : undefined}
-            className="h-9 w-32 tabular-nums"
+            className="h-9 w-full tabular-nums"
           />
         </label>
 
-        <label className="flex h-9 items-center gap-2 text-xs">
+        </div>
+
+        <label className="flex items-center gap-2 text-xs">
           <input
             type="checkbox"
             name="active"
@@ -140,12 +216,12 @@ function PlanRow({ plan = null, locale }) {
           {t("متاحة للبائعين", "Offered to sellers")}
         </label>
 
-        <div className="ms-auto flex items-center gap-2">
+        <div className="mt-auto flex items-center gap-2 pt-1">
           <Button
             type="submit"
             size="sm"
             disabled={save.pending}
-            className="raised-solid gap-1.5 bg-brand-primary text-white hover:bg-brand-dark"
+            className="raised-solid flex-1 gap-1.5 bg-brand-primary text-white hover:bg-brand-dark"
           >
             {save.pending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

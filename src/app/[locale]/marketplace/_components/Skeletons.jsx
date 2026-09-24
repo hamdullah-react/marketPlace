@@ -38,9 +38,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
  * MarketplaceHeader — so the 80px offset the layouts add stays correct and
  * nothing shifts when the real header lands.
  */
+/*
+ * The same tokens the real header uses, not a copy of its greens: this stands
+ * in for the header for a moment, and on a themed site it flashed the old
+ * green bar before the real one painted.
+ */
 export function HeaderSkeleton() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 h-16 w-full bg-linear-to-b from-[#F7FCF9] to-[#DCEFE4] shadow-lg dark:from-[#1B4029] dark:to-[#12301F] sm:h-20">
+    <header className="fixed inset-x-0 top-0 z-50 h-16 w-full bg-linear-to-b from-[var(--surface-header-from)] to-[var(--surface-header-to)] shadow-lg dark:from-[var(--surface-dark-from)] dark:to-[var(--surface-dark-to)] sm:h-20">
       <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between gap-4 px-3 sm:px-8">
         <Skeleton className="h-9 w-32" />
         <div className="hidden items-center gap-6 lg:flex">
@@ -128,7 +133,7 @@ export function FilterSidebarSkeleton() {
           title, a search box and a reset button that are the same on every
           visit — so drawing it for real means the rail's most prominent band
           never flashes in. Only what the query decides is a skeleton. */}
-      <div className="bg-linear-to-r from-[var(--brand-primary)] to-[#095A30] p-4">
+      <div className="bg-linear-to-r from-[var(--brand-primary)] to-[var(--brand-dark)] p-4">
         <div className="mb-4 flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded bg-white/25" />
           <Skeleton className="h-5 w-16 bg-white/25" />

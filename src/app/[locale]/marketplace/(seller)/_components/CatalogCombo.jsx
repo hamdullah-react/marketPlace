@@ -52,6 +52,15 @@ export default function CatalogCombo({
   // deliberately, not as a side effect of typing into a picker.
   allowCreate = false,
   labelOf,
+  /**
+   * (item) => string | null. A reason this row cannot be chosen.
+   *
+   * Returning a reason both DISABLES the row and prints it beside the name, so
+   * the picker answers "why not?" where the question is asked. Offers use it
+   * for a car that already has one running: hiding it instead would read as
+   * the car having been deleted.
+   */
+  unavailable,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -214,24 +223,40 @@ export default function CatalogCombo({
                 <CommandEmpty>{t("لا توجد نتائج", "No matches")}</CommandEmpty>
 
                 <CommandGroup>
-                  {filtered.map((item) => (
-                    <CommandItem
-                      key={item.id}
-                      value={item.id}
-                      onSelect={() => { onChange?.(item.id); setOpen(false); setQuery(""); }}
-                      className="justify-between gap-2"
-                    >
-                      <span className="truncate">
-                        {label(item)}
-                        {item.is_custom ? (
-                          <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                            {t("مضاف", "custom")}
+                  {filtered.map((item) => {
+                    const blocked = unavailable?.(item) ?? null;
+
+                    return (
+                      <CommandItem
+                        key={item.id}
+                        value={item.id}
+                        disabled={Boolean(blocked)}
+                        onSelect={() => {
+                          if (blocked) return;
+                          onChange?.(item.id);
+                          setOpen(false);
+                          setQuery("");
+                        }}
+                        className="justify-between gap-2"
+                      >
+                        <span className="truncate">
+                          {label(item)}
+                          {item.is_custom ? (
+                            <span className="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                              {t("مضاف", "custom")}
+                            </span>
+                          ) : null}
+                        </span>
+                        {blocked ? (
+                          <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {blocked}
                           </span>
+                        ) : item.id === value ? (
+                          <Check className="h-4 w-4 shrink-0" />
                         ) : null}
-                      </span>
-                      {item.id === value ? <Check className="h-4 w-4 shrink-0" /> : null}
-                    </CommandItem>
-                  ))}
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
 
                 {allowCreate && query.trim() && !exact ? (

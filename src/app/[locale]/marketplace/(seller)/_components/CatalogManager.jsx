@@ -27,6 +27,7 @@ import {
 import { ENTITIES, nameFieldOf, iconFieldOf, sequenceFieldOf } from "@/marketplace/lib/catalog-entities";
 import { localized } from "@/marketplace/lib/listing";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
+import { BADGE_COLOR_OPTIONS, badgeToken } from "@/marketplace/lib/badge";
 import {
   saveCatalogEntry, deleteCatalogEntry, toggleCatalogActive, approveCatalogEntry, bulkDeleteCatalog,
   deleteCatalogKind,
@@ -133,6 +134,12 @@ export default function CatalogManager({
   const [newCategory, setNewCategory] = useState(false);
   const picked = categories.find((c) => c.key === categoryKey) ?? null;
 
+  /* The badge colour of the offer name being edited. State, because the
+     swatches are buttons and the value travels in a hidden input. Seeded on
+     every open by setEditing below, so a colour picked and then abandoned does
+     not follow the next row into the dialog. */
+  const [colorChoice, setColorChoice] = useState(badgeToken(null));
+
   // Parent (brand for a model, model for a trim). State because Radix Select
   // is controlled and the value reaches the action via a hidden input.
   const [editorParent, setEditorParent] = useState("");
@@ -194,6 +201,7 @@ export default function CatalogManager({
     setKindValue(knownKind ? rowKind : kindSlugs[0] ?? "");
     setNewKind(kindSlugs.length === 0 || (!!rowKind && !knownKind));
     setSpecType(next?.display_type ?? "text");
+    setColorChoice(badgeToken(next?.color));
     setOptions(
       (next?.options ?? []).map((o) => ({ id: o.id, ar: o.name?.ar ?? "", en: o.name?.en ?? "" }))
     );
@@ -859,6 +867,47 @@ export default function CatalogManager({
                     <ImagePicker locale={locale} name="imageUrl" vendorId={vendorId} assets={assets}
                       value={editing.image_url} size="wide" label={t("الصورة", "Image")} />
                   ) : null}
+                </div>
+              ) : null}
+
+              {/* ── Badge colour ───────────────────────────────────────────
+                  Offer names only (catalog-entities: hasColor). The colour is
+                  a property of the PROMOTION — set here once, worn by every car
+                  running it — rather than something chosen per car, which is
+                  how one promotion ends up three colours.
+
+                  Swatches rather than a dropdown of colour words: the choice is
+                  a colour, and reading "Teal" tells you less than seeing it.
+                  Each one is drawn with the exact classes the badge will use,
+                  so this is the badge rather than a description of it. */}
+              {entity.hasColor ? (
+                <div>
+                  <label className={label}>{t("لون الشارة", "Badge colour")}</label>
+                  <input type="hidden" name="color" value={colorChoice} />
+                  <div className="flex flex-wrap gap-1.5">
+                    {BADGE_COLOR_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setColorChoice(option.value)}
+                        aria-pressed={colorChoice === option.value}
+                        title={t(option.ar, option.en)}
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold shadow-sm transition-transform ${option.className} ${
+                          colorChoice === option.value
+                            ? "ring-2 ring-brand-primary ring-offset-1 dark:ring-offset-neutral-900"
+                            : "opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        {t(option.ar, option.en)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    {t(
+                      "يظهر بهذا اللون على بطاقات السيارات التي تعرض هذا العرض.",
+                      "Every car running this promotion shows its badge in this colour."
+                    )}
+                  </p>
                 </div>
               ) : null}
 
