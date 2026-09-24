@@ -5,7 +5,7 @@ import { Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TableSkeleton } from '../../../_components/Skeletons';
 import { resolveListingsVendor } from '../listings/_apicalls/listingsPageApi';
-import { getVendorBoosts, getBoostableListings, getBoostPlans } from '@/marketplace/db/queries/boosts';
+import { getVendorBoosts, getBoostableListings, getBoostPlans, getFeaturedStanding } from '@/marketplace/db/queries/boosts';
 import { sweepExpiredBoosts } from '@/marketplace/db/queries/engagement';
 import { getVendorSettings } from '@/marketplace/db/queries/settings';
 import { getViewer } from '@/marketplace/auth/session';
@@ -153,6 +153,10 @@ async function HistorySection({ searchParams, locale }) {
   await sweepExpiredBoosts().catch(() => {});
   const { ready, items } = await getVendorBoosts(vendor?.id);
 
+  /* Where their featured cars actually stand among everybody's. Read after the
+     sweep above, so an expired boost is not counted as competition. */
+  const standing = await getFeaturedStanding(vendor?.id).catch(() => new Map());
+
   if (!ready) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
@@ -205,6 +209,7 @@ async function HistorySection({ searchParams, locale }) {
             const media = Array.isArray(b.listings?.media) ? b.listings.media : [];
             const image = (media.find((m) => m?.primary) ?? media[0])?.url ?? null;
             const s = status(b);
+            const place = b.listing_id ? standing.get(b.listing_id) : null;
             return (
               <tr key={b.id} className="bg-white align-top dark:bg-[#1a1a1a]">
                 <td className="px-4 py-3">
@@ -225,6 +230,25 @@ async function HistorySection({ searchParams, locale }) {
                 <td className="px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-400">{date(b.created_at)}</td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${s.cls}`}>{s.label}</span>
+
+                  {/* What "featured" bought them, in the only terms that mean
+                      anything: their position in the row a visitor sees. Shown
+                      only while it is running — a place in a queue they are no
+                      longer in is not information. */}
+                  {b.running && place ? (
+                    <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
+                      {t(
+                        `الترتيب ${place.position} من ${place.total} سيارة مميزة`,
+                        `#${place.position} of ${place.total} featured cars`
+                      )}
+                      {!place.ranked ? (
+                        <span className="ms-1 opacity-70">
+                          {t('(تقديري)', '(approximate)')}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+
                   {b.state === 'rejected' && b.review_note ? (
                     <p className="mt-1.5 max-w-xs text-xs text-red-700 dark:text-red-400">
                       {t('السبب: ', 'Reason: ')}{b.review_note}

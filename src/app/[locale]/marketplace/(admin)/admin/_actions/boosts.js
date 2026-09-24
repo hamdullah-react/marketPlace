@@ -5,6 +5,7 @@ import { adminForAction } from '@/marketplace/auth/session';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { writeAudit } from '@/marketplace/db/queries/admin';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
+import { raiseBoostCharge } from '@/marketplace/db/queries/billing';
 import { notifyVendorLeads, notifyAdmins } from '@/marketplace/lib/realtime';
 
 /**
@@ -27,6 +28,8 @@ const refresh = () => {
   revalidatePath('/[locale]/marketplace/admin', 'layout');
   revalidatePath('/[locale]/marketplace/seller/listings', 'page');
   revalidatePath('/[locale]/marketplace/seller/promotions', 'page');
+  revalidatePath('/[locale]/marketplace/admin/finance', 'page');
+  revalidatePath('/[locale]/marketplace/seller/payouts', 'page');
   revalidatePath('/[locale]/marketplace/cars', 'page');
   revalidatePath('/[locale]/marketplace', 'page');
 };
@@ -57,6 +60,9 @@ export async function decideBoost(prevState, formData) {
   const nowIso = new Date(now).toISOString();
   const reviewed = { reviewed_by: viewer.userId, reviewed_at: nowIso, review_note: note };
 
+  // Set only by the approve branch, and only when raising the charge failed.
+  let billingError = null;
+
   if (decision === 'approve') {
     if (boost.state !== 'pending') return bad('BOOST_NOT_PENDING');
     if (boost.listings?.state !== 'live') return bad('BOOST_NOT_LIVE');
@@ -83,6 +89,22 @@ export async function decideBoost(prevState, formData) {
     if (featureError) return bad('SAVE_FAILED', { detail: featureError.message });
 
     await writeAudit(viewer, 'boost.approve', 'listing', boost.listing_id, { boost: boostId }, { days: boost.days, ends_at: endsIso });
+
+    /* The showroom owes for it from here.
+       Approval is the billable moment: not the request, which they may still
+       cancel, and not the start date, which can be weeks away while an earlier
+       boost of theirs is still running.
+       The result is CARRIED, not thrown. The car is featured on the site by
+       now, so a billing row that could not be written must not undo that or
+       make the admin press Approve again on a promotion they can see running.
+       It is reported instead, as a figure to reconcile. */
+    const billed = await raiseBoostCharge(boost, { recordedBy: viewer.userId });
+    if (!billed.ok) billingError = billed.error;
+    if (billed.ok && billed.charge) {
+      await writeAudit(viewer, 'charge.raise', 'charge', billed.charge.id, null, {
+        ref: billed.charge.ref, amount: boost.price ?? 0, boost: boostId, vendor: boost.vendor_id,
+      });
+    }
   } else if (decision === 'reject') {
     const { data: moved, error: moveError } = await db
       .from('listing_boosts')
@@ -117,7 +139,9 @@ export async function decideBoost(prevState, formData) {
   // admins' queues drop the request they no longer need to look at.
   notifyVendorLeads(boost.vendor_id, 'boost_changed', { id: boostId, decision });
   notifyAdmins('boost_changed', { id: boostId, decision });
-  return ok({ decision });
+  // `billingError` is null on every path but a failed charge, so the form only
+  // mentions money when something about it actually needs attention.
+  return ok({ decision, billingError: billingError ?? null });
 }
 
 /**

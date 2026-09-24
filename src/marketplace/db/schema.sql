@@ -4827,3 +4827,327 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  REVIEWS — who may write one, and the rating they add up to
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  The `reviews` table has existed since § 8 and has never held a row, because
+--  nothing in the application could write one. This section is what makes it
+--  real, and it changes one thing about the original design.
+--
+--  ── The anchor moves from orders to LEADS ──────────────────────────────────
+--
+--  § 8 anchors a review to an order or a booking: "a review nobody can prove
+--  happened is worth nothing", which is right. But this marketplace does not
+--  sell cars through a cart — `orders` and `bookings` are empty and no page
+--  writes to them. What actually records that a buyer and a showroom dealt with
+--  each other is a LEAD: the buyer asked about a car, the showroom answered on
+--  the phone, and the showroom moved it through its pipeline.
+--
+--  So the proof a review hangs on is the lead, and `verified_purchase` is set
+--  when the showroom itself marked that lead `won`. order_id and booking_id are
+--  left alone for the day this marketplace does take orders.
+--
+--  ── Why the seller must not control WHO may review ─────────────────────────
+--
+--  The tempting rule is "only a won deal may be reviewed". It cannot be that
+--  rule: `stage` is the seller's own field, so the seller would decide who is
+--  allowed to rate them — and a showroom that never marks anything won can
+--  never be rated badly. Eligibility is therefore the BUYER's act (they sent a
+--  request), and the seller controls only the verified badge on top of it.
+--
+--  The rule in full lives in src/marketplace/lib/review.js so the form, the
+--  action and the queries cannot drift apart. Summarised: a lead the showroom
+--  has acknowledged (any stage past `new`), or one that has sat untouched for
+--  REVIEW_WAIT_HOURS — otherwise ignoring a buyer would also silence them.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- The deal this review is about. SET NULL, not cascade, for the same reason as
+-- leads.listing_id: the lead may be cleared later, and the review is still an
+-- honest thing a buyer wrote about a showroom.
+alter table reviews add column if not exists lead_id uuid references leads (id) on delete set null;
+
+-- One review per deal. Partial, because a review whose lead was deleted keeps
+-- lead_id null and several of those must be allowed to coexist.
+create unique index if not exists reviews_lead_once on reviews (lead_id)
+  where lead_id is not null;
+
+-- The reviewer's name as it stood when they wrote it — the same snapshot rule
+-- as leads.contact_name. A public page must not have to read `profiles` (which
+-- carries phone numbers) to print "Abdul W.", and renaming yourself next year
+-- must not rewrite a review you left last year.
+alter table reviews add column if not exists buyer_name text;
+
+-- The moderation trail. `hidden` and `hidden_reason` were already here; these
+-- two say who took it down and when, which is what an appeal needs.
+alter table reviews add column if not exists hidden_by text;
+alter table reviews add column if not exists hidden_at timestamptz;
+
+-- The buyer's own list, newest first.
+create index if not exists reviews_buyer_idx on reviews (buyer_user_id, created_at desc);
+
+drop trigger if exists reviews_updated_at on reviews;
+create trigger reviews_updated_at before update on reviews
+  for each row execute function set_updated_at();
+
+-- ── The rating rollup ───────────────────────────────────────────────────────
+--
+-- vendors.rating_avg and rating_count have existed since § 5 and are read in
+-- five places — the storefront header, the car card's showroom line, the
+-- vendors grid ORDER BY, the home rail's ORDER BY and search — and until now
+-- nothing on earth wrote to them, so every showroom sorted as a 0.0.
+--
+-- Kept by a trigger rather than by the application: three different code paths
+-- write reviews (a buyer, moderation hiding one, a cascade when a showroom is
+-- deleted), and an aggregate maintained in application code is an aggregate
+-- that is correct until the day somebody adds a fourth path.
+--
+-- HIDDEN reviews are excluded, because the average shown to a buyer must be the
+-- average of the reviews that buyer can actually read. A moderated review stops
+-- counting the moment it is hidden and counts again if it is restored.
+create or replace function recount_vendor_rating(target uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update vendors v
+  set rating_count = r.n,
+      rating_avg   = r.avg
+  from (
+    select count(*)::int as n,
+           coalesce(round(avg(rating)::numeric, 2), 0) as avg
+    from reviews
+    where vendor_id = target and not hidden
+  ) r
+  where v.id = target;
+$$;
+
+create or replace function reviews_rollup()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Both sides on an update: moving a review between showrooms is not a thing
+  -- the app does, but a rollup that assumes it never happens is a rollup that
+  -- silently goes wrong the first time it does.
+  if tg_op in ('UPDATE', 'DELETE') then
+    perform recount_vendor_rating(old.vendor_id);
+  end if;
+  if tg_op in ('INSERT', 'UPDATE') then
+    perform recount_vendor_rating(new.vendor_id);
+  end if;
+  return null;
+end $$;
+
+drop trigger if exists reviews_rollup_trigger on reviews;
+create trigger reviews_rollup_trigger
+  after insert or update of rating, hidden, vendor_id or delete on reviews
+  for each row execute function reviews_rollup();
+
+-- Every showroom recomputed once, so a database whose reviews predate the
+-- trigger agrees with one whose reviews came after it.
+do $$
+declare
+  v record;
+begin
+  for v in select id from vendors loop
+    perform recount_vendor_rating(v.id);
+  end loop;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  VENDOR BILLING — what a showroom owes the platform
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  ── Why this exists, and why `payouts` never filled up ─────────────────────
+--
+--  § 9 models the money as a cart marketplace: a buyer pays the PLATFORM, the
+--  funds are held, a commission is deducted and the rest is paid out to the
+--  showroom per period. Every table for it is here — commission_rules, orders,
+--  payouts, payout_lines — and all of them are empty, because nothing in the
+--  application writes an order. A buyer sends a lead, the showroom rings them,
+--  and the car is paid for at the showroom. The platform never touches the
+--  buyer's money, so there is nothing to pay out and no commission to take.
+--
+--  The money that DOES move goes the other way: a showroom pays the platform to
+--  feature a car (the BOOSTS section). That was recorded as a price on the boost
+--  request and nothing else — no record of whether it was ever paid — so the
+--  question "which showroom owes us money" had no answer anywhere.
+--
+--  `payouts` is left exactly as it is. It becomes true the day this marketplace
+--  takes payment online, and until then it holds no rows and nothing reads it.
+--
+--  ── A charge is not a tax invoice ──────────────────────────────────────────
+--
+--  Deliberately `vendor_charges` and not `invoices`. A tax invoice in Saudi
+--  Arabia is a regulated document with ZATCA e-invoicing requirements — QR
+--  code, cryptographic stamp, VAT breakdown, reporting — and calling this an
+--  invoice would invite it to be treated as one. It is an internal record of an
+--  amount owed and a payment received.
+--
+--  For the same reason there is no VAT column: nothing here knows whether a
+--  boost price is VAT-inclusive, and splitting out 15% on a guess would put a
+--  wrong number on a financial record. `amount` is what was agreed, and VAT
+--  treatment is a decision to be made before these records are used for
+--  accounting.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+do $$ begin
+  create type charge_state as enum ('due', 'paid', 'void');
+exception when duplicate_object then null; end $$;
+
+-- Human-readable and SEQUENTIAL, because a finance record has to be quotable
+-- over the phone and "the fourth one this year" has to mean something. A random
+-- suffix would be unique and useless for that.
+create sequence if not exists vendor_charge_seq;
+
+create table if not exists vendor_charges (
+  id          uuid primary key default gen_random_uuid(),
+  ref         text not null unique
+                default 'CHG-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('vendor_charge_seq')::text, 5, '0'),
+
+  vendor_id   uuid not null references vendors (id) on delete restrict,
+
+  -- What it is for. 'boost' is the only kind the application raises today;
+  -- 'other' exists so an admin recording something agreed off-system does not
+  -- need a migration to do it.
+  kind        text not null default 'boost' check (kind in ('boost', 'other')),
+
+  -- SET NULL, not cascade — the same rule as leads.listing_id, and it matters
+  -- more here: deleting a promotion must never delete the record of money the
+  -- showroom paid for it. `description` is the snapshot that keeps the row
+  -- readable once the boost is gone.
+  boost_id    uuid references listing_boosts (id) on delete set null,
+  listing_id  uuid references listings (id) on delete set null,
+  description jsonb,
+
+  amount      numeric(12,2) not null check (amount >= 0),
+  state       charge_state not null default 'due',
+
+  issued_at   timestamptz not null default now(),
+  due_at      timestamptz,
+
+  -- How it was settled. Free text against a list in lib/billing.js rather than
+  -- an enum: "which ways can a showroom pay us" is a business answer that
+  -- changes faster than a migration, and an unknown method must not fail a
+  -- payment that has already arrived in the bank.
+  paid_at        timestamptz,
+  payment_method text,
+  payment_ref    text,
+
+  -- Who recorded it, and why it was voided. Both are the questions asked when a
+  -- figure is disputed three months later.
+  recorded_by text,
+  void_reason text,
+  note        text,
+
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+
+  -- A paid charge has a date; an unpaid one does not. Without this the two can
+  -- disagree, and then "collected this month" and "outstanding" stop adding up.
+  constraint vendor_charges_paid_shape
+    check ((state = 'paid') = (paid_at is not null))
+);
+
+-- One charge per boost. A second approval of the same promotion — an admin
+-- pressing twice, a retry after a timeout — must not bill the showroom twice.
+create unique index if not exists vendor_charges_boost_once on vendor_charges (boost_id)
+  where boost_id is not null;
+
+-- The showroom's own statement, and the admin's "who owes us" list.
+create index if not exists vendor_charges_vendor_idx on vendor_charges (vendor_id, issued_at desc);
+create index if not exists vendor_charges_due_idx on vendor_charges (due_at) where state = 'due';
+create index if not exists vendor_charges_state_idx on vendor_charges (state, issued_at desc);
+
+drop trigger if exists vendor_charges_updated_at on vendor_charges;
+create trigger vendor_charges_updated_at before update on vendor_charges
+  for each row execute function set_updated_at();
+
+alter table vendor_charges enable row level security;
+
+-- The showroom READS its own and writes none of them. A charge is the
+-- platform's statement of what is owed; a vendor who could edit one would be
+-- editing the evidence — the same rule the seller's payouts page was built on.
+drop policy if exists vendor_charges_member_read on vendor_charges;
+create policy vendor_charges_member_read on vendor_charges
+  for select using (is_vendor_member(vendor_id) or is_staff());
+
+drop policy if exists vendor_charges_staff_all on vendor_charges;
+create policy vendor_charges_staff_all on vendor_charges
+  for all using (is_staff()) with check (is_staff());
+
+-- ── Where a payment is sent ─────────────────────────────────────────────────
+--
+-- The platform's own bank details, shown to a showroom on its billing page so
+-- it knows where to transfer. One row, beside the rest of the site settings,
+-- because it is the same kind of thing: content an admin maintains.
+--
+-- Not a payment gateway and not pretending to be one. Payment is a bank
+-- transfer the showroom makes and an admin confirms.
+alter table site_settings add column if not exists billing jsonb not null default '{}'::jsonb;
+
+-- ── The boosts that were already approved ───────────────────────────────────
+--
+-- Approval is the moment a showroom owes the money, and the ones approved before
+-- this table existed are raised here so the first Finance screen opens on the
+-- real position rather than on zero.
+--
+-- `where not exists` on boost_id makes it idempotent: a second run of this file
+-- raises nothing, and a charge an admin has since voided is not resurrected.
+-- Dates come from the boost, so an old approval is not backdated to today.
+insert into vendor_charges (vendor_id, kind, boost_id, listing_id, description, amount, issued_at, due_at, note)
+select
+  b.vendor_id,
+  'boost',
+  b.id,
+  b.listing_id,
+  jsonb_build_object(
+    'ar', 'تمييز سيارة لمدة ' || b.days || ' يوم',
+    'en', 'Featured listing for ' || b.days || ' days'
+  ),
+  coalesce(b.price, 0),
+  coalesce(b.reviewed_at, b.created_at),
+  coalesce(b.reviewed_at, b.created_at) + interval '7 days',
+  'Raised by the VENDOR BILLING section of schema.sql, for a boost approved before billing existed.'
+from listing_boosts b
+where b.state = 'approved'
+  and coalesce(b.price, 0) > 0
+  and not exists (select 1 from vendor_charges c where c.boost_id = b.id);
+
+do $$
+declare
+  owed numeric;
+  n int;
+begin
+  select count(*), coalesce(sum(amount), 0) into n, owed
+  from vendor_charges where state = 'due';
+
+  raise notice 'Billing: % charge(s) outstanding, totalling %.', n, owed;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ── Which account the money landed in ───────────────────────────────────────
+--
+-- Added after the fact, because recording a payment against a platform that
+-- banks with more than one bank leaves an obvious question unanswered: WHICH of
+-- them received it. Without this, matching a month of charges against a bank
+-- statement means guessing.
+--
+-- The account's LABEL, snapshotted, not an id into site_settings.billing. The
+-- accounts live in a jsonb column an admin edits freely, so an id would point at
+-- nothing the day one is renamed or removed — and the one thing a payment record
+-- must never lose is where the money went. Same rule as leads.contact_name and
+-- reviews.buyer_name.
+alter table vendor_charges add column if not exists paid_into text;
+
+notify pgrst, 'reload schema';

@@ -59,7 +59,17 @@ export async function getApprovedVendors({
     .from('vendors')
     .select(SELECT, { count: 'exact' })
     .eq('state', 'approved')
+    /* Rating first, then how many people said it.
+       Until the REVIEWS section of schema.sql was run, rating_avg was 0 for
+       every showroom and this ORDER BY sorted nothing — the grid came back in
+       whatever order the database felt like. It sorts for real now, which makes
+       the tie-break matter: without rating_count behind it, one 5-star review
+       outranks fifty at 4.8. This is the cheap version of that fix, and it is
+       as far as PostgREST goes — a proper confidence-weighted score is an
+       expression, so it needs a view or a generated column, and that is a
+       ranking-policy decision rather than a query tweak. */
     .order('rating_avg', { ascending: false })
+    .order('rating_count', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (city) query = query.eq('city', city);

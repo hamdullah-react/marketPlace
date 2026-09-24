@@ -29,6 +29,7 @@ import { thumbUrl, THUMB } from "@/marketplace/lib/image";
 import { badgeClass } from "@/marketplace/lib/badge";
 import { priceWithOffer } from "@/marketplace/lib/offer";
 import LeadPanel from "./LeadPanel";
+import Stars from "@/marketplace/ui/Stars";
 import {
   ChevronLeft, ChevronRight, ImageOff, Maximize2, Car, Sofa, X, Images,
   Heart, Share2, ShieldCheck,
@@ -604,11 +605,19 @@ export default function ListingFold({
                     {listing.vendor.name}
                     {listing.vendor.verified ? <ShieldCheck className="h-4 w-4" /> : null}
                   </Link>
+                  {/* The rating opens the reviews it is made of. A star and a
+                      number that cannot be checked is a claim, not evidence —
+                      and this is the point on the site where a buyer is
+                      deciding whether to ring these people. */}
                   {listing.vendor.ratingCount > 0 ? (
-                    <p className="mt-1 text-xs tabular-nums text-gray-500 dark:text-gray-400">
-                      ★ {listing.vendor.rating.toFixed(1)} · {listing.vendor.ratingCount}{" "}
+                    <Link
+                      href={`/${locale}${listing.vendor.path}/reviews`}
+                      className="mt-1 flex items-center gap-1.5 text-xs tabular-nums text-gray-500 hover:text-brand-primary dark:text-gray-400"
+                    >
+                      <Stars value={listing.vendor.rating} size="h-3 w-3" />
+                      {listing.vendor.rating.toFixed(1)} · {listing.vendor.ratingCount}{" "}
                       {t("تقييم", "reviews")}
-                    </p>
+                    </Link>
                   ) : null}
                 </div>
               ) : null}

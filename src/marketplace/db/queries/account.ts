@@ -159,12 +159,13 @@ export async function getSavedCount(userId: string) {
 export async function getAccountCounts(userId: string) {
   const db = getMarketplaceDb();
 
-  const [saved, requests, orders, bookings] = await Promise.all([
+  const [saved, requests, orders, bookings, reviews] = await Promise.all([
     db.from('saved_listings').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     db.from('leads').select('id', { count: 'exact', head: true })
       .eq('buyer_user_id', userId).is('deleted_at', null),
     db.from('orders').select('id', { count: 'exact', head: true }).eq('buyer_user_id', userId),
     db.from('bookings').select('id', { count: 'exact', head: true }).eq('buyer_user_id', userId),
+    db.from('reviews').select('id', { count: 'exact', head: true }).eq('buyer_user_id', userId),
   ]);
 
   return {
@@ -174,6 +175,7 @@ export async function getAccountCounts(userId: string) {
     requests: requests.count ?? 0,
     orders: orders.count ?? 0,
     bookings: bookings.count ?? 0,
+    reviews: reviews.count ?? 0,
   };
 }
 

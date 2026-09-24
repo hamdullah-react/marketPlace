@@ -84,7 +84,7 @@ const NAV_CRM = [
 ];
 
 const NAV_CUSTOMERS = [
-  { href: "/marketplace/seller/payouts", icon: WalletIcon, ar: "المستحقات", en: "Payouts" },
+  { href: "/marketplace/seller/billing", icon: WalletIcon, ar: "المستحقات", en: "Billing" },
 ];
 
 const NAV_SECONDARY = [
@@ -369,7 +369,9 @@ export default function SellerShell({ locale = "ar", vendorPromise, children }) 
 
   return (
     <SidebarProvider dir={isAr ? "rtl" : "ltr"} className="marketplace-root">
-      <Sidebar collapsible="offcanvas" variant="inset" side={isAr ? "right" : "left"}>
+      {/* data-print-hide: the sidebar is screen chrome, and a printed receipt
+          must not carry a navigation menu down its left edge. */}
+      <Sidebar collapsible="offcanvas" variant="inset" side={isAr ? "right" : "left"} data-print-hide>
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>

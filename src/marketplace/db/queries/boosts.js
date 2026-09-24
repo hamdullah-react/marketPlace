@@ -216,3 +216,75 @@ export async function countPendingBoosts() {
     .eq('state', 'pending');
   return error ? 0 : count ?? 0;
 }
+
+/**
+ * Where this showroom's featured cars actually stand, against everybody's.
+ *
+ * ── Why a seller needs this ─────────────────────────────────────────────────
+ *
+ * Promotions could tell a seller their boost was approved and running until a
+ * date, and nothing at all about what they had bought. "Featured" is a position
+ * in a queue they cannot see, and when four cars are featured and theirs is
+ * fourth, "your car goes first" is not true in the way they read it. This is
+ * the number that makes the promise checkable.
+ *
+ * ── It mirrors the browse ordering, and is honest about where it can't ───────
+ *
+ * Browse puts featured cars first, ordered by listings.featured_rank (1 first,
+ * set by an admin dragging the Running list), and leaves the unranked featured
+ * cars behind the ranked ones in whatever order the page's own sort gave them —
+ * see cars.ts. Newest-first is the default sort and what is assumed here for
+ * the unranked tail, so an unranked position is "about here", while a ranked
+ * one is exactly right. A seller is shown the rank either way; a wrong number
+ * would be worse than none, so the shape of the answer says which it is.
+ *
+ * Returns Map<listingId, { position, total, ranked }>.
+ */
+export async function getFeaturedStanding(vendorId) {
+  const standing = new Map();
+  if (!vendorId) return standing;
+
+  const nowIso = new Date().toISOString();
+
+  const build = (select) =>
+    getMarketplaceDb()
+      .from('listings')
+      .select(select)
+      .eq('state', 'live')
+      .eq('is_featured', true)
+      /* A boost whose end date has passed but whose sweep has not run yet is
+         not featured to a visitor, so it must not be counted as competition. */
+      .or(`featured_until.is.null,featured_until.gt.${nowIso}`)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(500);
+
+  let { data, error } = await build('id, vendor_id, featured_rank, published_at');
+  if (error?.code === '42703') ({ data, error } = await build('id, vendor_id, published_at'));
+
+  if (error) {
+    if (!isMissingSchema(error)) console.error('[boosts] getFeaturedStanding:', error.message);
+    return standing;
+  }
+
+  const rows = data ?? [];
+
+  const rankOf = (row) => {
+    const value = Number(row.featured_rank);
+    return Number.isFinite(value) && value > 0 ? value : Number.MAX_SAFE_INTEGER;
+  };
+
+  // Stable: the query already ordered the unranked ones newest-first, and
+  // sort() keeps that for everything the ranks do not separate.
+  const ordered = [...rows].sort((a, b) => rankOf(a) - rankOf(b));
+
+  ordered.forEach((row, i) => {
+    if (row.vendor_id !== vendorId) return;
+    standing.set(row.id, {
+      position: i + 1,
+      total: ordered.length,
+      ranked: rankOf(row) !== Number.MAX_SAFE_INTEGER,
+    });
+  });
+
+  return standing;
+}

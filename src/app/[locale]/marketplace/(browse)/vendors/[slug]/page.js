@@ -856,13 +856,18 @@ export default async function VendorPage({ params, searchParams }) {
               {/* Only when somebody has actually rated them. "0.0 ★" reads as a
                   bad showroom rather than a new one. */}
               {vendor.rating_count > 0 ? (
-                <span className="flex items-center gap-1.5 tabular-nums">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                /* A rating that cannot be opened is a number a visitor has to
+                   take on trust. It links to the reviews it is made of. */
+                <Link
+                  href={`/${locale}/marketplace/vendors/${vendor.slug}/reviews`}
+                  className="flex items-center gap-1.5 tabular-nums hover:text-brand-primary"
+                >
+                  <Star className="h-4 w-4 fill-[var(--gold)] text-[var(--gold)]" />
                   {Number(vendor.rating_avg).toFixed(1)}
                   <span className="text-xs">
                     ({vendor.rating_count} {t('تقييم', 'reviews')})
                   </span>
-                </span>
+                </Link>
               ) : null}
 
               {vendor.approved_at ? (
@@ -980,6 +985,24 @@ export default async function VendorPage({ params, searchParams }) {
               </Link>
             );
           })}
+
+          {/* Reviews sits in the tab bar because that is where a visitor looks
+              for it, but it is a ROUTE, not a panel: the full list is long,
+              filterable by stars and indexable, none of which works as a
+              `?tab=` on a page that also has to render cars. It is never the
+              open tab for the same reason — going there leaves this page. */}
+          <Link
+            href={`/${locale}/marketplace/vendors/${vendor.slug}/reviews`}
+            className="flex shrink-0 items-center gap-2 border-b-2 border-transparent px-3 py-3 text-sm font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <Star className="h-4 w-4" />
+            {t('التقييمات', 'Reviews')}
+            {vendor.rating_count > 0 ? (
+              <span className="tabular-nums text-xs text-muted-foreground">
+                {Number(vendor.rating_avg).toFixed(1)} · {vendor.rating_count}
+              </span>
+            ) : null}
+          </Link>
         </nav>
       </div>
 

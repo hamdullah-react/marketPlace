@@ -28,10 +28,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Car, Store, Phone, Loader2, X, Trash2, Check } from "lucide-react";
+import { Car, Store, Phone, Loader2, X, Trash2, Check, Star } from "lucide-react";
 import { useOnChange } from "@/hooks/use-on-change";
 import { useActionResult } from "../../(seller)/_components/useActionResult";
 import { cancelRequest, removeRequest } from "../_actions/requests";
+import ReviewForm from "./ReviewForm";
 import {
   buyerStage, canBuyerCancel, BUYER_STEPS, reachedStep,
 } from "@/marketplace/lib/lead-stages";
@@ -57,7 +58,7 @@ const MESSAGES = {
   LEADS_NOT_MIGRATED: { ar: "الطلبات غير مفعّلة بعد.", en: "Requests are not set up yet." },
 };
 
-export default function RequestCard({ row, locale = "ar" }) {
+export default function RequestCard({ row, locale = "ar", canReview = false, reviewed = false }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
@@ -320,6 +321,41 @@ export default function RequestCard({ row, locale = "ar" }) {
             </button>
           </div>
         </form>
+      ) : null}
+
+      {/* ── Rating the showroom, HERE ────────────────────────────────────
+          This is the page a buyer actually opens — they come to see whether
+          anybody has picked their request up. Before this, leaving a review
+          meant knowing that Account → My reviews existed and going to find it,
+          so almost nobody ever would. The deal is in front of them; so is the
+          form.
+
+          Never a nag: one line and a button, no badge, no red dot, and it
+          disappears once they have rated. A review is optional and a closed
+          deal needs nothing from either side.
+          -------------------------------------------------------------- */}
+      {canReview && !gone ? (
+        <div className="raised-card mt-3 rounded-xl p-3">
+          <ReviewForm
+            locale={locale}
+            leadId={row.id}
+            shopName={vendorName ?? ""}
+            carName={title ?? ""}
+          />
+        </div>
+      ) : null}
+
+      {reviewed ? (
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Star className="h-3.5 w-3.5 fill-[var(--gold)] text-[var(--gold)]" />
+          {t("قيّمت هذا المعرض.", "You rated this showroom.")}
+          <Link
+            href={`/${locale}/marketplace/account/reviews`}
+            className="font-medium text-brand-primary hover:underline"
+          >
+            {t("عرض تقييمي", "See my review")}
+          </Link>
+        </p>
       ) : null}
 
       {problem ? <p className="mt-2 text-xs text-red-600">{problem}</p> : null}

@@ -15,6 +15,7 @@ import {
   LayoutDashboardIcon, UsersIcon, ShieldCheckIcon, SparklesIcon, HomeIcon,
   StoreIcon, BadgeDollarSignIcon, ChevronsUpDownIcon, LogOutIcon, UserIcon,
   LayoutTemplateIcon, ImagesIcon, FileTextIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
+  StarIcon, WalletIcon,
 } from "lucide-react";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
@@ -41,6 +42,8 @@ const NAV_MAIN = [
   { href: "/marketplace/admin/settings/staff", icon: ShieldCheckIcon, ar: "المسؤولون", en: "Admins" },
   { href: BOOSTS_HREF, icon: SparklesIcon, ar: "طلبات التمييز", en: "Boost requests" },
   { href: "/marketplace/admin/content/boost-plans", icon: BadgeDollarSignIcon, ar: "خطط التمييز والأسعار", en: "Boost plans & prices" },
+  { href: "/marketplace/admin/reviews", icon: StarIcon, ar: "التقييمات", en: "Reviews" },
+  { href: "/marketplace/admin/finance", icon: WalletIcon, ar: "المالية", en: "Finance" },
 ];
 
 /* The "Website content" dropdown in the sidebar. */

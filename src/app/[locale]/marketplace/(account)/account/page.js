@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import {
   Heart, ClipboardList, CalendarDays, MapPin, Store, Phone, Mail, Car,
-  ChevronLeft, ChevronRight, AlertCircle, Plus, Pencil,
+  ChevronLeft, ChevronRight, AlertCircle, Plus, Pencil, Star,
 } from 'lucide-react';
 import { requireUser } from '@/marketplace/auth/session';
 import {
@@ -225,6 +225,10 @@ async function Overview({ viewer, locale, t, isAr }) {
     ...(counts.bookings > 0
       ? [{ key: 'bookings', href: '/marketplace/account/bookings', icon: CalendarDays, ar: 'تجارب قيادة', en: 'Test drives', n: counts.bookings }]
       : []),
+    /* Shown at zero, unlike test drives: the page behind it is real now, and
+       a buyer with no reviews is exactly who it has something to say to — the
+       showrooms they dealt with, waiting to be rated. */
+    { key: 'reviews', href: '/marketplace/account/reviews', icon: Star, ar: 'تقييماتي', en: 'Reviews', n: counts.reviews ?? 0 },
   ];
 
   const sectionHead = (title, href, more) => (

@@ -3,6 +3,7 @@ import { getViewer } from '@/marketplace/auth/session';
 import { OPEN_STAGES } from '@/marketplace/db/queries/leads';
 import type { Enum } from '@/marketplace/db/types';
 import type { LooseRow } from '@/marketplace/lib/row';
+import { summarize } from '@/marketplace/lib/review';
 
 /**
  * Seller-side reads, scoped to one vendor.
@@ -250,7 +251,7 @@ export async function getVendorReviews(vendorId: string, { limit = 24, offset = 
  * storefront and a seller comparing the two should get the same number.
  */
 export async function getReviewSummary(vendorId: string) {
-  const empty = { average: 0, total: 0, unanswered: 0, buckets: [0, 0, 0, 0, 0] };
+  const empty = { average: 0, total: 0, unanswered: 0, buckets: [0, 0, 0, 0, 0], positive: 0 };
   if (!vendorId) return empty;
 
   const { data, error } = await getMarketplaceDb()
@@ -261,29 +262,10 @@ export async function getReviewSummary(vendorId: string) {
 
   if (error) throw new Error(`getReviewSummary: ${error.message}`);
 
-  const rows = data ?? [];
-  if (!rows.length) return empty;
-
-  // buckets[0] is five stars, so the bar chart reads top-down without the
-  // component having to reverse it.
-  const buckets = [0, 0, 0, 0, 0];
-  let sum = 0;
-  let unanswered = 0;
-
-  for (const r of rows) {
-    const rating = Math.min(5, Math.max(1, Number(r.rating) || 0));
-    // rating is clamped to 1..5 on the line above, so this index is in range.
-    buckets[5 - rating]! += 1;
-    sum += rating;
-    if (!r.vendor_reply) unanswered += 1;
-  }
-
-  return {
-    average: sum / rows.length,
-    total: rows.length,
-    unanswered,
-    buckets,
-  };
+  /* Counted by lib/review.js, not here. The seller's page and the public one
+     draw the same bars from the same maths, so a showroom comparing its own
+     screen with its storefront can never find two different charts. */
+  return summarize((data ?? []) as LooseRow[]);
 }
 
 /**

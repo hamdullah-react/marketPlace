@@ -263,6 +263,54 @@ export const ERRORS = {
   SEO_PRIORITY_INVALID: { ar: 'اختر أولوية بين ٠ و١', en: 'Choose a priority between 0 and 1' },
   PAGE_UNKNOWN: { ar: 'هذه الصفحة غير موجودة', en: 'That page does not exist' },
   CONTENT_INVALID: { ar: 'تعذّر قراءة المحتوى. أعد المحاولة.', en: 'Could not read the content. Please try again.' },
+
+  // ── reviews ──
+  RATING_REQUIRED: { ar: 'اختر عدد النجوم', en: 'Pick a star rating' },
+  // The hours themselves are not in the text: REVIEW_WAIT_HOURS lives in
+  // lib/review.js and a number repeated here is a number that goes stale.
+  REVIEW_TOO_SOON: {
+    ar: 'لا يمكن التقييم بعد. أمهل المعرض فرصة للرد على طلبك أولاً.',
+    en: 'Not yet — give the showroom a chance to answer your request first.',
+  },
+  REVIEW_TOO_LATE: {
+    ar: 'مضى وقت طويل على هذا الطلب ولم يعد قابلاً للتقييم.',
+    en: 'This request is too old to review now.',
+  },
+  ALREADY_REVIEWED: { ar: 'لقد قيّمت هذه الصفقة بالفعل.', en: 'You have already reviewed this deal.' },
+  REASON_REQUIRED: { ar: 'اكتب سبب الإخفاء — يظهر لكاتب التقييم.', en: 'Give a reason — the author is shown it.' },
+  REVIEWS_NOT_MIGRATED: {
+    ar: 'التقييمات غير مفعّلة بعد. شغّل قسم REVIEWS في schema.sql.',
+    en: 'Reviews are not set up yet. Run the REVIEWS section of schema.sql.',
+  },
+
+  // ── billing ──
+  METHOD_REQUIRED: { ar: 'اختر طريقة الدفع', en: 'Pick a payment method' },
+  DATE_INVALID: { ar: 'تاريخ غير صالح', en: 'That is not a valid date' },
+  DATE_FUTURE: { ar: 'لا يمكن تسجيل دفعة بتاريخ مستقبلي', en: 'A payment cannot be dated in the future' },
+  ALREADY_PAID: { ar: 'هذا المستحق مدفوع بالفعل.', en: 'That charge is already marked paid.' },
+  NOT_PAID: { ar: 'هذا المستحق غير مسجّل كمدفوع.', en: 'That charge is not marked paid.' },
+  CHARGE_VOID: { ar: 'هذا المستحق ملغى، ولا يمكن تسجيل دفعة عليه.', en: 'That charge is cancelled, so no payment can be recorded against it.' },
+  // A paid charge is not voided — see voidCharge, which explains why at length.
+  CHARGE_PAID: {
+    ar: 'المستحق مدفوع. ألغِ تسجيل الدفعة أولاً إذا لم تُستلم فعلاً.',
+    en: 'That charge is paid. Un-record the payment first if the money did not actually arrive.',
+  },
+  ALREADY_VOID: { ar: 'هذا المستحق ملغى بالفعل.', en: 'That charge is already cancelled.' },
+  ACCOUNT_LABEL_REQUIRED: { ar: 'أدخل اسماً للحساب', en: 'Give the account a name' },
+  ACCOUNT_NUMBER_REQUIRED: {
+    ar: 'أدخل الآيبان أو رقم الحساب',
+    en: 'Enter an IBAN or an account number',
+  },
+  // No country is named: the platform may bank anywhere, and the rule is the
+  // ISO shape rather than one nation's length. See lib/billing.js.
+  IBAN_SHAPE_INVALID: {
+    ar: 'الآيبان يبدأ برمز دولة من حرفين ثم رقمين، ثم بقية الرقم',
+    en: 'An IBAN starts with a two-letter country code and two digits, then the rest of the number',
+  },
+  BILLING_NOT_MIGRATED: {
+    ar: 'المستحقات غير مفعّلة بعد. شغّل قسم VENDOR BILLING في schema.sql.',
+    en: 'Billing is not set up yet. Run the VENDOR BILLING section of schema.sql.',
+  },
 };
 
 /**

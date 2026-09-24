@@ -1929,3 +1929,36 @@ input[cmdk-input]:focus-visible {
     font-size: 14px;
   }
 }
+
+/* ── Printing ────────────────────────────────────────────────────────────────
+ *
+ * A seller printing a payment receipt is printing a DOCUMENT, and the dashboard
+ * around it is not part of it: the sidebar, the top bar and the page's own
+ * buttons all belong on screen and nowhere near paper.
+ *
+ * `data-print-hide` rather than a class, so marking a piece of chrome is one
+ * attribute on the element that already exists and needs no new class plumbed
+ * through a component's props. The rule is global because printing is: the same
+ * attribute works on any page that grows a print view later.
+ *
+ * The background is forced white because the app's surfaces are tinted, and a
+ * browser that honours them puts a grey wash across every page of the printout.
+ */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Raised panels are a screen effect. On paper a shadow is a smudge and a
+     border is what actually separates one block from the next. */
+  .raised-card,
+  .raised-solid {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+}

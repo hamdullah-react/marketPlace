@@ -5,6 +5,8 @@ import { setRequestLocale } from 'next-intl/server';
 import { ClipboardList } from 'lucide-react';
 import { currentViewer } from '@/marketplace/auth/session';
 import { getBuyerRequests } from '@/marketplace/db/queries/account';
+import { getReviewedLeadIds } from '@/marketplace/db/queries/reviews';
+import { reviewEligibility } from '@/marketplace/lib/review';
 import RequestCard from '../../_components/RequestCard';
 import LiveRequests from '../../_components/LiveRequests';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -67,6 +69,16 @@ async function RequestList({ locale, t }) {
   const { items, missing } = await getBuyerRequests(viewer.userId);
 
   /**
+   * Can each of these be rated, and has it been already.
+   *
+   * Decided HERE rather than inside the card, because the rule is time-based
+   * (lib/review.js) and a client component computing it from Date.now() during
+   * render can disagree with the HTML the server sent. One extra read for the
+   * whole list, and the answer travels as a plain boolean.
+   */
+  const reviewed = await getReviewedLeadIds(viewer.userId);
+
+  /**
    * The listener goes OUTSIDE the empty check, and that is the whole point.
    *
    * It used to live in the has-items branch, which made it work in every case
@@ -107,7 +119,13 @@ async function RequestList({ locale, t }) {
         // pressing cancel did nothing visible until the row had been written,
         // the path revalidated and a new page streamed down. The card now shows
         // what it believes and corrects itself when the server answers.
-          <RequestCard key={row.id} row={row} locale={locale} />
+          <RequestCard
+            key={row.id}
+            row={row}
+            locale={locale}
+            canReview={reviewEligibility(row, { reviewed: reviewed.has(row.id) }).ok}
+            reviewed={reviewed.has(row.id)}
+          />
         ))}
       </ul>
       )}

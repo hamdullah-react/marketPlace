@@ -72,6 +72,12 @@ function shapeSettings(row, ready) {
        missing column or a malformed value is the built-in look instead of a
        broken stylesheet. */
     theme: normalizeTheme(row?.theme),
+    /* Where a showroom sends its payment (Admin → Finance). Raw jsonb, shaped
+       by lib/billing.js at the point of use rather than here, because the two
+       readers want different things from it: the admin's form wants the fields
+       to edit, the showroom's page wants to know whether there is anything to
+       print at all. */
+    billing: row?.billing && typeof row.billing === 'object' ? row.billing : {},
   };
 }
 

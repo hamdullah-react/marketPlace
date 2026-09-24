@@ -108,6 +108,9 @@ function later(work: () => Promise<void>) {
  *               'lead_changed'  — read, moved, or deleted. No chime.
  *               'boost_changed' — an admin approved, rejected or ended one of
  *                                 this showroom's promotions. Chimes.
+ *               'review_new'    — a buyer rated this showroom. Chimes.
+ *               'review_changed'— a review was edited, withdrawn, or hidden or
+ *                                 restored by moderation. No chime.
  */
 export function notifyVendorLeads(
   vendorId: string | null | undefined,
@@ -122,6 +125,8 @@ export function notifyVendorLeads(
  * One person's own topic.
  *
  * @param event  'request_changed' — a buyer's request moved stage, or is gone.
+ *               'review_changed'  — the showroom answered their review, or
+ *                                   moderation hid or removed it.
  */
 export function notifyBuyerRequests(
   buyerUserId: string | null | undefined,
