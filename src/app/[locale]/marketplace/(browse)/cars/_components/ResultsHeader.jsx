@@ -32,6 +32,7 @@ import {
   SPEC_PREFIX, specsFromParams,
 } from "./FilterComponents/constants";
 import { publishResultsTotal } from "./resultsCount";
+import { formatPrice } from "@/marketplace/lib/listing";
 
 /* Each option carries its own mark, like the main site's CustomSortDropdown —
    the icon is what makes "low to high" and "high to low" distinguishable at a
@@ -49,6 +50,10 @@ export default function ResultsHeader({
   page = 1,
   pageCount = 1,
   facets = {},
+  /* The platform's currency, for the price chips. A range is not a listing, so
+     there is no seller's currency to use — a filter is the platform asking the
+     question, and it asks in the platform's money. */
+  currency = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -151,9 +156,9 @@ export default function ResultsHeader({
         // that is applied and not shown is worse than one shown awkwardly.
         label = v ? (isAr ? v.name_ar : v.name_en) : raw;
       } else if (key === "min_price") {
-        label = t(`من ${Number(raw).toLocaleString("ar-SA")} ر.س`, `From SAR ${Number(raw).toLocaleString("en")}`);
+        label = t(`من ${formatPrice(raw, "ar", currency)}`, `From ${formatPrice(raw, "en", currency)}`);
       } else if (key === "max_price") {
-        label = t(`حتى ${Number(raw).toLocaleString("ar-SA")} ر.س`, `Up to SAR ${Number(raw).toLocaleString("en")}`);
+        label = t(`حتى ${formatPrice(raw, "ar", currency)}`, `Up to ${formatPrice(raw, "en", currency)}`);
       } else if (key === "min_year") {
         label = t(`من ${raw}`, `From ${raw}`);
       } else if (key === "max_year") {
@@ -221,7 +226,10 @@ export default function ResultsHeader({
     }
 
     return out;
-  }, [searchParams, facets, isAr]);
+    /* The currency belongs in these deps: the price chips render an amount
+       through it, so a list memoised without it would go on showing the old
+       currency after the platform changed its own. */
+  }, [searchParams, facets, isAr, currency]);
 
   const removeChip = (key, value) => {
     const params = new URLSearchParams(searchParams.toString());

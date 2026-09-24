@@ -18,6 +18,7 @@ import {
 import { SHARED_BUCKET, vendorBucket } from '@/marketplace/media/bucket';
 import { parseSocialLinks, legacySocialObject } from '@/marketplace/lib/social';
 import { isAllowedPhone } from '@/marketplace/lib/phone';
+import { cleanCurrency } from '@/marketplace/lib/currency';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 const BUCKET = SHARED_BUCKET;
@@ -226,6 +227,9 @@ export async function saveLocalization(prevState, formData) {
     const db = getMarketplaceDb();
     const { data: current } = await db.from('vendors').select('settings').eq('id', vendorId).maybeSingle();
 
+    const currency =
+      cleanCurrency(str(formData, 'currency')) ?? current?.settings?.currency ?? 'SAR';
+
     await updateVendor(vendorId, {
       // Merge, never replace — a form posts only the fields it renders, and a
       // blind overwrite would silently drop every preference not on this tab.
@@ -234,7 +238,10 @@ export async function saveLocalization(prevState, formData) {
         ...(current?.settings ?? {}),
         default_locale: locale,
         locale_fallback: bool(formData, 'localeFallback'),
-        currency: str(formData, 'currency') || 'SAR',
+        /* Validated as a shape, like the platform's own — see lib/currency.
+           A blank or malformed field keeps whatever was already saved rather
+           than silently resetting a Pakistani showroom to riyals. */
+        currency,
         timezone: str(formData, 'timezone') || 'Asia/Riyadh',
         auto_expire_days: num(formData, 'autoExpireDays') ?? 90,
         show_phone: bool(formData, 'showPhone'),
@@ -248,8 +255,49 @@ export async function saveLocalization(prevState, formData) {
       },
     });
 
+    /* ── The showroom's cars follow the showroom ──────────────────────────
+       Every price on the site is rendered from listings.currency — the browse
+       grid, the car page, the cards, the structured data — so a setting that
+       stopped at vendors.settings changed the dropdown and nothing a buyer
+       could see.
+
+       This is a RE-DENOMINATION, and it is worth being clear about what it
+       does: the NUMBER does not change, only the currency it is read in, so a
+       car priced 100,000 becomes 100,000 of the new currency. That is the
+       intended meaning of "show my prices in rupees" for a showroom that has
+       been quoting in rupees all along — and it is why this is driven by an
+       explicit choice on a settings form rather than happening on its own.
+
+       Scoped to this showroom's own listings, so one seller's choice can never
+       touch another's cars. */
+    const { error: repriced } = await db
+      .from('listings')
+      .update({ currency })
+      .eq('vendor_id', vendorId)
+      .neq('currency', currency);
+
+    /* Reported, not thrown. The preference IS saved by this point, and failing
+       the whole action would tell the seller nothing was saved when their
+       setting was. */
+    if (repriced) {
+      console.warn('[settings] currency saved but listings not updated:', repriced.message);
+    }
+
     revalidatePath('/[locale]/marketplace/seller/settings', 'page');
-    return { ok: true, error: null, errors: {}, token: stamp(), saved: 'localization' };
+    revalidatePath('/[locale]/marketplace/seller/listings', 'page');
+    /* The buyer-facing pages that print a price. Without these the showroom
+       page and the browse grid keep serving the old currency from cache. */
+    revalidatePath('/[locale]/marketplace/cars', 'page');
+    revalidatePath('/[locale]/marketplace', 'page');
+
+    return {
+      ok: true,
+      error: null,
+      errors: {},
+      token: stamp(),
+      saved: 'localization',
+      currency,
+    };
   } catch (err) {
     return { ok: false, error: err.message, errors: {}, token: stamp() };
   }

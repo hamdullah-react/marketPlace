@@ -307,9 +307,46 @@ export const ERRORS = {
     ar: 'الآيبان يبدأ برمز دولة من حرفين ثم رقمين، ثم بقية الرقم',
     en: 'An IBAN starts with a two-letter country code and two digits, then the rest of the number',
   },
+  // ── vendor access ──
+  // What a seller meets if a stale tab posts an action after their
+  // subscription lapsed. It never appears while they can still get in.
+  VENDOR_BLOCKED: {
+    ar: 'انتهى اشتراك معرضك. تواصل مع إدارة المنصة لتفعيله من جديد.',
+    en: 'Your showroom’s subscription has ended. Contact the platform team to switch it back on.',
+  },
+  ACCESS_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
+  ACCESS_REASON_REQUIRED: {
+    ar: 'اكتب سبب الإيقاف — يظهر لصاحب المعرض.',
+    en: 'Give a reason — the showroom is shown it.',
+  },
+  PLAN_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
+  PLAN_PRICE_INVALID: { ar: 'أدخل سعراً صحيحاً', en: 'Enter a valid price' },
+  TRIAL_DAYS_INVALID: { ar: 'اختر مدة بين ٠ و٣٦٥ يوماً', en: 'Choose between 0 and 365 days' },
+  RENEWAL_ALREADY_REQUESTED: {
+    ar: 'لديك طلب تجديد قائم بالفعل. تواصل معنا لتأكيد الدفع.',
+    en: 'You already have a renewal request waiting. Contact us to confirm the payment.',
+  },
+  PLAN_NOT_FOUND: { ar: 'هذه الخطة غير متاحة.', en: 'That plan is not available.' },
+  ACCESS_NOT_MIGRATED: {
+    ar: 'الاشتراكات غير مفعّلة بعد. شغّل قسم VENDOR ACCESS في schema.sql.',
+    en: 'Subscriptions are not set up yet. Run the VENDOR ACCESS section of schema.sql.',
+  },
+
   BILLING_NOT_MIGRATED: {
     ar: 'المستحقات غير مفعّلة بعد. شغّل قسم VENDOR BILLING في schema.sql.',
     en: 'Billing is not set up yet. Run the VENDOR BILLING section of schema.sql.',
+  },
+
+  // Never shown in normal use: it means the code read a boost without its
+  // price. Worded for the person who can act on it rather than the seller.
+  INVALID_CURRENCY: {
+    ar: 'رمز العملة يجب أن يكون ثلاثة أحرف، مثل SAR أو AED.',
+    en: 'A currency code is three letters, such as SAR or AED.',
+  },
+
+  BOOST_PRICE_MISSING: {
+    ar: 'تم تمييز السيارة لكن لم يُسجّل المستحق: سعر الطلب غير متوفر. راجع الفريق التقني.',
+    en: 'The car was featured but no charge was raised: the request price was not read. Tell the technical team.',
   },
 };
 

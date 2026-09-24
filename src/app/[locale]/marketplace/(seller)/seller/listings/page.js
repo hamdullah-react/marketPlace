@@ -294,7 +294,7 @@ async function ListingsSection({ searchParams, locale, isAr, t }) {
                     </p>
                   </td>
                   <td className="px-4 py-3 font-semibold tabular-nums text-brand-primary">
-                    {formatPrice(l.price, locale)}
+                    {formatPrice(l.price, locale, l.currency)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-1.5">

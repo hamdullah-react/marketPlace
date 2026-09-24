@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   StatCardsSkeleton, ChartSkeleton, TableSkeleton,
 } from '../../_components/Skeletons';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 import StatCards from '../_components/StatCards';
 import ListingsChart from '../_components/ListingsChart';
 import ListingsTable from '../_components/ListingsTable';
@@ -139,12 +140,21 @@ async function Stats({ searchParams, locale, t }) {
 
   // StatCards derives a couple of its footers from the listings, so it needs
   // both reads — they run together rather than one after the other.
-  const [stats, listings] = await Promise.all([
+  const [stats, listings, site] = await Promise.all([
     getDashboardStats(vendor.id),
     getDashboardListings(vendor.id, locale),
+    getSiteSettings().catch(() => null),
   ]);
 
-  return <StatCards locale={locale} stats={stats} listings={listings} vendorId={vendor.id} />;
+  return (
+    <StatCards
+      locale={locale}
+      stats={stats}
+      listings={listings}
+      vendorId={vendor.id}
+      currency={site?.currency}
+    />
+  );
 }
 
 async function Chart({ searchParams, locale }) {

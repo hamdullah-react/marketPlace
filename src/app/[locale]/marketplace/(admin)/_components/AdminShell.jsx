@@ -15,7 +15,7 @@ import {
   LayoutDashboardIcon, UsersIcon, ShieldCheckIcon, SparklesIcon, HomeIcon,
   StoreIcon, BadgeDollarSignIcon, ChevronsUpDownIcon, LogOutIcon, UserIcon,
   LayoutTemplateIcon, ImagesIcon, FileTextIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
-  StarIcon, WalletIcon,
+  StarIcon, WalletIcon, CalendarClockIcon,
 } from "lucide-react";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
@@ -44,6 +44,7 @@ const NAV_MAIN = [
   { href: "/marketplace/admin/content/boost-plans", icon: BadgeDollarSignIcon, ar: "خطط التمييز والأسعار", en: "Boost plans & prices" },
   { href: "/marketplace/admin/reviews", icon: StarIcon, ar: "التقييمات", en: "Reviews" },
   { href: "/marketplace/admin/finance", icon: WalletIcon, ar: "المالية", en: "Finance" },
+  { href: "/marketplace/admin/subscriptions", icon: CalendarClockIcon, ar: "الاشتراكات", en: "Subscriptions" },
 ];
 
 /* The "Website content" dropdown in the sidebar. */

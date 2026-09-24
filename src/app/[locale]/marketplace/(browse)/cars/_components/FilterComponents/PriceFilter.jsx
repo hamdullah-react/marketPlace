@@ -27,8 +27,13 @@ export default function PriceFilter({
   isExpanded,
   onToggle,
   locale = "ar",
+  /* The platform's currency. A price RANGE belongs to no single car, so there
+     is no seller's currency to use here — the filter is the platform asking
+     the question, and it asks in the platform's money. */
+  currency = null,
 }) {
   const isAr = locale === "ar";
+  const isSar = String(currency ?? "SAR").toUpperCase() === "SAR";
   const lo = Math.floor(range?.[0] ?? 0);
   const hi = Math.ceil(range?.[1] ?? 0);
 
@@ -39,7 +44,10 @@ export default function PriceFilter({
 
   return (
     <FilterSection
-      iconSrc="/icons/Currency.svg"
+      /* The riyal mark is the RIYAL's. On a platform billing in rupees it
+         would be a Saudi symbol labelling a rupee range, so it is shown only
+         when it is true and the section falls back to its word otherwise. */
+      iconSrc={isSar ? "/icons/Currency.svg" : undefined}
       title={isAr ? "نطاق السعر" : "Price Range"}
       selectedCount={(minValue ? 1 : 0) + (maxValue ? 1 : 0)}
       isExpanded={isExpanded}
@@ -53,6 +61,7 @@ export default function PriceFilter({
         value={[Number(minValue || lo), Number(maxValue || hi)]}
         onCommit={onCommitRange}
         locale={locale}
+        currency={currency}
       />
     </FilterSection>
   );

@@ -39,6 +39,43 @@ import {
 const money = (n) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Number(n) || 0);
 
+/**
+ * A price, with the riyal's own symbol when — and only when — it is riyals.
+ *
+ * ── Why this is not just formatPrice() ──────────────────────────────────────
+ *
+ * The new Saudi riyal symbol is a GLYPH that Intl does not produce: it renders
+ * "SAR 90,000" where this page wants the mark beside the number. So the symbol
+ * is shipped as an SVG and placed by hand, which is a deliberate piece of
+ * design and worth keeping.
+ *
+ * What was wrong was doing it unconditionally. A car priced in rupees was drawn
+ * with a riyal mark against it — not a formatting blemish but a wrong price on
+ * the page a buyer decides from. So the glyph is now what it always should have
+ * been: the riyal's own, used for the riyal, with every other currency going
+ * through Intl, which knows all of their symbols and where each one belongs in
+ * each language.
+ */
+function Amount({ value, currency, locale = "ar", size = 18, glyphFirst = true, className = "" }) {
+  const code = String(currency ?? "SAR").toUpperCase();
+
+  if (code !== "SAR") {
+    return <span className={`tabular-nums ${className}`}>{formatPrice(value, locale, code)}</span>;
+  }
+
+  const h = Math.round((size * 20) / 18);
+  // eslint-disable-next-line @next/next/no-img-element
+  const glyph = <img src="/icons/Currency.svg" alt="SAR" width={size} height={h} className="inline-block" />;
+
+  return (
+    <>
+      {glyphFirst ? glyph : null}
+      <span className={`tabular-nums ${className}`}>{money(value)}</span>
+      {glyphFirst ? null : glyph}
+    </>
+  );
+}
+
 export default function ListingFold({
   listing,
   variants = [],
@@ -317,9 +354,9 @@ export default function ListingFold({
                   }`}
                   aria-label={`${t("صورة", "Photo")} ${i + 1}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {/* 160x128 — twice the 80x64 the strip renders at, so it is
                       sharp on a 2x screen and nothing larger is fetched. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={thumbUrl(p.url, THUMB.gallery)}
                     alt=""
@@ -503,9 +540,13 @@ export default function ListingFold({
                         {v.name}
                       </span>
                       <span className="mt-0.5 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums text-brand-primary">
-                        {money(v.price)}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/icons/Currency.svg" alt="SAR" width={7} height={8} className="inline-block" />
+                        <Amount
+                          value={v.price}
+                          currency={listing?.currency}
+                          locale={locale}
+                          size={7}
+                          glyphFirst={false}
+                        />
                       </span>
                     </>
                   );
@@ -536,9 +577,12 @@ export default function ListingFold({
             <div className="p-3">
               <div className="mb-3">
                 <div className="mb-1 flex items-center gap-1 text-3xl font-bold text-brand-primary">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/icons/Currency.svg" alt="SAR" width={18} height={20} className="inline-block" />
-                  <span className="tabular-nums">{money(pricing.price)}</span>
+                  <Amount
+                    value={pricing.price}
+                    currency={listing?.currency}
+                    locale={locale}
+                    size={18}
+                  />
                   {pricing.compareAt && pricing.compareAt > pricing.price ? (
                     <span className="text-sm font-normal tabular-nums text-gray-400 line-through">
                       {money(pricing.compareAt)}

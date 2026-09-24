@@ -212,7 +212,7 @@ function carSchema({ listing, kindFacts, trims, variants, locale, url }) {
       '@type': 'Offer',
       url,
       price: listing.price,
-      priceCurrency: 'SAR',
+      priceCurrency: listing.currency,
       // A car is one of one. Live means you can buy it; anything else means
       // you cannot, and saying InStock either way is how a marketplace ends up
       // with rich results advertising cars that sold last month.

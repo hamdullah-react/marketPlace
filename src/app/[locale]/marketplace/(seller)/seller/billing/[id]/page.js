@@ -65,7 +65,7 @@ export default async function SellerChargePage({ params, searchParams }) {
   const paid = charge.state === 'paid';
   const voided = charge.state === 'void';
 
-  const money = (n) => formatPrice(n, locale);
+  const money = (n) => formatPrice(n, locale, site?.currency);
   const Back = locale === 'ar' ? ArrowRight : ArrowLeft;
 
   const when = (iso) =>

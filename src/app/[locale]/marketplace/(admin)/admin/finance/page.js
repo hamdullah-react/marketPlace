@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
-import { AlertTriangle, BanknoteIcon, Clock, Landmark, Store, Wallet } from 'lucide-react';
+import { AlertTriangle, BanknoteIcon, Clock, Landmark, Megaphone, RefreshCw, Store, Wallet } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { getBillingOverview, listCharges } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
-import { billingDetails, stateLabel, stateTone, methodLabel, isOverdue, overdueLabel } from '@/marketplace/lib/billing';
+import { billingDetails, stateLabel, stateTone, methodLabel, isOverdue, overdueLabel, kindLabel } from '@/marketplace/lib/billing';
 import { formatPrice, localized } from '@/marketplace/lib/listing';
 import ChargeRowActions from '../../_components/ChargeRowActions';
 import PaymentAccountsManager from '../../_components/PaymentAccountsManager';
@@ -54,8 +54,8 @@ export default async function AdminFinancePage({ params, searchParams }) {
           <h1 className="text-2xl font-bold text-brand-primary">{t('المالية', 'Finance')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t(
-              'مستحقات المعارض على المنصة مقابل تمييز السيارات، وما تم تحصيله.',
-              'What showrooms owe the platform for featuring cars, and what has been collected.'
+              'مستحقات المعارض على المنصة — تمييز السيارات والاشتراكات، كل منهما على حدة.',
+              'What showrooms owe the platform — promotions and subscriptions, each kept on its own.'
             )}
           </p>
         </div>
@@ -81,12 +81,24 @@ async function Body({ searchParams, locale, t }) {
     { key: 'all', label: t('الكل', 'All') },
   ];
 
+
+  /* ── The primary split, and it is chosen BEFORE the state ───────────────
+     Promotions and subscriptions are two different businesses sharing one
+     table: one is advertising a showroom chose to buy, the other is the rent on
+     their dashboard. An admin chasing unpaid rent and an admin reconciling ad
+     revenue are doing unrelated jobs, and one merged list served neither.
+     `boost` is the default because it is the larger ledger. Nothing defaults to
+     the mixed view — that was the confusing part.
+     Validated against the fixed keys rather than the KINDS array, because that
+     array cannot be built until the data it describes has been read. */
+  const KIND_KEYS = ['boost', 'subscription', 'other', 'all'];
+  const kind = KIND_KEYS.includes(sp.kind) ? sp.kind : 'boost';
   const state = TABS.some((x) => x.key === sp.state) ? sp.state : 'due';
   const page = Math.max(1, Number(sp.page) || 1);
 
   const [overview, list, site] = await Promise.all([
-    getBillingOverview({ days: 30 }),
-    listCharges({ state, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }),
+    getBillingOverview({ days: 30, kind }),
+    listCharges({ state, kind, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }),
     getSiteSettings().catch(() => null),
   ]);
 
@@ -111,12 +123,35 @@ async function Body({ searchParams, locale, t }) {
     );
   }
 
-  const money = (n) => formatPrice(n, locale);
+  const KINDS = [
+    { key: 'boost', label: kindLabel('boost', locale), icon: Megaphone },
+    { key: 'subscription', label: kindLabel('subscription', locale), icon: RefreshCw },
+    /* Only when it holds something. A permanently empty tab is noise, but a
+       hidden one that quietly swallows hand-entered charges is worse — so it
+       appears the moment one exists. */
+    ...(overview.split.other.dueCount || overview.split.other.paidCount
+      ? [{ key: 'other', label: kindLabel('other', locale), icon: Wallet }]
+      : []),
+    { key: 'all', label: t('الكل معاً', 'Everything together'), icon: Wallet },
+  ];
+
+  const money = (n) => formatPrice(n, locale, site?.currency);
   const details = billingDetails(site?.billing);
 
+  /* Said out loud on the figures themselves: a screenshot of this page should
+     never leave anybody guessing which of the two ledgers it is. */
+  const kindName = kind === 'all' ? t('الكل', 'both') : kindLabel(kind, locale).toLowerCase();
+
+  /* Every link carries BOTH dimensions. A state tab that dropped the kind would
+     quietly throw the admin back into the merged list they were trying to get
+     out of, and changing the kind resets the page because row 3 of promotions
+     has nothing to do with row 3 of subscriptions. */
   const href = (next) => {
     const q = new URLSearchParams();
-    if (next.state && next.state !== 'due') q.set('state', next.state);
+    const k = next.kind ?? kind;
+    const st = next.state ?? state;
+    if (k && k !== 'boost') q.set('kind', k);
+    if (st && st !== 'due') q.set('state', st);
     if (next.page && next.page > 1) q.set('page', String(next.page));
     const query = q.toString();
     return `/${locale}/marketplace/admin/finance${query ? `?${query}` : ''}`;
@@ -156,11 +191,61 @@ async function Body({ searchParams, locale, t }) {
         </Card>
       </div>
 
-      {/* ── The position ───────────────────────────────────────────────── */}
+      {/* ── Which ledger ─────────────────────────────────────────────────
+          The first choice on the screen, because every figure below it means a
+          different thing depending on the answer. Each tab carries its own
+          outstanding total, so the one NOT being looked at cannot go unnoticed.
+          --------------------------------------------------------------- */}
+      <div className="px-4 lg:px-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {KINDS.map((x) => {
+            const on = x.key === kind;
+            /* Summed over the whole split rather than over two named kinds, so
+               a charge of a kind this screen does not have a tab for still
+               shows up in the combined figure instead of vanishing. */
+            const figures =
+              x.key === 'all'
+                ? Object.values(overview.split).reduce(
+                    (sum, f) => ({
+                      outstanding: sum.outstanding + f.outstanding,
+                      overdue: sum.overdue + f.overdue,
+                    }),
+                    { outstanding: 0, overdue: 0 }
+                  )
+                : overview.split[x.key];
+
+            return (
+              <Link
+                key={x.key}
+                href={href({ kind: x.key, state, page: 1 })}
+                aria-current={on ? 'page' : undefined}
+                className={`raised-card rounded-xl p-4 transition-colors ${
+                  on ? 'ring-2 ring-brand-primary' : ''
+                }`}
+              >
+                <p className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
+                  <x.icon className="h-4 w-4" />
+                  {x.label}
+                </p>
+                <p className="mt-2 text-lg font-bold tabular-nums text-brand-primary">
+                  {money(figures.outstanding)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {figures.overdue > 0
+                    ? t(`منها ${money(figures.overdue)} متأخرة`, `${money(figures.overdue)} of it overdue`)
+                    : t('لا متأخرات', 'nothing overdue')}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── The position, for the ledger being looked at ────────────────── */}
       <div className="grid grid-cols-2 gap-3 px-4 lg:grid-cols-4 lg:px-6">
         <Kpi
           icon={Wallet}
-          label={t('مستحق', 'Outstanding')}
+          label={t(`مستحق — ${kindName}`, `Outstanding — ${kindName}`)}
           value={money(overview.totals.outstanding)}
           note={t(`${overview.totals.dueCount} مستحق`, `${overview.totals.dueCount} charge${overview.totals.dueCount === 1 ? '' : 's'}`)}
         />
@@ -190,7 +275,9 @@ async function Body({ searchParams, locale, t }) {
         <div className="px-4 lg:px-6">
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-brand-primary">
-              {t('حسب المعرض', 'By showroom')}
+              {kind === 'all'
+                ? t('حسب المعرض', 'By showroom')
+                : t(`حسب المعرض — ${kindLabel(kind, locale)}`, `By showroom — ${kindLabel(kind, locale)}`)}
             </h2>
             <div className="mt-3 space-y-2">
               {overview.byVendor.map((row) => (
@@ -243,8 +330,14 @@ async function Body({ searchParams, locale, t }) {
         </div>
       ) : null}
 
-      {/* ── The charges ───────────────────────────────────────────────── */}
+      {/* ── The charges, for this ledger only ──────────────────────────── */}
       <div className="px-4 lg:px-6">
+        <h2 className="mb-2 text-sm font-semibold text-brand-primary">
+          {kind === 'all'
+            ? t('كل المستحقات', 'All charges')
+            : t(`مستحقات ${kindLabel(kind, locale)}`, `${kindLabel(kind, locale)} charges`)}
+        </h2>
+
         <div className="flex flex-wrap items-center gap-2">
           {TABS.map((x) => (
             <Link
@@ -316,6 +409,18 @@ async function Body({ searchParams, locale, t }) {
                     ) : null}
 
                     <span>{localized(charge.description, locale)}</span>
+
+                    {/* The consequence of pressing Record payment on THIS row.
+                        An admin about to confirm money should know it also
+                        reopens a dashboard. */}
+                    {charge.kind === 'subscription' && charge.access_days ? (
+                      <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-medium text-brand-primary tabular-nums">
+                        {t(
+                          `الدفع يمنح ${charge.access_days} يوم وصول`,
+                          `paying grants ${charge.access_days} days of access`
+                        )}
+                      </span>
+                    ) : null}
 
                     {charge.listings ? (
                       <Link

@@ -53,6 +53,52 @@ export const CHARGE_STATES = {
   },
 };
 
+/**
+ * The two kinds of money a showroom owes, and they are NOT the same debt.
+ *
+ * A promotion is a one-off a showroom chose to buy for a particular car. A
+ * subscription is the recurring rent on their dashboard, and missing it closes
+ * the dashboard. Merged into one list they produce a number that answers
+ * neither question an admin actually has — "do they owe us for advertising" and
+ * "are they paid up" — which is why every screen showing charges now picks a
+ * side.
+ *
+ * The keys are the values in vendor_charges.kind, so this is the database's own
+ * vocabulary rather than a second naming to keep in step with it.
+ */
+export const CHARGE_KINDS = {
+  boost: {
+    ar: 'تمييز السيارات',
+    en: 'Promotions',
+    arOne: 'تمييز سيارة',
+    enOne: 'Promotion',
+  },
+  subscription: {
+    ar: 'الاشتراكات',
+    en: 'Subscriptions',
+    arOne: 'اشتراك',
+    enOne: 'Subscription',
+  },
+  /* The schema's third allowed value (vendor_charges_kind_check). Nothing
+     raises one today, but a screen that splits by kind and knows only two would
+     silently drop any charge an admin enters by hand — money on a statement
+     that the rows do not add up to. Named here so it is merely rare, not
+     invisible. */
+  other: {
+    ar: 'مستحقات أخرى',
+    en: 'Other charges',
+    arOne: 'مستحق آخر',
+    enOne: 'Other charge',
+  },
+};
+
+export const kindLabel = (kind, locale = 'ar', { one = false } = {}) => {
+  const k = CHARGE_KINDS[kind];
+  if (!k) return kind ?? '';
+  if (one) return locale === 'ar' ? k.arOne : k.enOne;
+  return locale === 'ar' ? k.ar : k.en;
+};
+
 export const stateLabel = (state, locale = 'ar') => {
   const s = CHARGE_STATES[state] ?? CHARGE_STATES.due;
   return locale === 'ar' ? s.ar : s.en;

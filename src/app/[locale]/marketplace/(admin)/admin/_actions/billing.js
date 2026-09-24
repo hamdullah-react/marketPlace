@@ -34,6 +34,8 @@ import { isMissingSchema } from '@/marketplace/db/queries/engagement';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
 import { SITE_TAGS } from '@/marketplace/lib/sitePages';
 import { billingDetails, validateAccount, cleanIban } from '@/marketplace/lib/billing';
+import { extendedTo } from '@/marketplace/lib/access';
+import { getVendorAccess } from '@/marketplace/db/queries/access';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -49,16 +51,26 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const refresh = () => {
   revalidatePath('/[locale]/marketplace/admin/finance', 'page');
   revalidatePath('/[locale]/marketplace/admin', 'page');
-  revalidatePath('/[locale]/marketplace/seller/payouts', 'page');
+  revalidatePath('/[locale]/marketplace/admin/subscriptions', 'page');
+  revalidatePath('/[locale]/marketplace/seller/billing', 'page');
+  revalidatePath('/[locale]/marketplace/subscription', 'page');
+  // A recorded renewal changes what requireVendor() decides, so the dashboard
+  // itself has to be re-rendered for a tab that is already open.
+  revalidatePath('/[locale]/marketplace/seller', 'layout');
 };
 
 /** The charge, or an error result — every action starts here. */
 async function load(db, chargeId) {
-  const { data, error } = await db
-    .from('vendor_charges')
-    .select('id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref')
-    .eq('id', chargeId)
-    .maybeSingle();
+  const build = (columns) =>
+    db.from('vendor_charges').select(columns).eq('id', chargeId).maybeSingle();
+
+  const FULL = 'id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref, kind, access_days';
+  const BASE = 'id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref';
+
+  // access_days arrives with the RENEWAL section; without it a payment is still
+  // recorded, it simply grants no time — and the caller says so.
+  let { data, error } = await build(FULL);
+  if (error?.code === '42703') ({ data, error } = await build(BASE));
 
   if (error) return { error: isMissingSchema(error) ? 'BILLING_NOT_MIGRATED' : 'SAVE_FAILED' };
   if (!data) return { error: 'NOT_FOUND' };
@@ -141,12 +153,75 @@ export async function recordPayment(prevState, formData) {
     { ref: charge.ref, amount: charge.amount, method, reference, into: paidInto, paid_at: paidAt.toISOString() }
   );
 
+  /**
+   * ── A SUBSCRIPTION payment buys time, and this is where it lands ─────────
+   *
+   * The whole renewal loop closes here. A boost charge grants nothing; a
+   * subscription charge carries `access_days`, and recording its payment moves
+   * `access_until` by exactly that many days and lifts any block.
+   *
+   * Done in the SAME action rather than leaving the admin to press Extend
+   * afterwards, because those two presses are one decision — and the version
+   * where somebody records the money and forgets the second step is a showroom
+   * that has paid and is still locked out, which is the worst outcome this
+   * system can produce.
+   *
+   * extendedTo() adds to whatever is left rather than replacing it, so renewing
+   * a week early keeps that week (lib/access.js).
+   *
+   * It is deliberately NOT allowed to fail the payment. The money has arrived
+   * and that record must stand; a date that did not move is reported back and
+   * fixable with one press of Extend.
+   */
+  let accessUntil = null;
+  let accessError = null;
+
+  if (charge.kind === 'subscription' && Number(charge.access_days) > 0) {
+    const vendor = await getVendorAccess(charge.vendor_id);
+
+    if (vendor) {
+      accessUntil = extendedTo(vendor, Number(charge.access_days));
+
+      const { error: accessFailed } = await db
+        .from('vendors')
+        .update({
+          access_until: accessUntil,
+          access_blocked: false,
+          access_block_reason: null,
+          access_blocked_at: null,
+          access_blocked_by: null,
+        })
+        .eq('id', charge.vendor_id);
+
+      if (accessFailed) {
+        accessError = accessFailed.code === '42703' ? 'ACCESS_NOT_MIGRATED' : 'SAVE_FAILED';
+        accessUntil = null;
+      } else {
+        await writeAudit(
+          viewer,
+          'access.renew',
+          'vendor',
+          charge.vendor_id,
+          { access_until: vendor.access_until, was_blocked: vendor.access_blocked },
+          { access_until: accessUntil, days: Number(charge.access_days), charge: charge.ref }
+        );
+      }
+    }
+  }
+
   // Their billing page is open often enough that this is worth a nudge: the
   // showroom's outstanding total has just dropped.
   notifyVendorLeads(charge.vendor_id, 'billing_changed', { id: chargeId, paid: true });
 
+  /* And, when the payment bought time, the message that reopens the dashboard
+     in front of a seller who is watching the blocked screen. Same event the
+     admin's Extend button sends — see LiveAccess and useLiveLeads. */
+  if (accessUntil) {
+    notifyVendorLeads(charge.vendor_id, 'access_changed', { allowed: true, until: accessUntil });
+  }
+
   refresh();
-  return ok({ chargeId, ref: charge.ref });
+  return ok({ chargeId, ref: charge.ref, accessUntil, accessError });
 }
 
 /** Un-record a payment — a bounced cheque, or the wrong row. */

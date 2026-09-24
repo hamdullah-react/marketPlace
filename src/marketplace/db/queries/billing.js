@@ -38,7 +38,7 @@ const BASE = `
  * Finance screen would go blank over the name of a bank account. Every reader
  * asks for it and falls back, the same shape as queries/reviews.ts.
  */
-const SELECT = `${BASE}, paid_into`;
+const SELECT = `${BASE}, paid_into, access_days, plan_id`;
 
 /** 42703 — that column is not there yet. Anything else is a real failure. */
 const retryWithout = (error) => error?.code === '42703';
@@ -74,6 +74,15 @@ const DAY = 86_400_000;
  */
 export async function raiseBoostCharge(boost, { recordedBy = null } = {}) {
   if (!boost?.id || !boost.vendor_id) return { ok: false, error: 'NO_BOOST' };
+
+  /* An absent `price` KEY and a price of nothing are different facts, and
+     collapsing them is what let a billing bug hide in plain sight for nine
+     approvals: a caller that forgot to select the column got back "free boost,
+     nothing owed, no error" and carried on.
+     null or 0 mean free, which an admin may legitimately grant.
+     undefined means nobody read the column — a programming error, and it says
+     so loudly enough for decideBoost to surface it. */
+  if (boost.price === undefined) return { ok: false, error: 'BOOST_PRICE_MISSING' };
 
   const amount = Number(boost.price ?? 0);
   // A free boost is a real thing an admin may grant, and it is not a debt.
@@ -116,7 +125,7 @@ export async function raiseBoostCharge(boost, { recordedBy = null } = {}) {
  * come back whole and the totals are counted here, by the same function the
  * showroom's own page uses, so the two screens can never disagree.
  */
-export async function getBillingOverview({ days = 30, recent = 50 } = {}) {
+export async function getBillingOverview({ days = 30, recent = 50, kind = 'all' } = {}) {
   const db = getMarketplaceDb();
 
   /* TWO reads, and the split is the point.
@@ -128,11 +137,16 @@ export async function getBillingOverview({ days = 30, recent = 50 } = {}) {
      Showrooms come back whole rather than embedded per charge: there are a
      handful of them against however many charges, so one small read beats
      repeating a name on every row. */
-  const recentRows = (select) =>
-    db.from('vendor_charges').select(select).order('issued_at', { ascending: false }).limit(recent);
+  const recentRows = (select) => {
+    let q = db.from('vendor_charges').select(select).order('issued_at', { ascending: false }).limit(recent);
+    if (kind !== 'all') q = q.eq('kind', kind);
+    return q;
+  };
 
   let [all, latest, vendors] = await Promise.all([
-    db.from('vendor_charges').select('amount, state, due_at, paid_at, vendor_id'),
+    /* `kind` comes back on every row even when only one kind is on screen,
+       because the split below reports BOTH however the page is filtered. */
+    db.from('vendor_charges').select('amount, state, due_at, paid_at, vendor_id, kind'),
     recentRows(WITH_PARTIES),
     db.from('vendors').select('id, slug, name, logo_url, contact_phone, contact_email'),
   ]);
@@ -146,13 +160,20 @@ export async function getBillingOverview({ days = 30, recent = 50 } = {}) {
       totals: totals([]),
       collectedInPeriod: 0,
       byVendor: [],
+      split: { boost: totals([]), subscription: totals([]), other: totals([]) },
+      kind,
       days,
     };
   }
 
-  const every = all.data ?? [];
+  const everyKind = all.data ?? [];
   const now = Date.now();
   const since = now - days * DAY;
+
+  /* Everything below answers the question actually being asked — promotions or
+     subscriptions — rather than blending the two into a figure that describes
+     neither of them. */
+  const every = kind === 'all' ? everyKind : everyKind.filter((c) => c.kind === kind);
 
   /* Collected IN THE PERIOD, by payment date rather than issue date. "How much
      came in this month" is a question about when the money arrived, not about
@@ -188,12 +209,20 @@ export async function getBillingOverview({ days = 30, recent = 50 } = {}) {
     totals: totals(every, now),
     collectedInPeriod,
     byVendor,
+    /* Both kinds, always — so a screen filtered onto promotions can still say
+       that subscriptions are owed, instead of hiding them behind a tab. */
+    split: {
+      boost: totals(everyKind.filter((c) => c.kind === 'boost'), now),
+      subscription: totals(everyKind.filter((c) => c.kind === 'subscription'), now),
+      other: totals(everyKind.filter((c) => c.kind === 'other'), now),
+    },
+    kind,
     days,
   };
 }
 
-/** One page of charges, filtered by state — the Finance list's tabs. */
-export async function listCharges({ state = 'all', vendorId = null, limit = 50, offset = 0 } = {}) {
+/** One page of charges, filtered by kind and state — the Finance list's tabs. */
+export async function listCharges({ state = 'all', kind = 'all', vendorId = null, limit = 50, offset = 0 } = {}) {
   const build = (select) => {
     let query = getMarketplaceDb()
       .from('vendor_charges')
@@ -207,6 +236,9 @@ export async function listCharges({ state = 'all', vendorId = null, limit = 50, 
        this one is the version a database can filter on. */
     if (state === 'overdue') query = query.eq('state', 'due').lt('due_at', new Date().toISOString());
     if (vendorId) query = query.eq('vendor_id', vendorId);
+    /* A promotion and a subscription are different debts and never share a
+       list — see CHARGE_KINDS. */
+    if (kind !== 'all') query = query.eq('kind', kind);
 
     return query;
   };
@@ -225,16 +257,20 @@ export async function listCharges({ state = 'all', vendorId = null, limit = 50, 
  * the charge cancelled should be able to see that happened — otherwise the
  * conversation is "you sent me an invoice" against a screen showing nothing.
  */
-export async function getVendorCharges(vendorId, { limit = 50, offset = 0 } = {}) {
+export async function getVendorCharges(vendorId, { limit = 50, offset = 0, kind = 'all' } = {}) {
   if (!vendorId) return { ready: true, items: [], total: 0 };
 
-  const build = (select) =>
-    getMarketplaceDb()
+  const build = (select) => {
+    let q = getMarketplaceDb()
       .from('vendor_charges')
       .select(`${select}, listings ( id, slug, name, media )`, { count: 'exact' })
       .eq('vendor_id', vendorId)
       .order('issued_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    if (kind !== 'all') q = q.eq('kind', kind);
+    return q;
+  };
 
   let { data, error, count } = await build(SELECT);
   if (retryWithout(error)) ({ data, error, count } = await build(BASE));
@@ -255,11 +291,21 @@ export async function getVendorChargeTotals(vendorId) {
 
   const { data, error } = await getMarketplaceDb()
     .from('vendor_charges')
-    .select('amount, state, due_at, paid_at')
+    .select('amount, state, due_at, paid_at, kind')
     .eq('vendor_id', vendorId);
 
-  if (error) return { ready: !isMissingSchema(error), ...totals([]) };
-  return { ready: true, ...totals(data ?? []) };
+  const split = (rows) => ({
+    boost: totals((rows ?? []).filter((c) => c.kind === 'boost')),
+    subscription: totals((rows ?? []).filter((c) => c.kind === 'subscription')),
+    other: totals((rows ?? []).filter((c) => c.kind === 'other')),
+  });
+
+  if (error) return { ready: !isMissingSchema(error), ...totals([]), byKind: split([]) };
+
+  /* The combined figures stay, because "what do I owe altogether" is still a
+     fair question for a showroom to ask. byKind is what lets the page answer
+     the two narrower ones without a second round trip. */
+  return { ready: true, ...totals(data ?? []), byKind: split(data) };
 }
 
 /**

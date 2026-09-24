@@ -165,7 +165,7 @@ export default async function ComparePage({ params }) {
             offers: {
               '@type': 'Offer',
               price: car.price,
-              priceCurrency: 'SAR',
+              priceCurrency: car.currency,
               availability: car.inStock
                 ? 'https://schema.org/InStock'
                 : 'https://schema.org/OutOfStock',

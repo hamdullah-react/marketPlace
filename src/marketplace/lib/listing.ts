@@ -94,15 +94,51 @@ const t = (row: ListingRow | null | undefined, field: string, locale: string): s
 };
 
 /**
- * SAR formatting. Arabic uses ar-SA digits, English uses Latin — both get the
- * currency symbol from Intl rather than a hardcoded "SAR" string.
+ * The currency to fall back on when nothing has said otherwise.
+ *
+ * It is a LAST resort, not the platform's answer: the real one is
+ * site_settings.currency, read through getSiteSettings().currency and passed
+ * in. This exists so that a page which has not been given it renders a price
+ * rather than "undefined", and so the app still works on a database where the
+ * CURRENCY section of schema.sql has not been run yet.
  */
-export function formatPrice(amount: number | string | null | undefined, locale = 'ar'): string {
+export const DEFAULT_CURRENCY = 'SAR';
+
+/**
+ * Money, in the viewer's language and the platform's currency.
+ *
+ * ── The currency is an argument now ─────────────────────────────────────────
+ *
+ * It used to be the literal 'SAR', which made a marketplace that ships in two
+ * languages quietly single-country. Callers pass what the platform actually
+ * bills in — or, for a car, what that SELLER is asking in (listings.currency),
+ * which is a different question with a different answer.
+ *
+ * ── Why the LOCALE keeps its region and the currency does not ───────────────
+ *
+ * 'ar-SA' renders ٢٬٩٩٩ where bare 'ar' renders 2,999: the region there selects
+ * Arabic-Indic digits, which is a typographic choice about the language and not
+ * a statement about where the money is. Dropping it to look less Saudi would
+ * silently change every Arabic number in the app. The currency is what carries
+ * the country, and that is now the caller's to decide.
+ *
+ * An unknown code does not throw — Intl renders it verbatim ("XYZ 2,999") —
+ * which is the right failure: a mistyped setting shows a wrong symbol rather
+ * than taking every price on the site down with it.
+ */
+export function formatPrice(
+  amount: number | string | null | undefined,
+  locale = 'ar',
+  currency: string | null | undefined = DEFAULT_CURRENCY,
+): string {
   const n = Number(amount);
   if (!Number.isFinite(n)) return '';
+
+  const code = String(currency ?? '').trim().toUpperCase();
+
   return new Intl.NumberFormat(locale === 'en' ? 'en-SA' : 'ar-SA', {
     style: 'currency',
-    currency: 'SAR',
+    currency: /^[A-Z]{3}$/.test(code) ? code : DEFAULT_CURRENCY,
     maximumFractionDigits: n % 1 === 0 ? 0 : 2,
   }).format(n);
 }
@@ -159,6 +195,12 @@ export function normalizeListing(
 
   const discounted = compareAt != null && compareAt > price;
 
+  /* The seller's own currency (listings.currency), not the platform's. A
+     showroom quoting in dirhams is asking for dirhams, whatever the platform
+     happens to bill its subscriptions in. Falls back only when the column was
+     not selected. */
+  const currency = typeof row.currency === 'string' ? row.currency : DEFAULT_CURRENCY;
+
   return {
     id: row.id,
     slug: row.slug,
@@ -170,9 +212,10 @@ export function normalizeListing(
     description: t(row, 'description', locale),
 
     price,
-    priceLabel: formatPrice(price, locale),
+    currency,
+    priceLabel: formatPrice(price, locale, currency),
     compareAt,
-    compareAtLabel: discounted ? formatPrice(compareAt, locale) : null,
+    compareAtLabel: discounted ? formatPrice(compareAt, locale, currency) : null,
     discountPercent: discounted ? Math.round(((compareAt - price) / compareAt) * 100) : null,
     vatIncluded: row.vat_included !== false,
 
@@ -188,8 +231,8 @@ export function normalizeListing(
       ? {
           ...offer,
           label: offer.label ? localized(offer.label, locale) : null,
-          priceLabel: formatPrice(offer.price, locale),
-          savingLabel: formatPrice(offer.saving, locale),
+          priceLabel: formatPrice(offer.price, locale, currency),
+          savingLabel: formatPrice(offer.saving, locale, currency),
         }
       : null,
 

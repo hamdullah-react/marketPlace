@@ -16,15 +16,15 @@ import Link from 'next/link';
 import { TrendingUpIcon, TrendingDownIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatPrice } from '@/marketplace/lib/listing';
 
-export default function StatCards({ locale = 'ar', stats = {}, listings = [], vendorId = null }) {
+export default function StatCards({ locale = 'ar', stats = {}, listings = [], vendorId = null, currency = null }) {
   const isAr = locale === 'ar';
   const t = (ar, en) => (isAr ? ar : en);
   const nf = (n) => Number(n ?? 0).toLocaleString(isAr ? 'ar-SA' : 'en');
-  const money = (n) =>
-    new Intl.NumberFormat(isAr ? 'ar-SA' : 'en-SA', {
-      style: 'currency', currency: 'SAR', maximumFractionDigits: 0,
-    }).format(n);
+  // The platform's currency, passed in — a client bundle cannot read site
+  // settings for itself. formatPrice falls back when it is absent.
+  const money = (n) => formatPrice(n, locale, currency);
 
   const total = listings.length;
   const live = stats.live ?? 0;

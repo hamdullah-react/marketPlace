@@ -37,6 +37,7 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { getMarketplaceAuthServer } from './server';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { accessState } from '@/marketplace/lib/access';
 
 /**
  * Every marketplace route is /[locale]/marketplace/..., so a redirect that
@@ -85,12 +86,25 @@ export const getViewer = cache(async () => {
 
   const db = getMarketplaceDb();
 
-  const [{ data: profile }, { data: memberships }, { data: addresses }] = await Promise.all([
+  /**
+   * The membership read, with a fallback.
+   *
+   * The access columns arrive with the VENDOR ACCESS section of schema.sql, and
+   * code ships before SQL is run. PostgREST fails the WHOLE select when it names
+   * a column the database lacks — and this particular select decides whether
+   * somebody is a seller at all, so a missing column would log every showroom
+   * out of its dashboard rather than degrade anything.
+   */
+  const readMemberships = (select) =>
+    db.from('vendor_members').select(select).eq('user_id', user.id);
+
+  const MEMBERSHIPS_FULL =
+    'vendor_id, role, vendors!inner ( id, slug, name, state, access_until, access_blocked, access_block_reason )';
+  const MEMBERSHIPS_BASE = 'vendor_id, role, vendors!inner ( id, slug, name, state )';
+
+  const [{ data: profile }, membershipsResult, { data: addresses }] = await Promise.all([
     db.from('profiles').select('role, full_name, phone, locale').eq('id', user.id).maybeSingle(),
-    db
-      .from('vendor_members')
-      .select('vendor_id, role, vendors!inner ( id, slug, name, state )')
-      .eq('user_id', user.id),
+    readMemberships(MEMBERSHIPS_FULL),
     /**
      * Enough of an address to reach somebody.
      *
@@ -113,16 +127,44 @@ export const getViewer = cache(async () => {
   // the correct failure direction.
   const role = profile?.role ?? 'buyer';
 
+  const memberships =
+    membershipsResult.error?.code === '42703'
+      ? (await readMemberships(MEMBERSHIPS_BASE)).data
+      : membershipsResult.data;
+
   // Only APPROVED vendors count. A pending application must not open the
   // seller dashboard, and a suspended showroom must stop being able to sell
   // the moment it is suspended rather than at next sign-in.
   const vendors = (memberships ?? [])
     .filter((m) => m.vendors?.state === 'approved')
     .map((m) => ({
+      /* The raw row first, and it is not decoration.
+         accessState() judges by access_until and access_blocked; handed an
+         object without them it finds no date and no block and answers
+         ALLOWED — it fails OPEN, silently. That is what turned one stray
+         re-derivation on the blocked screen into an infinite redirect, and
+         the next one would be somebody letting a lapsed showroom back in.
+         Carrying the columns costs nothing — they were already read — and
+         makes the two ways of asking agree by construction. */
+      ...m.vendors,
       id: m.vendor_id,
       slug: m.vendors.slug,
       name: m.vendors.name,
       role: m.role,
+      /**
+       * Whether their subscription is still running, decided HERE.
+       *
+       * Attached to each showroom rather than to the viewer, because somebody
+       * can belong to two and only one of them may have lapsed — the same
+       * reason `vendors` is a list at all. It costs no extra query: the columns
+       * ride along on the membership read above.
+       *
+       * A lapsed showroom is deliberately still IN this list. Dropping it would
+       * make requireVendor() decide they are not a seller and send them to the
+       * application form, which is both wrong and insulting to somebody whose
+       * only problem is an unpaid invoice.
+       */
+      access: accessState(m.vendors),
     }));
 
   return {
@@ -274,6 +316,49 @@ export async function requireVendor(wanted = null) {
   const vendor =
     (wanted && viewer.vendors.find((v) => v.id === wanted)) || viewer.vendors[0];
 
+  /**
+   * ── THE PAYWALL, and it is here for a reason ────────────────────────────
+   *
+   * Every seller page calls this. The (seller) layout says so itself: a layout
+   * is the FLOW, not the security, because partial rendering means it does not
+   * re-run when somebody navigates between seller pages. A gate in the layout
+   * would let anybody who was already inside keep going.
+   *
+   * So the check sits in the function each page awaits before it reads
+   * anything, beside the one that decides whether they are a seller at all. A
+   * showroom whose subscription has lapsed cannot reach a seller page by typing
+   * its URL, from a bookmark, or by clicking a link in the sidebar of a tab
+   * that was open when it lapsed.
+   *
+   * The WRITES are guarded separately, in vendorForAction — a server action is
+   * not a page and never passes through here.
+   *
+   * `/marketplace/subscription` is where this sends them, and it lives in the
+   * (account) group rather than (seller) — the (seller) layout calls this very
+   * function, so a blocked screen under it would redirect to itself for ever.
+   * It resolves the showroom with vendorForBlockedScreen() below.
+   */
+  if (!vendor.access.allowed) {
+    redirect(await localePath('/marketplace/subscription'));
+  }
+
+  return { ...viewer, vendor, vendorId: vendor.id };
+}
+
+/**
+ * The same resolution WITHOUT the paywall — for the blocked screen itself.
+ *
+ * It needs to know which showroom is locked out, what its date was and why, and
+ * it cannot ask requireVendor() for that without being redirected to itself.
+ */
+export async function vendorForBlockedScreen(wanted = null) {
+  const viewer = await getViewer();
+  if (!viewer) return null;
+  if (!viewer.vendors.length) return null;
+
+  const vendor =
+    (wanted && viewer.vendors.find((v) => v.id === wanted)) || viewer.vendors[0];
+
   return { ...viewer, vendor, vendorId: vendor.id };
 }
 
@@ -352,7 +437,47 @@ export async function vendorForAction(wanted = null) {
   if (!viewer.vendors.length) return { error: 'NOT_A_VENDOR' };
 
   const vendor = (wanted && viewer.vendors.find((v) => v.id === wanted)) || viewer.vendors[0];
+
+  /**
+   * The other half of the paywall.
+   *
+   * A server action is reachable by POST without ever rendering a page, so the
+   * guard in requireVendor() does not cover it — a lapsed showroom with a stale
+   * tab open, or anybody replaying a request, would otherwise still be able to
+   * publish cars, edit prices and answer leads.
+   *
+   * An ERROR rather than a redirect: redirect() inside a server action throws a
+   * control-flow signal the client swallows, so the form would report nothing
+   * and the button would look dead. VENDOR_BLOCKED is a message the seller can
+   * read (lib/errors.ts).
+   */
+  if (!vendor.access.allowed) {
+    return { error: 'VENDOR_BLOCKED', accessState: vendor.access.state };
+  }
+
   return { viewer, vendorId: vendor.id };
+}
+
+/**
+ * The vendor an action may act as WHEN THE PAYWALL MUST NOT APPLY.
+ *
+ * Exactly one kind of write belongs here: asking to renew. A showroom whose
+ * subscription has lapsed is precisely the one that needs to press that button,
+ * so routing it through vendorForAction() — which returns VENDOR_BLOCKED — would
+ * lock the door from the inside and leave them with no way out but the phone.
+ *
+ * Deliberately NOT a flag on vendorForAction. A boolean that switches the
+ * paywall off is a boolean somebody passes by accident from a listing action;
+ * a separate, narrowly-named function is one somebody has to choose to import.
+ * Nothing else in the app may use this.
+ */
+export async function vendorForRenewal(wanted = null) {
+  const viewer = await getViewer();
+  if (!viewer) return { error: 'NOT_SIGNED_IN' };
+  if (!viewer.vendors.length) return { error: 'NOT_A_VENDOR' };
+
+  const vendor = (wanted && viewer.vendors.find((v) => v.id === wanted)) || viewer.vendors[0];
+  return { viewer, vendorId: vendor.id, vendor };
 }
 
 /** Same shape, for the staff-only actions — catalog, templates, moderation. */

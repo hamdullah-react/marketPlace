@@ -193,7 +193,7 @@ async function BoostsSection({ searchParams, locale }) {
                         <span className="text-muted-foreground">{t('إعلان محذوف', 'Deleted listing')}</span>
                       )}
                       <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        {b.listings ? formatPrice(b.listings.price, locale) : ''}
+                        {b.listings ? formatPrice(b.listings.price, locale, b.listings.currency) : ''}
                         {b.listings ? ` · ${Number(b.listings.views ?? 0).toLocaleString(isAr ? 'ar-SA' : 'en')} ${t('مشاهدة', 'views')}` : ''}
                       </p>
                       {b.note ? (

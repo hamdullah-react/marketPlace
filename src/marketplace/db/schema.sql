@@ -5151,3 +5151,363 @@ notify pgrst, 'reload schema';
 alter table vendor_charges add column if not exists paid_into text;
 
 notify pgrst, 'reload schema';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  VENDOR ACCESS — a free month, then a subscription
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  A showroom gets its first month free. After that the dashboard closes until
+--  the platform is paid, and an admin reopens it — or gives them more time.
+--
+--  ── One date decides it ────────────────────────────────────────────────────
+--
+--  `access_until` is the whole model: the moment their access runs out. A trial
+--  is that date set a month ahead; a payment moves it further out; "give them
+--  another week" moves it a week. There is no separate trial flag, no renewal
+--  state machine and no job that has to run at midnight to flip anybody to
+--  expired — the question "may this showroom in" is `now() < access_until`,
+--  asked at the moment somebody knocks.
+--
+--  That last part matters more than it looks. A `state` column would need
+--  something to change it when the clock passes the date, and whatever that is
+--  — a cron, a sweep, a trigger — is a thing that can fail to run, leaving a
+--  showroom inside for free or locked out after paying. A date cannot be stale.
+--
+--  ── And one switch beside it ───────────────────────────────────────────────
+--
+--  `access_blocked` is the manual override: an admin closing a showroom now,
+--  whatever its date says. Non-payment is what the date is for; this is for the
+--  cases a date cannot express — a dispute, an abuse report, a chargeback.
+--
+--  ── Why not vendor_state = 'suspended' ─────────────────────────────────────
+--
+--  That enum value exists and would block the dashboard for free, because
+--  my_vendor_ids() only returns APPROVED showrooms. It is the wrong tool twice
+--  over: `vendors_public_read` also requires 'approved', so suspending an
+--  unpaid showroom would take its storefront, its cars and its phone number off
+--  the public site — punishing buyers for the seller's invoice. And it would
+--  make "did not pay" indistinguishable from "did something wrong", which is
+--  the one distinction an appeal turns on.
+--
+--  So a showroom past its date keeps its storefront and loses its dashboard.
+--  Whether the storefront should go dark too is a business decision, and it is
+--  deliberately NOT made here.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Paid (or trialling) through this moment. Null means nobody has set it — the
+-- trigger below sets it on every new showroom, and the backfill sets it for the
+-- ones that predate this section.
+alter table vendors add column if not exists access_until timestamptz;
+
+-- The manual override, and the record of who used it. The reason is shown to
+-- the SHOWROOM, so "your dashboard is closed" is never the whole message.
+alter table vendors add column if not exists access_blocked boolean not null default false;
+alter table vendors add column if not exists access_block_reason text;
+alter table vendors add column if not exists access_blocked_at timestamptz;
+alter table vendors add column if not exists access_blocked_by text;
+
+-- The admin's list is "who runs out soon" and "who is already out", which is an
+-- ordered scan of this column across a handful of live showrooms.
+create index if not exists vendors_access_idx on vendors (access_until)
+  where deleted_at is null;
+
+-- ── How long the free month is ──────────────────────────────────────────────
+--
+-- A number an admin can change, not a constant in the code: "one month" is a
+-- commercial decision that will be thirty days this year and fourteen next, and
+-- it must not need a deploy. Everything reads it from here.
+alter table site_settings add column if not exists trial_days integer not null default 30;
+
+alter table site_settings drop constraint if exists site_settings_trial_days_check;
+alter table site_settings add constraint site_settings_trial_days_check
+  check (trial_days between 0 and 365);
+
+-- ── What renewing costs ─────────────────────────────────────────────────────
+--
+-- The same shape as boost_plans, and for the same reason: nothing about the
+-- price is fixed in code. An admin creates the plans — a month, three months, a
+-- year — and can edit or retire any of them. Until one exists, the app tells a
+-- showroom to contact the platform rather than inventing a figure.
+create table if not exists vendor_plans (
+  id         uuid primary key default gen_random_uuid(),
+  name       jsonb not null default '{}'::jsonb,
+  days       integer not null check (days between 1 and 3650),
+  price      numeric(12,2) not null check (price >= 0),
+  active     boolean not null default true,
+  sort       integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists vendor_plans_active_idx on vendor_plans (sort, days) where active;
+
+drop trigger if exists vendor_plans_updated_at on vendor_plans;
+create trigger vendor_plans_updated_at before update on vendor_plans
+  for each row execute function set_updated_at();
+
+alter table vendor_plans enable row level security;
+
+-- A seller has to be able to read what renewal costs — that is the whole point
+-- of showing it to them on the blocked screen.
+drop policy if exists vendor_plans_public_read on vendor_plans;
+create policy vendor_plans_public_read on vendor_plans
+  for select using (active or is_staff());
+
+drop policy if exists vendor_plans_staff_write on vendor_plans;
+create policy vendor_plans_staff_write on vendor_plans
+  for all using (is_staff()) with check (is_staff());
+
+-- ── A subscription is a charge, like a boost ────────────────────────────────
+--
+-- Renewals go through the billing already built (VENDOR BILLING), so "what does
+-- this showroom owe" has one answer and one screen. Only the kind is new.
+alter table vendor_charges drop constraint if exists vendor_charges_kind_check;
+alter table vendor_charges add constraint vendor_charges_kind_check
+  check (kind in ('boost', 'subscription', 'other'));
+
+-- ── The free month starts by itself ─────────────────────────────────────────
+--
+-- In a trigger rather than in the application, because a showroom can be created
+-- from the apply form today and from an admin screen, an import or a seed
+-- tomorrow — and a trial granted by whichever path remembered to grant it is a
+-- showroom that silently starts blocked.
+--
+-- Reads trial_days at the moment of insert, so changing it affects the next
+-- showroom and never retroactively moves an existing one's date.
+create or replace function vendors_start_trial()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  days int;
+begin
+  -- Only when nobody set one: an import carrying real dates keeps them.
+  if new.access_until is not null then
+    return new;
+  end if;
+
+  select coalesce(trial_days, 30) into days from site_settings where id = true;
+  new.access_until := now() + make_interval(days => coalesce(days, 30));
+
+  return new;
+end $$;
+
+drop trigger if exists vendors_start_trial on vendors;
+create trigger vendors_start_trial before insert on vendors
+  for each row execute function vendors_start_trial();
+
+-- ── The showrooms that predate all of this ──────────────────────────────────
+--
+-- Their free month runs from when they were APPROVED rather than from today, so
+-- the trial means the same thing for them as for anyone signing up tomorrow.
+-- A showroom approved long enough ago lands with a date in the past, which is
+-- correct — and visible on the admin's screen rather than silent.
+--
+-- Idempotent by its filter: `access_until is null` is empty on the second run.
+do $$
+declare
+  days int;
+  touched int;
+begin
+  select coalesce(trial_days, 30) into days from site_settings where id = true;
+
+  update vendors
+  set access_until = coalesce(approved_at, created_at) + make_interval(days => coalesce(days, 30))
+  where access_until is null;
+
+  get diagnostics touched = row_count;
+
+  if touched > 0 then
+    raise notice 'Access: started a %-day trial for % existing showroom(s), counted from their approval date.', coalesce(days, 30), touched;
+  end if;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  RENEWAL — paying for the next period, and the time it buys
+--
+--  Run this section in Supabase → SQL Editor. Safe to re-run.
+--
+--  VENDOR ACCESS gave a showroom a date and an admin two buttons. This closes
+--  the loop the other way round: the SHOWROOM asks to renew, a charge is raised
+--  on the billing already built, and recording that payment moves the date
+--  itself.
+--
+--  ── The days travel on the CHARGE ──────────────────────────────────────────
+--
+--  `access_days` is what recording a payment reads to know how much time was
+--  bought. It is a snapshot of the plan's length, not a lookup through plan_id,
+--  and that is the whole point: a showroom that paid for 90 days on a plan an
+--  admin later edits to 30 has bought 90 days. The same rule as
+--  listing_boosts.price and leads.contact_name — the agreement is recorded at
+--  the moment it was made.
+--
+--  plan_id rides along for reporting ("which plan sells"), ON DELETE SET NULL,
+--  and nothing reads it to decide anything.
+--
+--  ── One open request at a time ─────────────────────────────────────────────
+--
+--  A seller pressing Renew three times must not leave three charges for an
+--  admin to work out. The partial unique index below is the guard; the action
+--  checks first and says "already requested", so the index only ever catches
+--  two presses in the same instant.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- How many days paying this charge grants. Null on a boost charge, which buys
+-- no access — that is what distinguishes the two kinds at the point of payment.
+alter table vendor_charges add column if not exists access_days integer;
+
+alter table vendor_charges drop constraint if exists vendor_charges_access_days_check;
+alter table vendor_charges add constraint vendor_charges_access_days_check
+  check (access_days is null or access_days between 1 and 3650);
+
+-- Which plan it came from, for reporting only.
+alter table vendor_charges
+  add column if not exists plan_id uuid references vendor_plans (id) on delete set null;
+
+-- One unpaid renewal per showroom. `state = 'due'` scopes it, so a showroom that
+-- has paid can ask again the moment they want to extend further.
+create unique index if not exists vendor_charges_one_open_renewal
+  on vendor_charges (vendor_id)
+  where kind = 'subscription' and state = 'due';
+
+-- The admin's "who is waiting to be let back in" list: the open renewals,
+-- oldest first, because a showroom that paid this morning is locked out right
+-- now and is the one to deal with.
+create index if not exists vendor_charges_renewal_idx
+  on vendor_charges (issued_at)
+  where kind = 'subscription' and state = 'due';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  CURRENCY
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  What the platform bills in. Until now 'SAR' was written into the formatting
+--  helper, which made a marketplace that ships in two languages quietly
+--  single-country.
+--
+--  ── Why this is NOT the only currency in the schema ────────────────────────
+--
+--  listings.currency already exists, per car, and stays. The two answer
+--  different questions and must not be collapsed into one:
+--
+--    listings.currency        what a SELLER is asking for their car. Theirs.
+--    site_settings.currency   what the PLATFORM charges its showrooms in —
+--                             promotions, subscriptions, every vendor_charge.
+--
+--  That is also why boosts deliberately carry no currency of their own (see the
+--  BOOSTS section): platform money is quoted in the platform's currency, and a
+--  boost priced in a currency the platform does not bill in would be a figure
+--  nobody could reconcile.
+--
+--  ── Three letters, upper case ──────────────────────────────────────────────
+--
+--  An ISO 4217 code, because that is what Intl.NumberFormat takes; the symbol
+--  and its position come from the viewer's language, so 'AED' renders as
+--  "AED 2,999" to an English reader and "٢٬٩٩٩ د.إ." to an Arabic one without
+--  anything further being stored.
+--
+--  The check is deliberately a SHAPE, not a list of allowed codes. A hardcoded
+--  list is the same mistake as the hardcoded 'SAR', one level up.
+alter table site_settings add column if not exists currency text not null default 'SAR';
+
+alter table site_settings drop constraint if exists site_settings_currency_check;
+alter table site_settings add constraint site_settings_currency_check
+  check (currency ~ '^[A-Z]{3}$');
+
+--  ── A car is priced in its SHOWROOM's currency ─────────────────────────────
+--
+--  listings.currency had a fixed default of 'SAR', which on a platform hosting
+--  a showroom in Karachi would stamp riyals on every car it added. The default
+--  is dropped so that "nobody said" is a distinct state — NULL — rather than
+--  being indistinguishable from somebody deliberately choosing riyals, and this
+--  trigger resolves it:
+--
+--    1. what the insert asked for, if it asked;
+--    2. the showroom's own setting (vendors.settings->>'currency');
+--    3. the platform's currency;
+--    4. 'SAR', so a database on which nothing has been configured still works.
+--
+--  A BEFORE INSERT trigger runs before the NOT NULL is checked, so dropping the
+--  default cannot leave a row without one.
+--
+--  ── Existing rows are deliberately left alone ──────────────────────────────
+--
+--  Rewriting the currency on a live listing does not convert the price: it
+--  turns a 100,000 SAR car into a 100,000 PKR car, which is a different thing
+--  offered for a different amount. Re-denominating a catalogue is a decision
+--  somebody takes deliberately, never a side effect of changing a setting.
+alter table listings alter column currency drop default;
+
+create or replace function listings_default_currency()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.currency is null then
+    select coalesce(
+             nullif(v.settings->>'currency', ''),
+             (select currency from site_settings where id),
+             'SAR'
+           )
+      into new.currency
+      from vendors v
+     where v.id = new.vendor_id;
+  end if;
+
+  -- A showroom with no row, or a settings blob with nothing in it.
+  new.currency := coalesce(new.currency, 'SAR');
+  return new;
+end
+$$;
+
+drop trigger if exists listings_currency_default on listings;
+create trigger listings_currency_default
+  before insert on listings
+  for each row execute function listings_default_currency();
+
+--  ── Aligning the showrooms that ALREADY chose ──────────────────────────────
+--
+--  A showroom could pick a currency in Seller → Settings before anything read
+--  it, so a seller who chose rupees has `settings->>'currency' = 'PKR'` and
+--  cars still marked SAR — the setting changed a dropdown and nothing a buyer
+--  could see. This brings the cars into line with the choice their own showroom
+--  already made, once.
+--
+--  It is a RE-DENOMINATION and not a conversion: the number is untouched, so
+--  100,000 becomes 100,000 rupees. For a showroom that has been quoting in
+--  rupees all along that is the correction; for one that picked a currency by
+--  accident it is not, which is why it follows an explicit choice rather than
+--  guessing from a city or a phone number, and why it only ever touches rows
+--  whose own showroom disagrees with them.
+--
+--  Idempotent: the second run finds nothing left to change.
+do $$
+declare
+  cur text;
+  moved int;
+begin
+  update listings l
+  set currency = upper(v.settings ->> 'currency')
+  from vendors v
+  where v.id = l.vendor_id
+    and upper(coalesce(v.settings ->> 'currency', '')) ~ '^[A-Z]{3}$'
+    and l.currency <> upper(v.settings ->> 'currency');
+
+  get diagnostics moved = row_count;
+
+  if moved > 0 then
+    raise notice
+      'Currency: % listing(s) re-denominated to the currency their own showroom had already chosen. The prices themselves were not converted.',
+      moved;
+  end if;
+
+  select currency into cur from site_settings where id;
+  raise notice 'Currency: the platform bills in %.', coalesce(cur, 'SAR (default)');
+end $$;
+
+notify pgrst, 'reload schema';

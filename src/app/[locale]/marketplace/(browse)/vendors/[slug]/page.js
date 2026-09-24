@@ -1051,14 +1051,14 @@ export default async function VendorPage({ params, searchParams }) {
                   <CardContent>
                     <p className="flex flex-wrap items-baseline gap-2">
                       <span className="text-lg font-bold text-brand-primary tabular-nums">
-                        {formatPrice(shaped.price, locale)}
+                        {formatPrice(shaped.price, locale, shaped.currency)}
                       </span>
                       <span className="text-sm text-muted-foreground line-through tabular-nums">
-                        {formatPrice(shaped.was, locale)}
+                        {formatPrice(shaped.was, locale, shaped.currency)}
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-green-700 tabular-nums dark:text-green-400">
-                      {t('توفير', 'You save')} {formatPrice(shaped.saving, locale)}
+                      {t('توفير', 'You save')} {formatPrice(shaped.saving, locale, shaped.currency)}
                     </p>
 
                     {/* The end date is the part that makes an offer an offer.

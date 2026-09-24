@@ -49,7 +49,10 @@ export async function decideBoost(prevState, formData) {
 
   const { data: boost, error } = await db
     .from('listing_boosts')
-    .select('id, listing_id, vendor_id, days, state, ends_at, listings ( id, state, featured_until )')
+    /* `price` is not decoration: raiseBoostCharge bills from it, and a boost
+       read without it looks exactly like a free one. That is what silently
+       un-billed every approved promotion until now. */
+    .select('id, listing_id, vendor_id, days, price, state, ends_at, listings ( id, state, featured_until )')
     .eq('id', boostId)
     .maybeSingle();
 
@@ -102,7 +105,7 @@ export async function decideBoost(prevState, formData) {
     if (!billed.ok) billingError = billed.error;
     if (billed.ok && billed.charge) {
       await writeAudit(viewer, 'charge.raise', 'charge', billed.charge.id, null, {
-        ref: billed.charge.ref, amount: boost.price ?? 0, boost: boostId, vendor: boost.vendor_id,
+        ref: billed.charge.ref, amount: Number(boost.price ?? 0), boost: boostId, vendor: boost.vendor_id,
       });
     }
   } else if (decision === 'reject') {

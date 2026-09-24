@@ -23,6 +23,7 @@
  */
 
 import { useState } from "react";
+import { formatPrice } from "@/marketplace/lib/listing";
 import { Minus, Plus } from "lucide-react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 
@@ -33,6 +34,7 @@ export default function RangeSlider({
   value,
   onCommit,
   locale = "ar",
+  currency = null,
 }) {
   const isAr = locale === "ar";
 
@@ -78,6 +80,17 @@ export default function RangeSlider({
 
   const fmt = (n) => Number(n || 0).toLocaleString(isAr ? "ar-SA" : "en-US");
 
+  /* The glyph is the riyal's own — Intl cannot draw the new SAR mark, which is
+     why it is shipped as an SVG and placed by hand. Every other currency goes
+     through Intl, which knows its symbol and where it belongs in each
+     language. Drawing the riyal beside a rupee range was a Saudi symbol on a
+     number that is not riyals. */
+  const isSar = String(currency ?? "SAR").toUpperCase() === "SAR";
+  const money = (n) =>
+    isSar
+      ? null
+      : formatPrice(n, isAr ? "ar" : "en", currency);
+
   const stepper = (onClick, label, children) => (
     <button
       type="button"
@@ -92,9 +105,15 @@ export default function RangeSlider({
   const readout = (n) => (
     <div className="mx-1 rounded-xl border border-gray-200 bg-linear-to-r from-gray-50 to-gray-100 px-3 py-1.5 text-center shadow-xs dark:border-white/10 dark:from-white/5 dark:to-white/10">
       <span className="flex items-center justify-center gap-1 text-[10px] font-bold text-brand-primary">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/Currency.svg" alt="" className="h-3 w-3" />
-        {fmt(n)}
+        {isSar ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/Currency.svg" alt="" className="h-3 w-3" />
+            {fmt(n)}
+          </>
+        ) : (
+          money(n)
+        )}
       </span>
     </div>
   );

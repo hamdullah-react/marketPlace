@@ -78,6 +78,17 @@ function shapeSettings(row, ready) {
        to edit, the showroom's page wants to know whether there is anything to
        print at all. */
     billing: row?.billing && typeof row.billing === 'object' ? row.billing : {},
+    /* How long a new showroom's free period is (Admin → Subscriptions). The
+       DATABASE is what applies it — a trigger on insert reads the column — so
+       this copy is for the form that edits it and the screens that quote it. */
+    trialDays: Number.isFinite(Number(row?.trial_days)) ? Number(row.trial_days) : 30,
+    /* What the PLATFORM bills in (Admin → Settings → Language). Normalised to
+       an upper-case ISO code here so that every screen can hand it straight to
+       Intl without each one re-checking it, and so a database on which the
+       CURRENCY section has not been run still renders prices. */
+    currency: /^[A-Za-z]{3}$/.test(String(row?.currency ?? ''))
+      ? String(row.currency).toUpperCase()
+      : 'SAR',
   };
 }
 

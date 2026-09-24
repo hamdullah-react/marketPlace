@@ -19,6 +19,7 @@ import {
   PaginationNext, PaginationPrevious,
 } from '@/components/ui/pagination';
 import { getSavedIds } from '@/marketplace/db/queries/account';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { getUser } from '@/marketplace/auth/session';
 import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 
@@ -188,12 +189,18 @@ function BrowseBreadcrumb({ locale, crumbs, t }) {
 
 async function Filters({ locale, scopeKey }) {
   const facets = await getCarsFacets(locale, scopeKey);
-  return <FilterSidebar facets={facets} locale={locale} total={facets.total} />;
+  const site = await getSiteSettings().catch(() => null);
+  return (
+    <FilterSidebar facets={facets} locale={locale} total={facets.total} currency={site?.currency} />
+  );
 }
 
 async function MobileFilterTrigger({ locale, scopeKey }) {
   const facets = await getCarsFacets(locale, scopeKey);
-  return <MobileFilters facets={facets} locale={locale} total={facets.total} />;
+  const site = await getSiteSettings().catch(() => null);
+  return (
+    <MobileFilters facets={facets} locale={locale} total={facets.total} currency={site?.currency} />
+  );
 }
 
 async function Results({ searchParams, locale, t, lock, scopeKey, basePath, showFilters }) {
@@ -205,10 +212,14 @@ async function Results({ searchParams, locale, t, lock, scopeKey, basePath, show
   /* The viewer goes in the same wave. getUser() is a cookie read and a session
      lookup that knows nothing about which cars matched, but it was awaited
      AFTER them — one more round trip in series on every filter change. */
-  const [{ cars, total, page, pageCount, cardSpecs }, facets, user] = await Promise.all([
+  /* The platform currency rides along in the same wave: the price chips name
+     an amount, and naming it in a currency the platform does not use is the
+     hardcoded "SAR" this replaced. */
+  const [{ cars, total, page, pageCount, cardSpecs }, facets, user, site] = await Promise.all([
     getCarsResults(sp, locale, lock),
     getCarsFacets(locale, scopeKey),
     getUser().catch(() => null),
+    getSiteSettings().catch(() => null),
   ]);
 
   /**
@@ -258,6 +269,7 @@ async function Results({ searchParams, locale, t, lock, scopeKey, basePath, show
         page={page}
         pageCount={pageCount}
         facets={facets}
+        currency={site?.currency}
       />
 
       {cars.length === 0 ? (

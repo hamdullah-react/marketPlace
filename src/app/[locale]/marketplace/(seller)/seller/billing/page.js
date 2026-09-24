@@ -1,17 +1,19 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { setRequestLocale } from 'next-intl/server';
-import { AlertTriangle, Clock, FileText, Landmark, Wallet } from 'lucide-react';
+import { AlertTriangle, Clock, FileText, Landmark, Megaphone, RefreshCw, Wallet } from 'lucide-react';
 import { requireVendor } from '@/marketplace/auth/session';
 import { getVendorCharges, getVendorChargeTotals } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
+import { getVendorPlans, getOpenRenewal } from '@/marketplace/db/queries/access';
 import {
   billingDetails, stateLabel, stateTone, methodLabel, isOverdue, overdueLabel,
-  accountKindLabel, formatIban,
+  accountKindLabel, formatIban, kindLabel,
 } from '@/marketplace/lib/billing';
 import { formatPrice, localized } from '@/marketplace/lib/listing';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import RenewalPanel from '../../_components/RenewalPanel';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -78,10 +80,12 @@ async function Body({ searchParams, locale, t }) {
   const sp = await searchParams;
   const { vendorId } = await requireVendor(sp?.vendor || null);
 
-  const [totals, list, site] = await Promise.all([
+  const [totals, list, site, plans, openRenewal] = await Promise.all([
     getVendorChargeTotals(vendorId),
     getVendorCharges(vendorId),
     getSiteSettings().catch(() => null),
+    getVendorPlans().catch(() => []),
+    getOpenRenewal(vendorId).catch(() => null),
   ]);
 
   /* The section has not been run on this database. A showroom is told nothing
@@ -100,9 +104,39 @@ async function Body({ searchParams, locale, t }) {
     );
   }
 
-  const money = (n) => formatPrice(n, locale);
+  const money = (n) => formatPrice(n, locale, site?.currency);
   const details = billingDetails(site?.billing);
   const terms = localized(details.terms, locale);
+
+  /* Subscription before promotions, deliberately: it is the one that can close
+     this dashboard, so it is the one a showroom should read first.
+     byKind comes from the same single read as the headline totals — see
+     getVendorChargeTotals — so the two can never disagree with each other. */
+  const byKind = totals.byKind ?? { boost: {}, subscription: {}, other: {} };
+  const SECTIONS = [
+    {
+      key: 'subscription',
+      label: kindLabel('subscription', locale),
+      icon: RefreshCw,
+      figures: { outstanding: 0, overdue: 0, ...byKind.subscription },
+    },
+    {
+      key: 'boost',
+      label: kindLabel('boost', locale),
+      icon: Megaphone,
+      figures: { outstanding: 0, overdue: 0, ...byKind.boost },
+    },
+    /* Renders only when it has rows (see the guard in the map). Without it, a
+       charge an admin entered by hand would be counted in the headline total
+       while appearing in none of the sections — a statement whose rows do not
+       add up to its own figure. */
+    {
+      key: 'other',
+      label: kindLabel('other', locale),
+      icon: Wallet,
+      figures: { outstanding: 0, overdue: 0, ...byKind.other },
+    },
+  ];
 
   const when = (iso) =>
     iso
@@ -123,8 +157,8 @@ async function Body({ searchParams, locale, t }) {
           </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
             {t(
-              'يظهر هنا مستحق عند الموافقة على طلب تمييز لإحدى سياراتك.',
-              'A charge appears here when a request to feature one of your cars is approved.'
+              'يظهر هنا مستحق عند الموافقة على طلب تمييز لإحدى سياراتك، أو عند طلب تجديد الاشتراك. ويُعرض كل نوع على حدة.',
+              'A charge appears here when a request to feature one of your cars is approved, or when you ask to renew your subscription. Each kind is listed on its own.'
             )}
           </p>
           <Link
@@ -180,6 +214,33 @@ async function Body({ searchParams, locale, t }) {
           <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
             {t(`${totals.paidCount} دفعة`, `${totals.paidCount} payment${totals.paidCount === 1 ? '' : 's'}`)}
           </p>
+        </Card>
+      </div>
+
+      {/* ── Renewing ──────────────────────────────────────────────────────
+          Here as well as on the blocked screen, and that is the point: a
+          showroom should be able to renew BEFORE it is locked out. The banner in
+          the dashboard's last week links straight here.
+          --------------------------------------------------------------- */}
+      <div className="px-4 lg:px-6">
+        <Card className="p-4">
+          <h2 className="text-sm font-semibold text-brand-primary">
+            {t('تجديد الاشتراك', 'Renew your subscription')}
+          </h2>
+          <p className="mt-1 mb-3 text-xs text-muted-foreground">
+            {t(
+              'التمديد يُضاف إلى ما تبقّى من مدتك، فالتجديد مبكراً لا يضيّع أياماً.',
+              'Time is added to whatever is left, so renewing early loses you nothing.'
+            )}
+          </p>
+
+          <RenewalPanel
+            locale={locale}
+            vendorId={vendorId}
+            plans={plans}
+            openRenewal={openRenewal}
+            currency={site?.currency}
+          />
         </Card>
       </div>
 
@@ -277,109 +338,154 @@ async function Body({ searchParams, locale, t }) {
         </div>
       ) : null}
 
-      {/* ── The statement ──────────────────────────────────────────────
-          A GRID of cards rather than one long column: a showroom with a dozen
-          charges wants to see what is outstanding at a glance, and each card
-          carries the same few facts, so they compare side by side.
+      {/* ── The statement, in two ───────────────────────────────────────
+          Subscription first, then promotions, and never interleaved. They are
+          different debts with different consequences: falling behind on the
+          subscription closes this dashboard, while an unpaid promotion does
+          not. A single date-ordered list put those side by side as though they
+          were the same thing, which is what made this page confusing.
+
+          Each section carries its own outstanding figure, so a showroom can see
+          what it owes for WHAT rather than one merged number it has to take
+          apart itself.
+
+          A GRID inside each: every charge is the same handful of facts, so they
+          read as a comparable set instead of a column that wastes the width.
           --------------------------------------------------------------- */}
-      <div className="grid gap-3 px-4 sm:grid-cols-2 xl:grid-cols-3 lg:px-6">
-        {list.items.map((charge) => {
-          const late = isOverdue(charge);
+      {SECTIONS.map((group) => {
+        const rows = list.items.filter((charge) => charge.kind === group.key);
+        if (!rows.length) return null;
 
-          return (
-            <Card
-              key={charge.id}
-              className={`flex flex-col p-4 ${late ? 'ring-1 ring-amber-300 dark:ring-amber-900/60' : ''}`}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground" dir="ltr">
-                  {charge.ref}
+        const owed = group.figures.outstanding;
+
+        return (
+          <div key={group.key} className="px-4 lg:px-6">
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
+                <group.icon className="h-4 w-4" />
+                {group.label}
+              </h2>
+
+              {owed > 0 ? (
+                <span className="text-xs text-muted-foreground">
+                  {t('مستحق عليك ', 'you owe ')}
+                  <span className="font-semibold tabular-nums text-brand-primary">{money(owed)}</span>
+                  {group.figures.overdue > 0
+                    ? t(` — منها ${money(group.figures.overdue)} متأخرة`, ` — ${money(group.figures.overdue)} of it overdue`)
+                    : null}
                 </span>
-
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${stateTone(charge.state)}`}>
-                  {stateLabel(charge.state, locale)}
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {t('لا مستحقات', 'nothing outstanding')}
                 </span>
+              )}
 
-                {late ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                    <Clock className="h-3 w-3" />
-                    {overdueLabel(charge, locale)}
-                  </span>
-                ) : null}
+              <span className="ms-auto text-xs text-muted-foreground tabular-nums">
+                {rows.length} {t('سجل', rows.length === 1 ? 'record' : 'records')}
+              </span>
+            </div>
 
-                <span className="ms-auto text-base font-bold tabular-nums text-brand-primary">
-                  {money(charge.amount)}
-                </span>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {rows.map((charge) => {
+                const late = isOverdue(charge);
 
-              <p className="mt-2 text-sm text-gray-800 dark:text-gray-200">
-                {localized(charge.description, locale)}
-                {charge.listings ? (
-                  <Link
-                    href={`/${locale}/marketplace/listing/${charge.listings.slug}`}
-                    className="ms-2 text-xs text-muted-foreground hover:text-brand-primary"
+                return (
+                  <Card
+                    key={charge.id}
+                    className={`flex flex-col p-4 ${late ? 'ring-1 ring-amber-300 dark:ring-amber-900/60' : ''}`}
                   >
-                    {localized(charge.listings.name, locale)}
-                  </Link>
-                ) : null}
-              </p>
-
-              <div className="mt-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
-                <span>
-                  {t('صدر: ', 'Issued: ')}
-                  {when(charge.issued_at)}
-                </span>
-                {charge.state === 'due' && charge.due_at ? (
-                  <span>
-                    {t('الاستحقاق: ', 'Due: ')}
-                    {when(charge.due_at)}
-                  </span>
-                ) : null}
-                {charge.state === 'paid' ? (
-                  <>
-                    <span>
-                      {t('دُفع: ', 'Paid: ')}
-                      {when(charge.paid_at)}
-                    </span>
-                    <span>{methodLabel(charge.payment_method, locale)}</span>
-                    {charge.paid_into ? <span>{charge.paid_into}</span> : null}
-                    {charge.payment_ref ? (
-                      <span className="font-mono" dir="ltr">
-                        {charge.payment_ref}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground" dir="ltr">
+                        {charge.ref}
                       </span>
+
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${stateTone(charge.state)}`}>
+                        {stateLabel(charge.state, locale)}
+                      </span>
+
+                      {late ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                          <Clock className="h-3 w-3" />
+                          {overdueLabel(charge, locale)}
+                        </span>
+                      ) : null}
+
+                      <span className="ms-auto text-base font-bold tabular-nums text-brand-primary">
+                        {money(charge.amount)}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-gray-800 dark:text-gray-200">
+                      {localized(charge.description, locale)}
+                      {charge.listings ? (
+                        <Link
+                          href={`/${locale}/marketplace/listing/${charge.listings.slug}`}
+                          className="ms-2 text-xs text-muted-foreground hover:text-brand-primary"
+                        >
+                          {localized(charge.listings.name, locale)}
+                        </Link>
+                      ) : null}
+                    </p>
+
+                    <div className="mt-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
+                      <span>
+                        {t('صدر: ', 'Issued: ')}
+                        {when(charge.issued_at)}
+                      </span>
+                      {charge.state === 'due' && charge.due_at ? (
+                        <span>
+                          {t('الاستحقاق: ', 'Due: ')}
+                          {when(charge.due_at)}
+                        </span>
+                      ) : null}
+                      {charge.state === 'paid' ? (
+                        <>
+                          <span>
+                            {t('دُفع: ', 'Paid: ')}
+                            {when(charge.paid_at)}
+                          </span>
+                          <span>{methodLabel(charge.payment_method, locale)}</span>
+                          {charge.paid_into ? <span>{charge.paid_into}</span> : null}
+                          {charge.payment_ref ? (
+                            <span className="font-mono" dir="ltr">
+                              {charge.payment_ref}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+
+                    {/* The document, for every charge — a receipt once it is paid, a
+                        statement of what is owed before that. Both are things a
+                        showroom's accounts department asks for by email. */}
+                    <div className="mt-auto border-t pt-3 dark:border-white/10">
+                      <Link
+                        href={`/${locale}/marketplace/seller/billing/${charge.id}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {charge.state === 'paid'
+                          ? t('سند الاستلام — عرض وطباعة', 'Receipt — view and print')
+                          : t('بيان المستحق — عرض وطباعة', 'Statement — view and print')}
+                      </Link>
+                    </div>
+
+                    {/* A cancelled charge is SHOWN, with the reason. A bill that
+                        simply vanishes leaves the showroom arguing with a screen that
+                        says nothing ever happened. */}
+                    {charge.state === 'void' && charge.void_reason ? (
+                      <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-muted-foreground dark:bg-white/5">
+                        {t('أُلغي لأن: ', 'Cancelled because: ')}
+                        {charge.void_reason}
+                      </p>
                     ) : null}
-                  </>
-                ) : null}
-              </div>
-
-              {/* The document, for every charge — a receipt once it is paid, a
-                  statement of what is owed before that. Both are things a
-                  showroom's accounts department asks for by email. */}
-              <div className="mt-auto border-t pt-3 dark:border-white/10">
-                <Link
-                  href={`/${locale}/marketplace/seller/billing/${charge.id}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  {charge.state === 'paid'
-                    ? t('سند الاستلام — عرض وطباعة', 'Receipt — view and print')
-                    : t('بيان المستحق — عرض وطباعة', 'Statement — view and print')}
-                </Link>
-              </div>
-
-              {/* A cancelled charge is SHOWN, with the reason. A bill that
-                  simply vanishes leaves the showroom arguing with a screen that
-                  says nothing ever happened. */}
-              {charge.state === 'void' && charge.void_reason ? (
-                <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-muted-foreground dark:bg-white/5">
-                  {t('أُلغي لأن: ', 'Cancelled because: ')}
-                  {charge.void_reason}
-                </p>
-              ) : null}
-            </Card>
-          );
-        })}
-      </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
 
       <p className="px-4 text-xs text-muted-foreground lg:px-6">
         {t(

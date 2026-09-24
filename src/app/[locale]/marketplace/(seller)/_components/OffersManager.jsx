@@ -289,7 +289,7 @@ export default function OffersManager({
               placeholder={t("ابحث عن سيارة…", "Search for a car…")}
               unavailable={carUnavailable}
               labelOf={(l) =>
-                `${localized(l.name, locale)} — ${formatPrice(l.price, locale)}` +
+                `${localized(l.name, locale)} — ${formatPrice(l.price, locale, l.currency)}` +
                 (l.state !== "live" ? ` (${t("غير منشورة", "not published")})` : "")
               }
             />
@@ -347,13 +347,13 @@ export default function OffersManager({
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-muted-foreground">{t("سيُعرض بسعر", "Will show as")}</span>
                   <span className="text-base font-bold text-brand-primary">
-                    {formatPrice(draftPrice, locale)}
+                    {formatPrice(draftPrice, locale, draftCar?.currency)}
                   </span>
                   <span className="text-muted-foreground line-through">
-                    {formatPrice(draftCar.price, locale)}
+                    {formatPrice(draftCar.price, locale, draftCar.currency)}
                   </span>
                   <span className="text-emerald-600 dark:text-emerald-400">
-                    {t("توفير", "saving")} {formatPrice(draftCar.price - draftPrice, locale)}
+                    {t("توفير", "saving")} {formatPrice(draftCar.price - draftPrice, locale, draftCar.currency)}
                   </span>
                 </div>
               ) : (
@@ -494,7 +494,7 @@ export default function OffersManager({
                   ) : null}
                   <span className="text-sm font-semibold text-brand-primary">
                     {offer.discount_type === "amount"
-                      ? `− ${formatPrice(offer.discount_value, locale)}`
+                      ? `− ${formatPrice(offer.discount_value, locale, car?.currency)}`
                       : `− ${offer.discount_value}%`}
                   </span>
                 </div>
@@ -505,10 +505,10 @@ export default function OffersManager({
 
                 {car && price != null ? (
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    <span className="line-through">{formatPrice(car.price, locale)}</span>
+                    <span className="line-through">{formatPrice(car.price, locale, car.currency)}</span>
                     {" → "}
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      {formatPrice(price, locale)}
+                      {formatPrice(price, locale, car?.currency)}
                     </span>
                   </p>
                 ) : null}

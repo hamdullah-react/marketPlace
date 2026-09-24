@@ -35,6 +35,8 @@ import { useActionResult } from "../../(seller)/_components/useActionResult";
 import { saveSiteSettings } from "../admin/_actions/site";
 import { errorText } from "@/marketplace/lib/errors";
 import SiteImageField from "./SiteImageField";
+import { formatPrice } from "@/marketplace/lib/listing";
+import { CURRENCIES } from "@/marketplace/lib/currency";
 import LanguagesTable from "./LanguagesTable";
 import PhoneCountriesField from "./PhoneCountriesField";
 import ThemeField from "./ThemeField";
@@ -181,6 +183,54 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
             <form key={`language-${stamp}`} action={language.formAction} className={card}>
               <input type="hidden" name="defaultLocale" value={authoring} />
               <input type="hidden" name="localeFallback" value={fallback ? "true" : "false"} />
+
+              {/* ── What the platform bills in ────────────────────────────
+                  Here rather than under Finance because it is a presentation
+                  setting like the language beside it: it changes how every
+                  price on the site READS, not only what showrooms are charged.
+                  Free text, because a dropdown of currencies we thought of is
+                  the hardcoded 'SAR' problem with more steps — the list below
+                  is a shortcut, not a limit.
+                  ------------------------------------------------------- */}
+              <Field
+                id="currency"
+                label={t("عملة المنصة", "Platform currency")}
+                hint="ISO 4217"
+              >
+                <Input
+                  id="currency"
+                  name="currency"
+                  dir="ltr"
+                  list="currency-suggestions"
+                  maxLength={3}
+                  placeholder="SAR"
+                  className="font-mono uppercase"
+                  defaultValue={row?.currency ?? "SAR"}
+                />
+                <datalist id="currency-suggestions">
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {t(c.ar, c.en)}
+                    </option>
+                  ))}
+                </datalist>
+
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "يُستخدم في الاشتراكات والتمييز وكل المستحقات. تغييره لا يُعيد تسعير سيارات المعارض — فذلك تغيير في المبلغ نفسه وليس في طريقة عرضه.",
+                    "Used for subscriptions, promotions and every charge. Changing it does not re-price showrooms’ cars — that would change what they are asking, not how it is displayed."
+                  )}
+                </p>
+
+                {/* What they are choosing, in their own language, before they
+                    save it — a code is not a thing most people can picture. */}
+                <p className="text-xs text-muted-foreground">
+                  {t("مثال: ", "For example: ")}
+                  <span className="font-medium text-brand-primary">
+                    {formatPrice(2999, locale, row?.currency ?? "SAR")}
+                  </span>
+                </p>
+              </Field>
 
               {!newColumns ? <SqlNote locale={locale} /> : null}
 

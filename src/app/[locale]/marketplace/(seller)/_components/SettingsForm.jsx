@@ -27,6 +27,7 @@ import {
 import ImagePicker from "./ImagePicker";
 import SocialLinksEditor from "./SocialLinksEditor";
 import { PLATFORM_KEYS as SOCIAL_PLATFORM_KEYS } from "@/marketplace/lib/social";
+import { CURRENCIES } from "@/marketplace/lib/currency";
 import BilingualField from "./BilingualField";
 import { useActionResult } from "./useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
@@ -528,10 +529,18 @@ export default function SettingsForm({
               </div>
               <div>
                 <label className={label} htmlFor="currency">{t("العملة", "Currency")}</label>
+                {/* Every currency the platform knows the name of, not the one
+                    it happened to launch in. A showroom in Karachi prices its
+                    cars in rupees; what it is BILLED in for its subscription is
+                    a separate setting the platform owns (Admin → Settings), and
+                    the two do not have to agree. */}
                 <SettingSelect
                   id="currency" name="currency" className={field}
                   defaultValue={s.currency ?? "SAR"}
-                  options={[{ value: "SAR", label: t("ريال سعودي", "Saudi Riyal (SAR)") }]}
+                  options={CURRENCIES.map((c) => ({
+                    value: c.code,
+                    label: `${c.code} — ${t(c.ar, c.en)}`,
+                  }))}
                 />
               </div>
             </div>

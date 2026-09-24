@@ -359,6 +359,36 @@ export function useLiveLeads(vendorId, { initial = 0, onLead } = {}) {
             new CustomEvent("marketplace:boost-changed", { detail: m?.payload ?? null })
           );
         })
+        /**
+         * The platform team switched this showroom's subscription on or off.
+         *
+         * A FULL reload, not router.refresh(): access is decided by
+         * requireVendor() on the server, and the answer changes which page the
+         * browser should be on at all — a blocked showroom belongs on
+         * /marketplace/subscription, not on the dashboard it is looking at.
+         * Reloading re-runs every guard from the top with no stale client cache
+         * in the way.
+         *
+         * Without this, a showroom switched off mid-session keeps its open tab
+         * working until it happens to navigate — which is exactly the tab
+         * somebody would use to carry on for free.
+         */
+        .on("broadcast", { event: "access_changed" }, ({ payload }) => {
+          /* Switched OFF: go to the wall directly instead of reloading into a
+             redirect, carrying a marker so it announces itself rather than
+             looking like a page they wandered onto by accident.
+             requireVendor() on the server is still what ENFORCES this — the
+             navigation only makes it immediate, and honest about why. */
+          if (payload?.allowed === false) {
+            const seg = window.location.pathname.split("/")[1] || "";
+            const locale = /^[a-z]{2}$/.test(seg) ? seg : "ar";
+            window.location.assign(`/${locale}/marketplace/subscription?blocked=1`);
+            return;
+          }
+
+          /* Switched back on, or extended: re-run every guard from the top. */
+          window.location.reload();
+        })
         .subscribe((state, err) => {
           setStatus(state);
           setLive(state === "SUBSCRIBED");

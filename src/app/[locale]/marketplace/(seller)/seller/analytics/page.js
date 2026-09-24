@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCardsSkeleton, ChartSkeleton } from '../../../_components/Skeletons';
 import { getAnalyticsVendors, getAnalyticsPageData } from './_apicalls/analyticsPageApi';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
+import { formatPrice } from '@/marketplace/lib/listing';
 import AnalyticsCharts from './_components/AnalyticsCharts';
 
 export const metadata = {
@@ -77,7 +79,10 @@ async function Analytics({ searchParams, locale, t }) {
   const vendorId = vendors.find((v) => v.id === sp?.vendor)?.id ?? vendors[0]?.id ?? null;
   const days = RANGES.includes(Number(sp?.days)) ? Number(sp.days) : 30;
 
-  const { data, error } = await getAnalyticsPageData(vendorId, days);
+  const [{ data, error }, site] = await Promise.all([
+    getAnalyticsPageData(vendorId, days),
+    getSiteSettings().catch(() => null),
+  ]);
 
   if (!vendorId) {
     return (
@@ -117,8 +122,7 @@ async function Analytics({ searchParams, locale, t }) {
   }
 
   const nf = (n) => Number(n ?? 0).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US');
-  const money = (n) =>
-    `${Number(n ?? 0).toLocaleString(locale === 'ar' ? 'ar-SA' : 'en-US')} ${t('ر.س', 'SAR')}`;
+  const money = (n) => formatPrice(n, locale, site?.currency);
 
   const cards = [
     {

@@ -50,17 +50,17 @@ const OPEN_BY_DEFAULT = { price: true, brands: true, year: true };
 
 /* ── The rail ─────────────────────────────────────────────────────────────── */
 
-export default function FilterSidebar({ facets, locale = "ar", total = 0 }) {
+export default function FilterSidebar({ facets, locale = "ar", total = 0, currency = null }) {
   return (
     <div className="sticky top-[100px] hidden h-[calc(100vh-8rem)] self-start rounded-xl shadow-md lg:block">
-      <FilterPanel facets={facets} locale={locale} total={total} />
+      <FilterPanel facets={facets} locale={locale} total={total} currency={currency} />
     </div>
   );
 }
 
 /* ── The phone's version ──────────────────────────────────────────────────── */
 
-export function MobileFilters({ facets, locale = "ar", total = 0 }) {
+export function MobileFilters({ facets, locale = "ar", total = 0, currency = null }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const [open, setOpen] = useState(false);
@@ -116,7 +116,7 @@ export function MobileFilters({ facets, locale = "ar", total = 0 }) {
 
 /* ── What both of them show ───────────────────────────────────────────────── */
 
-function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
+function FilterPanel({ facets, locale, total, isMobile = false, onClose, currency = null }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const router = useRouter();
@@ -327,6 +327,7 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose }) {
       <ScrollArea className="min-h-0 flex-1 bg-gray-50 dark:bg-[#111]">
         <div className="space-y-3 p-4">
           <PriceFilter
+            currency={currency}
             range={[priceLo, priceHi]}
             minValue={get("min_price")}
             maxValue={get("max_price")}

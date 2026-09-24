@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { requireVendor } from '@/marketplace/auth/session';
 import { getShellVendor } from './_apicalls/shellApi';
 import SellerShell from './_components/SellerShell';
+import TrialEndingBanner from './_components/TrialEndingBanner';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -47,12 +48,32 @@ export default async function SellerLayout({ children, params }) {
   setRequestLocale(locale);
 
   // Signed out → login. Signed in without an approved showroom → the
-  // application. Awaited, unlike the shell vendor below, because there is no
-  // point streaming a dashboard to someone who is about to be sent elsewhere.
-  await requireVendor();
+  // application. Subscription lapsed → /marketplace/subscription. Awaited,
+  // unlike the shell vendor below, because there is no point streaming a
+  // dashboard to someone who is about to be sent elsewhere.
+  const { vendor } = await requireVendor();
+
+  /**
+   * The warning, days before the wall.
+   *
+   * A seller whose dashboard simply stops one morning has been ambushed, and
+   * the first thing they do about it is ring somebody. This is the cheapest
+   * possible prevention: one line, only inside the last week, carrying the date
+   * and the way to sort it out.
+   *
+   * In the LAYOUT rather than on each page so it follows them around the
+   * dashboard — and it is the one thing a layout is genuinely right for here,
+   * because it is a notice rather than a gate. The gate is requireVendor()
+   * above, which re-runs on every page; this is allowed to be stale by a
+   * navigation, because being a day out on a countdown costs nothing.
+   */
+  const ending = vendor.access.state === 'ending';
 
   return (
     <SellerShell locale={locale} vendorPromise={getShellVendor(locale)}>
+      {ending ? (
+        <TrialEndingBanner locale={locale} daysLeft={vendor.access.daysLeft} until={vendor.access.until} />
+      ) : null}
       {children}
     </SellerShell>
   );

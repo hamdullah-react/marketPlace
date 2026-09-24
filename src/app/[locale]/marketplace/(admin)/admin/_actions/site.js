@@ -148,6 +148,18 @@ export async function saveSiteSettings(prevState, formData) {
     }
     if (has('localeFallback')) row.locale_fallback = str(formData, 'localeFallback') === 'true';
 
+    /* What the PLATFORM bills in — promotions, subscriptions, every charge.
+       Checked as a SHAPE (three letters) and not against a list of currencies
+       we happen to have thought of, because a hardcoded list of allowed codes
+       is the same mistake as the hardcoded 'SAR' it replaces, one level up.
+       Intl renders an unknown code verbatim rather than throwing, so the worst
+       a typo does is show the wrong symbol until it is corrected. */
+    if (has('currency')) {
+      const code = str(formData, 'currency').toUpperCase();
+      if (!/^[A-Z]{3}$/.test(code)) return bad('INVALID_CURRENCY');
+      row.currency = code;
+    }
+
     // Contact tab — the same link list a showroom keeps, validated the same way.
     if (has('socialLinks')) row.social_links = parseSocialLinks(formData.get('socialLinks'));
 
