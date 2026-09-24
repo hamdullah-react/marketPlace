@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
+import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { signOut } from "../../(auth)/_actions/auth";
 
 const BOOSTS_HREF = "/marketplace/admin/content/featured";
@@ -103,6 +104,8 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
 
   return (
     <SidebarProvider dir={isAr ? "rtl" : "ltr"} className="marketplace-root">
+      {/* On a phone, opening a page closes the panel over it. */}
+      <SidebarAutoClose />
       <Sidebar collapsible="offcanvas" variant="inset" side={isAr ? "right" : "left"}>
         <SidebarHeader>
           <SidebarMenu>
@@ -162,15 +165,30 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      {/* min-w-0 is the guard. A flex ITEM sizes to its content by default, so
+          one wide child — a table, a long unbroken string, a pre block — would
+          stretch this past the viewport and take the whole dashboard sideways
+          with it, header and all. Zero lets it clamp and the child scroll
+          inside its own box instead. */}
+      <SidebarInset className="min-w-0">
         <header className="flex h-12 shrink-0 items-center gap-2 border-b">
           <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-            <SidebarTrigger className="-ms-1" />
-            <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-            <h1 className="text-base font-medium">
+            {/* shrink-0 on everything that must keep its size, and the
+                 TITLE is the one thing allowed to give way — it is the longest
+                 and the only one that still reads when truncated. Without this
+                 a long page name on a 390px screen pushed the language switcher
+                 off the edge of the bar. */}
+            <SidebarTrigger className="-ms-1 shrink-0" />
+            <Separator
+              orientation="vertical"
+              className="mx-2 shrink-0 data-[orientation=vertical]:h-4"
+            />
+            <h1 className="min-w-0 truncate text-base font-medium">
               {current ? t(current.ar, current.en) : t("لوحة الإدارة", "Admin")}
             </h1>
-            <span className="rounded-full bg-brand-gold px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-[#2a2100]">
+            {/* Decoration on a phone: the sidebar already says this is the
+                admin area, and the room is better spent on the page name. */}
+            <span className="hidden shrink-0 rounded-full bg-brand-gold px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none text-[#2a2100] sm:inline-block">
               {t("مسؤول", "Admin")}
             </span>
             <span
@@ -180,9 +198,9 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
                   : t("الاتصال المباشر غير متاح — يتم التحقق كل ٨ ثوانٍ", "Live connection unavailable — checking every 8 seconds")
               }
               aria-label={live ? "live" : "offline"}
-              className={`h-2 w-2 rounded-full ${live ? "bg-green-500" : "bg-amber-500"}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${live ? "bg-green-500" : "bg-amber-500"}`}
             />
-            <div className="ms-auto">
+            <div className="ms-auto shrink-0">
               <LanguageSwitcher />
             </div>
           </div>

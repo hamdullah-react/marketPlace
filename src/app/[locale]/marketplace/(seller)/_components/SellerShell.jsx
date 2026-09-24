@@ -45,6 +45,7 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
+import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { useLiveLeads } from "./useLiveLeads";
 
 const NAV_MAIN = [
@@ -369,6 +370,8 @@ export default function SellerShell({ locale = "ar", vendorPromise, children }) 
 
   return (
     <SidebarProvider dir={isAr ? "rtl" : "ltr"} className="marketplace-root">
+      {/* On a phone, opening a page closes the panel over it. */}
+      <SidebarAutoClose />
       {/* data-print-hide: the sidebar is screen chrome, and a printed receipt
           must not carry a navigation menu down its left edge. */}
       <Sidebar collapsible="offcanvas" variant="inset" side={isAr ? "right" : "left"} data-print-hide>
@@ -413,19 +416,28 @@ export default function SellerShell({ locale = "ar", vendorPromise, children }) 
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      {/* min-w-0 is the guard. A flex ITEM sizes to its content by default, so
+          one wide child — a table, a long unbroken string, a pre block — would
+          stretch this past the viewport and take the whole dashboard sideways
+          with it, header and all. Zero lets it clamp and the child scroll
+          inside its own box instead. */}
+      <SidebarInset className="min-w-0">
         <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
-            <SidebarTrigger className="-ms-1" />
-            <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-            <h1 className="text-base font-medium">
+            {/* The title is the only thing that may shrink; see AdminShell. */}
+            <SidebarTrigger className="-ms-1 shrink-0" />
+            <Separator
+              orientation="vertical"
+              className="mx-2 shrink-0 data-[orientation=vertical]:h-4"
+            />
+            <h1 className="min-w-0 truncate text-base font-medium">
               {current ? t(current.ar, current.en) : t("لوحة البائع", "Seller")}
             </h1>
 
             {/* The dashboard has no public header, so the language toggle
                 lives here — otherwise there is no way out of a locale once
                 you are inside the seller area. */}
-            <div className="ms-auto">
+            <div className="ms-auto shrink-0">
               <LanguageSwitcher />
             </div>
           </div>
