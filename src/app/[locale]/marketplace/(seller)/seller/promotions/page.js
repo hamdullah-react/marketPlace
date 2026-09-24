@@ -181,6 +181,22 @@ async function HistorySection({ searchParams, locale }) {
     if (b.running) {
       return { label: t(`مميزة حتى ${date(b.ends_at)}`, `Featured until ${date(b.ends_at)}`), cls: 'bg-[#06170E] font-bold text-brand-gold' };
     }
+    /* ── Approved, and waiting to be paid for ────────────────────────────
+       The car is NOT on the grid yet. Approving a promotion used to feature it
+       straight away with the invoice left outstanding; the placement now
+       starts when the payment is recorded. Without this branch an approved
+       request with no end date fell through to "Ended", which told a seller
+       their promotion was over before it had begun. */
+    if (b.state === 'approved' && !b.ends_at) {
+      return {
+        label: t('بانتظار الدفع', 'Waiting for payment'),
+        cls: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+        hint: t(
+          'تبدأ مدة التمييز فور تأكيد الدفعة.',
+          'The run starts as soon as your payment is confirmed.'
+        ),
+      };
+    }
     if (b.state === 'rejected') {
       return { label: t('مرفوض', 'Rejected'), cls: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400' };
     }
@@ -247,6 +263,10 @@ async function HistorySection({ searchParams, locale }) {
                         </span>
                       ) : null}
                     </p>
+                  ) : null}
+
+                  {s.hint ? (
+                    <p className="mt-1 max-w-[24ch] text-[11px] text-muted-foreground">{s.hint}</p>
                   ) : null}
 
                   {b.state === 'rejected' && b.review_note ? (

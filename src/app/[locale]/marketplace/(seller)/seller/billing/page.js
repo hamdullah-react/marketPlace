@@ -113,7 +113,19 @@ async function Body({ searchParams, locale, t }) {
      byKind comes from the same single read as the headline totals — see
      getVendorChargeTotals — so the two can never disagree with each other. */
   const byKind = totals.byKind ?? { boost: {}, subscription: {}, other: {} };
-  const SECTIONS = [
+
+  /* ── One page, four jobs ───────────────────────────────────────────────
+     The figures, the renewal control, where to pay, and two statements were
+     stacked down one scroll. A seller who came here to renew had to read past
+     a bill to find the button, and a seller checking a promotion charge had to
+     scroll past the subscription panel to reach it.
+
+     The TAB is the only top-level choice now. `all` is the Overview; the others
+     each hold one ledger and nothing else. */
+  const TAB_KEYS = ['all', 'subscription', 'boost', 'other', 'pay'];
+  const tab = TAB_KEYS.includes(sp?.tab) ? sp.tab : 'all';
+
+  const LEDGERS = [
     {
       key: 'subscription',
       label: kindLabel('subscription', locale),
@@ -137,6 +149,25 @@ async function Body({ searchParams, locale, t }) {
       figures: { outstanding: 0, overdue: 0, ...byKind.other },
     },
   ];
+
+  /* A ledger with no rows and nothing owed is a tab that can only disappoint,
+     so it is not offered — except `other`, which is hidden entirely until an
+     admin has entered one, since most showrooms will never see it. */
+  const has = (key) => list.items.some((c) => c.kind === key);
+
+  const TABS = [
+    { key: 'all', label: t('الكل', 'Overview'), icon: Wallet, figures: null },
+    ...LEDGERS.filter((x) => x.key !== 'other' || has('other')),
+    { key: 'pay', label: t('طريقة الدفع', 'How to pay'), icon: Landmark, figures: null },
+  ];
+
+  /* The statement below renders whichever ledgers this tab covers — all of
+     them on Overview, exactly one inside a ledger, none on How to pay. */
+  const SECTIONS =
+    tab === 'all' ? LEDGERS : LEDGERS.filter((x) => x.key === tab);
+
+  const href = (key) =>
+    `/${locale}/marketplace/seller/billing${key === 'all' ? '' : `?tab=${key}`}`;
 
   const when = (iso) =>
     iso
@@ -174,6 +205,43 @@ async function Body({ searchParams, locale, t }) {
 
   return (
     <>
+      {/* ── The tab bar ──────────────────────────────────────────────────
+          Each ledger carries what it is owed, so choosing one is not a guess.
+          --------------------------------------------------------------- */}
+      <div className="px-4 lg:px-6">
+        <nav className="flex flex-wrap gap-2">
+          {TABS.map((x) => {
+            const on = x.key === tab;
+            const owed = x.figures?.outstanding ?? 0;
+
+            return (
+              <Link
+                key={x.key}
+                href={href(x.key)}
+                aria-current={on ? 'page' : undefined}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                  on
+                    ? 'border-brand-primary bg-brand-primary/10 font-semibold text-brand-primary'
+                    : 'border-gray-200 text-muted-foreground hover:border-brand-primary dark:border-white/10'
+                }`}
+              >
+                <x.icon className="h-4 w-4" />
+                {x.label}
+                {owed > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    {money(owed)}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* The headline figures are the WHOLE position, so they belong to
+          Overview. Inside a ledger the tab's own badge already says what that
+          one is owed. */}
+      {tab === 'all' ? (
       <div className="grid grid-cols-2 gap-3 px-4 lg:grid-cols-3 lg:px-6">
         <Card className="p-4">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -217,11 +285,17 @@ async function Body({ searchParams, locale, t }) {
         </Card>
       </div>
 
+      ) : null}
+
       {/* ── Renewing ──────────────────────────────────────────────────────
           Here as well as on the blocked screen, and that is the point: a
           showroom should be able to renew BEFORE it is locked out. The banner in
           the dashboard's last week links straight here.
+
+          The comment sits OUTSIDE the ternary: a branch holds ONE expression,
+          and a comment beside the div is two children where one is allowed.
           --------------------------------------------------------------- */}
+      {tab === 'all' || tab === 'subscription' ? (
       <div className="px-4 lg:px-6">
         <Card className="p-4">
           <h2 className="text-sm font-semibold text-brand-primary">
@@ -243,12 +317,16 @@ async function Body({ searchParams, locale, t }) {
           />
         </Card>
       </div>
+      ) : null}
 
       {/* ── Where to pay ──────────────────────────────────────────────────
           Above the list when anything is owed: a statement with no payment
           details is a bill with nowhere to send the money.
           --------------------------------------------------------------- */}
-      {totals.outstanding > 0 ? (
+      {/* Its own tab, and ALSO on Overview whenever something is owed — a
+          statement showing a debt with no way to settle it is a bill with
+          nowhere to send the money. Inside a ledger it stays out of the way. */}
+      {tab === 'pay' || (tab === 'all' && totals.outstanding > 0) ? (
         <div className="px-4 lg:px-6">
           <Card className="p-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
@@ -487,12 +565,14 @@ async function Body({ searchParams, locale, t }) {
         );
       })}
 
-      <p className="px-4 text-xs text-muted-foreground lg:px-6">
-        {t(
-          'تُسجَّل الدفعات من قِبل فريق المنصة بعد استلامها. إن حوّلت مبلغاً ولم يظهر هنا، تواصل معنا.',
-          'Payments are recorded by the platform team once received. If you have transferred and it is not shown here, get in touch.'
-        )}
-      </p>
+      {tab !== 'pay' ? (
+        <p className="px-4 text-xs text-muted-foreground lg:px-6">
+          {t(
+            'تُسجَّل الدفعات من قِبل فريق المنصة بعد استلامها. إن حوّلت مبلغاً ولم يظهر هنا، تواصل معنا.',
+            'Payments are recorded by the platform team once received. If you have transferred and it is not shown here, get in touch.'
+          )}
+        </p>
+      ) : null}
     </>
   );
 }

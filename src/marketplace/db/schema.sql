@@ -5510,4 +5510,59 @@ begin
   raise notice 'Currency: the platform bills in %.', coalesce(cur, 'SAR (default)');
 end $$;
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  A PROMOTION STARTS WHEN IT IS PAID FOR
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  Approving a boost used to feature the car immediately and leave the charge
+--  outstanding beside it, so a showroom received the whole placement — top of
+--  the grid, the Featured badge — whether or not it ever paid. Approval now
+--  only records that the platform AGREED to run it; the run begins when the
+--  money is recorded on Finance (see activateBoost in queries/boosts.js).
+--
+--  ── The ones already on the grid ───────────────────────────────────────────
+--
+--  This takes down the promotions that are running against a charge still
+--  marked due. They are NOT rejected and nothing is refunded — the request
+--  stays approved and goes back to waiting for payment, which is exactly where
+--  the new rule says it belongs. Recording the payment starts it, with its full
+--  number of days counted from that moment, so nobody loses time they paid for.
+--
+--  A boost with NO charge at all is left alone: that is a free promotion an
+--  admin granted, and there is no payment coming to start it.
+--
+--  Idempotent: the second run finds nothing still featured on an unpaid charge.
+do $$
+declare
+  stopped int;
+begin
+  with unpaid as (
+    select b.id as boost_id, b.listing_id
+    from listing_boosts b
+    join vendor_charges c on c.boost_id = b.id
+    where b.state = 'approved'
+      and b.ends_at is not null
+      and c.state = 'due'
+  ),
+  cleared as (
+    update listing_boosts b
+    set starts_at = null, ends_at = null
+    from unpaid u
+    where b.id = u.boost_id
+    returning b.listing_id
+  )
+  update listings l
+  set is_featured = false, featured_until = null
+  from cleared c
+  where l.id = c.listing_id;
+
+  get diagnostics stopped = row_count;
+
+  if stopped > 0 then
+    raise notice
+      'Promotions: % car(s) taken off the grid — their promotion is approved but the charge is still unpaid. Recording the payment starts the full run from that moment.',
+      stopped;
+  end if;
+end $$;
+
 notify pgrst, 'reload schema';

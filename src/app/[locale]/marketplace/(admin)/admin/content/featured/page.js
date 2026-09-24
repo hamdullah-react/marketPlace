@@ -152,7 +152,13 @@ async function BoostsSection({ searchParams, locale }) {
               title: b.listings ? localized(b.listings.name, locale) : t('إعلان محذوف', 'Deleted listing'),
               vendorName: b.vendors ? localized(b.vendors.name, locale) : '',
               image: (media.find((m) => m?.primary) ?? media[0])?.url ?? null,
-              endsLabel: b.ends_at ? t(`ينتهي ${date(b.ends_at)}`, `ends ${date(b.ends_at)}`) : '',
+              /* No end date means approved and NOT paid for — the promotion is
+               agreed but the car is not on the grid yet. It used to render as
+               an empty string, so the one row an admin can still act on looked
+               like the others with a field missing. */
+            endsLabel: b.ends_at
+              ? t(`ينتهي ${date(b.ends_at)}`, `ends ${date(b.ends_at)}`)
+              : t('بانتظار الدفع — لم تُنشر بعد', 'awaiting payment — not live yet'),
             };
           })}
         />

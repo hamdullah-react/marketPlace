@@ -6,6 +6,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { writeAudit } from '@/marketplace/db/queries/admin';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
 import { raiseBoostCharge } from '@/marketplace/db/queries/billing';
+import { activateBoost } from '@/marketplace/db/queries/boosts';
 import { notifyVendorLeads, notifyAdmins } from '@/marketplace/lib/realtime';
 
 /**
@@ -65,42 +66,39 @@ export async function decideBoost(prevState, formData) {
 
   // Set only by the approve branch, and only when raising the charge failed.
   let billingError = null;
+  // The end date, when approval put the promotion straight on air — which now
+  // happens only for a free one. Null means "waiting to be paid for".
+  let granted = null;
 
   if (decision === 'approve') {
     if (boost.state !== 'pending') return bad('BOOST_NOT_PENDING');
     if (boost.listings?.state !== 'live') return bad('BOOST_NOT_LIVE');
 
-    // A car that is already featured gets the new days added to the end of
-    // the current boost, not overlapping it.
-    const runningUntil = boost.listings?.featured_until ? Date.parse(boost.listings.featured_until) : 0;
-    const start = Math.max(now, runningUntil || 0);
-    const endsIso = new Date(start + boost.days * DAY_MS).toISOString();
+    /* ── Approved, and NOT yet on the grid ──────────────────────────────
+       The car is not featured here. Approval says the platform agreed to run
+       the promotion; the placement starts when the money is recorded, which is
+       what activateBoost() does from Finance.
 
+       It used to feature the car at this moment, with the charge left unpaid
+       beside it — so a showroom received the whole benefit and the invoice was
+       a formality. `starts_at` and `ends_at` stay null for the same reason:
+       the run has not begun, and dating it from today would silently burn days
+       a showroom has not paid for. */
     const { data: moved, error: moveError } = await db
       .from('listing_boosts')
-      .update({ ...reviewed, state: 'approved', starts_at: new Date(start).toISOString(), ends_at: endsIso })
+      .update({ ...reviewed, state: 'approved', starts_at: null, ends_at: null })
       .eq('id', boostId)
       .eq('state', 'pending')
       .select('id');
     if (moveError) return bad('SAVE_FAILED', { detail: moveError.message });
     if (!moved?.length) return bad('BOOST_NOT_PENDING');
 
-    const { error: featureError } = await db
-      .from('listings')
-      .update({ is_featured: true, featured_until: endsIso })
-      .eq('id', boost.listing_id);
-    if (featureError) return bad('SAVE_FAILED', { detail: featureError.message });
-
-    await writeAudit(viewer, 'boost.approve', 'listing', boost.listing_id, { boost: boostId }, { days: boost.days, ends_at: endsIso });
-
     /* The showroom owes for it from here.
        Approval is the billable moment: not the request, which they may still
-       cancel, and not the start date, which can be weeks away while an earlier
-       boost of theirs is still running.
-       The result is CARRIED, not thrown. The car is featured on the site by
-       now, so a billing row that could not be written must not undo that or
-       make the admin press Approve again on a promotion they can see running.
-       It is reported instead, as a figure to reconcile. */
+       cancel, and not the start date, which is now whenever they pay.
+       The result is CARRIED, not thrown — a billing row that could not be
+       written must not make the admin press Approve twice on a request that
+       has already moved. It is reported instead, as a figure to reconcile. */
     const billed = await raiseBoostCharge(boost, { recordedBy: viewer.userId });
     if (!billed.ok) billingError = billed.error;
     if (billed.ok && billed.charge) {
@@ -108,6 +106,22 @@ export async function decideBoost(prevState, formData) {
         ref: billed.charge.ref, amount: Number(boost.price ?? 0), boost: boostId, vendor: boost.vendor_id,
       });
     }
+
+    /* ── Unless there is nothing to pay ─────────────────────────────────
+       A free promotion is a real thing an admin may grant (raiseBoostCharge
+       returns skipped: 'FREE'), and there is no payment coming to start it —
+       so it goes on air now. Anything with a price waits. */
+    if (billed.ok && billed.skipped === 'FREE') {
+      const live = await activateBoost(boostId, { now });
+      if (!live.ok) return bad('SAVE_FAILED', { detail: live.detail });
+      granted = live.endsAt ?? null;
+    }
+
+    await writeAudit(viewer, 'boost.approve', 'listing', boost.listing_id, { boost: boostId }, {
+      days: boost.days,
+      awaiting_payment: !granted,
+      ends_at: granted,
+    });
   } else if (decision === 'reject') {
     const { data: moved, error: moveError } = await db
       .from('listing_boosts')
@@ -144,7 +158,13 @@ export async function decideBoost(prevState, formData) {
   notifyAdmins('boost_changed', { id: boostId, decision });
   // `billingError` is null on every path but a failed charge, so the form only
   // mentions money when something about it actually needs attention.
-  return ok({ decision, billingError: billingError ?? null });
+  /* `awaitingPayment` is what the admin's screen says out loud: the request is
+     approved and the car is NOT on the grid until Finance records the money. */
+  return ok({
+    decision,
+    billingError: billingError ?? null,
+    awaitingPayment: decision === 'approve' && !granted && !billingError,
+  });
 }
 
 /**

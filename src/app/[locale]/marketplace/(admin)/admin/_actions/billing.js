@@ -36,6 +36,7 @@ import { SITE_TAGS } from '@/marketplace/lib/sitePages';
 import { billingDetails, validateAccount, cleanIban } from '@/marketplace/lib/billing';
 import { extendedTo } from '@/marketplace/lib/access';
 import { getVendorAccess } from '@/marketplace/db/queries/access';
+import { activateBoost, deactivateBoost } from '@/marketplace/db/queries/boosts';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -64,8 +65,9 @@ async function load(db, chargeId) {
   const build = (columns) =>
     db.from('vendor_charges').select(columns).eq('id', chargeId).maybeSingle();
 
-  const FULL = 'id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref, kind, access_days';
-  const BASE = 'id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref';
+  const FULL =
+    'id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref, kind, access_days, boost_id, listing_id';
+  const BASE = 'id, ref, vendor_id, amount, state, paid_at, payment_method, payment_ref, boost_id, listing_id';
 
   // access_days arrives with the RENEWAL section; without it a payment is still
   // recorded, it simply grants no time — and the caller says so.
@@ -209,9 +211,56 @@ export async function recordPayment(prevState, formData) {
     }
   }
 
+  /**
+   * ── A BOOST payment is what puts the car on the grid ──────────────────────
+   *
+   * Approving a promotion used to feature the car immediately and leave the
+   * invoice outstanding, so a showroom got the placement whether or not it ever
+   * paid. Approval now only agrees to run it; this is where it starts.
+   *
+   * The clock starts NOW rather than at approval, so a showroom that pays a
+   * week late still gets its full run — what it bought was a number of days on
+   * the grid, not a date range it partly missed.
+   *
+   * Like the access grant below, it is NOT allowed to fail the payment: the
+   * money has arrived and that record must stand. A promotion that did not
+   * start is reported back and fixable, where a lost payment is not.
+   */
+  let featuredUntil = null;
+  let boostError = null;
+
+  if (charge.kind !== 'subscription' && charge.boost_id) {
+    const live = await activateBoost(charge.boost_id);
+
+    if (!live.ok) {
+      boostError = live.error;
+    } else if (live.endsAt) {
+      featuredUntil = live.endsAt;
+      await writeAudit(
+        viewer,
+        'boost.start',
+        'listing',
+        live.listingId,
+        { boost: charge.boost_id },
+        { days: live.days, ends_at: live.endsAt, charge: charge.ref }
+      );
+    }
+    /* live.skipped — the request was cancelled, or the car is no longer live.
+       Neither is an error: the money is still owed and still recorded, and
+       there is simply nothing to put on the grid. */
+  }
+
   // Their billing page is open often enough that this is worth a nudge: the
   // showroom's outstanding total has just dropped.
   notifyVendorLeads(charge.vendor_id, 'billing_changed', { id: chargeId, paid: true });
+
+  // Their Promotions page shows it going live, and the card picks up its badge.
+  if (featuredUntil) {
+    notifyVendorLeads(charge.vendor_id, 'boost_changed', {
+      id: charge.boost_id,
+      decision: 'started',
+    });
+  }
 
   /* And, when the payment bought time, the message that reopens the dashboard
      in front of a seller who is watching the blocked screen. Same event the
@@ -221,7 +270,7 @@ export async function recordPayment(prevState, formData) {
   }
 
   refresh();
-  return ok({ chargeId, ref: charge.ref, accessUntil, accessError });
+  return ok({ chargeId, ref: charge.ref, accessUntil, accessError, featuredUntil, boostError });
 }
 
 /** Un-record a payment — a bounced cheque, or the wrong row. */
@@ -256,6 +305,20 @@ export async function undoPayment(prevState, formData) {
     { ref: charge.ref, amount: charge.amount, method: charge.payment_method, reference: charge.payment_ref, paid_at: charge.paid_at },
     { state: 'due' }
   );
+
+  /* The promotion comes back OFF the grid. A payment recorded by mistake
+     must not leave the car featured for the rest of its run — that is the
+     whole point of gating the placement on the money. The boost row keeps its
+     approved state and simply goes back to waiting to be paid for. */
+  if (charge.kind !== 'subscription' && charge.boost_id) {
+    const off = await deactivateBoost(charge.boost_id);
+    if (off.ok && !off.skipped) {
+      await writeAudit(viewer, 'boost.stop', 'listing', off.listingId, { boost: charge.boost_id }, {
+        reason: 'payment undone', charge: charge.ref,
+      });
+      notifyVendorLeads(charge.vendor_id, 'boost_changed', { id: charge.boost_id, decision: 'stopped' });
+    }
+  }
 
   notifyVendorLeads(charge.vendor_id, 'billing_changed', { id: chargeId, paid: false });
 

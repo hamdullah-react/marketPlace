@@ -28,6 +28,7 @@ import { useOnChange } from "@/hooks/use-on-change";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
 import { badgeClass } from "@/marketplace/lib/badge";
 import { priceWithOffer } from "@/marketplace/lib/offer";
+import { formatPrice } from "@/marketplace/lib/listing";
 import LeadPanel from "./LeadPanel";
 import Stars from "@/marketplace/ui/Stars";
 import {

@@ -19,7 +19,7 @@ import { getSpecFacets, listingIdsMatchingSpecs } from './specs';
  */
 const SELECT = `
   id, slug, type, state, name, description,
-  price, compare_at, vat_included, attributes, media, city, views, published_at,
+  price, compare_at, vat_included, currency, attributes, media, city, views, published_at,
   brand_id, model_id, color_id, trim_id, is_featured,
   vendors ( id, slug, name, verified, rating_avg, rating_count ),
   car_brands ( id, slug, name, logo_url ),

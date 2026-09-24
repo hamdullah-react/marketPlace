@@ -18,7 +18,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
  */
 const CARD = `
   id, slug, type, state, name,
-  price, compare_at, vat_included, stock, attributes, media, city, views,
+  price, compare_at, vat_included, currency, stock, attributes, media, city, views,
   published_at,
   vendors ( id, slug, name, verified, rating_avg, rating_count ),
   car_brands ( id, slug, name, logo_url )

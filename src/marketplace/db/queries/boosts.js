@@ -29,6 +29,102 @@ const BOOST_SELECT_BASE = BOOST_SELECT.replace(', featured_rank', '');
  * For the seller's table: each listing's open request and running boost.
  * Returns { ready, byListing: Map<listingId, { pending, active }> }.
  */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Put a paid promotion on air, and take it off again.
+ *
+ * ── Approval is not the moment a car gets featured any more ─────────────────
+ *
+ * It used to be: an admin pressed Approve and the car went to the top of the
+ * grid with a "Featured" badge, while the charge for it sat unpaid — so a
+ * showroom got everything it had asked for and the invoice was a formality it
+ * could ignore. Approval now only says the platform AGREED to run it; the
+ * placement starts when the money is recorded.
+ *
+ * ── Which is why this is a function and not two copies ──────────────────────
+ *
+ * Two paths reach it — a payment recorded on Finance, and an admin granting a
+ * free promotion outright — and a third takes it down again when a payment is
+ * undone. Written out at each call site, the day somebody adds a fourth is the
+ * day one of them forgets to set featured_until and a boost runs for ever.
+ *
+ * The clock starts NOW, not at approval: a showroom that pays a week late gets
+ * its full run, because what it bought was a number of days on the grid rather
+ * than a date range it partly missed.
+ *
+ * Stacking is preserved — a car already featured has the new days added to the
+ * end of the current run rather than overlapping it.
+ */
+export async function activateBoost(boostId, { now = Date.now() } = {}) {
+  if (!boostId) return { ok: false, error: 'NO_BOOST' };
+
+  const db = getMarketplaceDb();
+
+  const { data: boost, error } = await db
+    .from('listing_boosts')
+    .select('id, listing_id, vendor_id, days, state, listings ( id, state, featured_until )')
+    .eq('id', boostId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: 'SAVE_FAILED', detail: error.message };
+  if (!boost) return { ok: false, error: 'NOT_FOUND' };
+
+  // Rejected, cancelled or already expired: paying for it does not revive it.
+  if (boost.state !== 'approved') return { ok: true, skipped: 'NOT_APPROVED' };
+  // A car that was paused or sold while the invoice was outstanding.
+  if (boost.listings?.state !== 'live') return { ok: true, skipped: 'NOT_LIVE' };
+
+  const running = boost.listings?.featured_until ? Date.parse(boost.listings.featured_until) : 0;
+  const start = Math.max(now, running || 0);
+  const endsIso = new Date(start + Number(boost.days) * DAY_MS).toISOString();
+
+  const { error: movedError } = await db
+    .from('listing_boosts')
+    .update({ starts_at: new Date(start).toISOString(), ends_at: endsIso })
+    .eq('id', boostId);
+  if (movedError) return { ok: false, error: 'SAVE_FAILED', detail: movedError.message };
+
+  const { error: featureError } = await db
+    .from('listings')
+    .update({ is_featured: true, featured_until: endsIso })
+    .eq('id', boost.listing_id);
+  if (featureError) return { ok: false, error: 'SAVE_FAILED', detail: featureError.message };
+
+  return { ok: true, listingId: boost.listing_id, endsAt: endsIso, days: Number(boost.days) };
+}
+
+/**
+ * Take a promotion back off the grid — a payment recorded by mistake and undone.
+ *
+ * The boost row keeps its `approved` state: the platform still agreed to run
+ * it, and it goes back to waiting for payment rather than being rejected.
+ */
+export async function deactivateBoost(boostId) {
+  if (!boostId) return { ok: false, error: 'NO_BOOST' };
+
+  const db = getMarketplaceDb();
+
+  const { data: boost, error } = await db
+    .from('listing_boosts')
+    .select('id, listing_id')
+    .eq('id', boostId)
+    .maybeSingle();
+
+  if (error) return { ok: false, error: 'SAVE_FAILED', detail: error.message };
+  if (!boost) return { ok: true, skipped: 'NOT_FOUND' };
+
+  await db.from('listing_boosts').update({ starts_at: null, ends_at: null }).eq('id', boostId);
+
+  const { error: unfeatureError } = await db
+    .from('listings')
+    .update({ is_featured: false, featured_until: null })
+    .eq('id', boost.listing_id);
+
+  if (unfeatureError) return { ok: false, error: 'SAVE_FAILED', detail: unfeatureError.message };
+  return { ok: true, listingId: boost.listing_id };
+}
+
 export async function getBoostsForListings(listingIds) {
   const byListing = new Map();
   if (!listingIds?.length) return { ready: true, byListing };
@@ -70,7 +166,17 @@ export async function listBoosts({ tab = 'pending', limit = 100 } = {}) {
     let query = getMarketplaceDb().from('listing_boosts').select(select).limit(limit);
 
     if (tab === 'active') {
-      query = query.eq('state', 'approved').gt('ends_at', nowIso).order('ends_at', { ascending: true });
+      /* Approved and not finished — which since promotions are gated on payment
+         means TWO things: the ones running, and the ones approved but not paid
+         for yet, whose ends_at is still null.
+         The old filter was `ends_at > now`, so an unpaid one matched neither
+         this tab nor history and disappeared from the admin's queue the moment
+         it was approved. Nulls sort first, because a promotion waiting on money
+         is the one an admin can still do something about. */
+      query = query
+        .eq('state', 'approved')
+        .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
+        .order('ends_at', { ascending: true, nullsFirst: true });
     } else if (tab === 'history') {
       query = query
         .or(`state.in.(rejected,cancelled,expired),and(state.eq.approved,ends_at.lte.${nowIso})`)

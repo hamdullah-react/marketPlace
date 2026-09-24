@@ -12,7 +12,7 @@ import type { LooseRow } from '@/marketplace/lib/row';
 // vendor and category it expects.
 const SELECT = `
   id, slug, type, state, name, description,
-  price, compare_at, vat_included, stock, attributes, media, city, views,
+  price, compare_at, vat_included, currency, stock, attributes, media, city, views,
   published_at, is_featured,
   vendors ( id, slug, name, verified, rating_avg, rating_count ),
   car_brands ( id, slug, name, logo_url ),
@@ -34,10 +34,17 @@ const SELECT = `
  * `media` still comes across whole because PostgREST cannot slice a jsonb array
  * in a select — the trim to one image happens in the serializer, which at least
  * keeps it off the wire to the client.
+ *
+ * `currency` is three characters and is NOT optional. normalizeListing() formats
+ * every price with it, and a row that arrives without it falls back to the
+ * platform default — which is how every card on the site printed riyals for a
+ * showroom that had chosen rupees. It was missing from this select and from the
+ * shared one above, and present only in DETAIL_SELECT, so the car page was
+ * right and every card was wrong.
  */
 const CARD_SELECT = `
   id, slug, type, state, name,
-  price, compare_at, vat_included, stock, attributes, media, city, views,
+  price, compare_at, vat_included, currency, stock, attributes, media, city, views,
   published_at, is_featured,
   vendors ( id, slug, name, verified, rating_avg, rating_count ),
   car_brands ( id, slug, name, logo_url )

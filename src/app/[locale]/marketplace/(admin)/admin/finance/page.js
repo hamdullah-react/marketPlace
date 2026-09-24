@@ -89,10 +89,27 @@ async function Body({ searchParams, locale, t }) {
      revenue are doing unrelated jobs, and one merged list served neither.
      `boost` is the default because it is the larger ledger. Nothing defaults to
      the mixed view — that was the confusing part.
-     Validated against the fixed keys rather than the KINDS array, because that
-     array cannot be built until the data it describes has been read. */
-  const KIND_KEYS = ['boost', 'subscription', 'other', 'all'];
-  const kind = KIND_KEYS.includes(sp.kind) ? sp.kind : 'boost';
+     Validated against the fixed keys rather than the SECTIONS array, because
+     that array cannot be built until the data it describes has been read. */
+  /* ── One page, four jobs, and they were all on screen at once ─────────
+     Payment accounts, the headline position, the per-showroom list and the
+     charge table were stacked down a single scroll, with two separate rows of
+     filters inside them. Everything was reachable and nothing was findable.
+
+     The SECTION is now the first and only top-level choice. The ledger follows
+     from it rather than being a second dimension the reader has to combine
+     with the first: Promotions IS kind=boost, there is no such thing as
+     Promotions-and-Subscriptions-at-once except on Overview. */
+  const SECTION_KEYS = ['overview', 'promotions', 'subscriptions', 'other', 'accounts'];
+  const section = SECTION_KEYS.includes(sp.section) ? sp.section : 'overview';
+
+  const kind =
+    section === 'promotions' ? 'boost'
+      : section === 'subscriptions' ? 'subscription'
+        : section === 'other' ? 'other'
+          : 'all';
+
+  const isLedger = section === 'promotions' || section === 'subscriptions' || section === 'other';
   const state = TABS.some((x) => x.key === sp.state) ? sp.state : 'due';
   const page = Math.max(1, Number(sp.page) || 1);
 
@@ -123,16 +140,17 @@ async function Body({ searchParams, locale, t }) {
     );
   }
 
-  const KINDS = [
-    { key: 'boost', label: kindLabel('boost', locale), icon: Megaphone },
-    { key: 'subscription', label: kindLabel('subscription', locale), icon: RefreshCw },
+  const hasOther = Boolean(overview.split.other.dueCount || overview.split.other.paidCount);
+
+  const SECTIONS = [
+    { key: 'overview', label: t('نظرة عامة', 'Overview'), icon: Wallet },
+    { key: 'promotions', label: kindLabel('boost', locale), icon: Megaphone },
+    { key: 'subscriptions', label: kindLabel('subscription', locale), icon: RefreshCw },
     /* Only when it holds something. A permanently empty tab is noise, but a
        hidden one that quietly swallows hand-entered charges is worse — so it
        appears the moment one exists. */
-    ...(overview.split.other.dueCount || overview.split.other.paidCount
-      ? [{ key: 'other', label: kindLabel('other', locale), icon: Wallet }]
-      : []),
-    { key: 'all', label: t('الكل معاً', 'Everything together'), icon: Wallet },
+    ...(hasOther ? [{ key: 'other', label: kindLabel('other', locale), icon: Wallet }] : []),
+    { key: 'accounts', label: t('طرق الدفع', 'Payment methods'), icon: Landmark },
   ];
 
   const money = (n) => formatPrice(n, locale, site?.currency);
@@ -140,7 +158,9 @@ async function Body({ searchParams, locale, t }) {
 
   /* Said out loud on the figures themselves: a screenshot of this page should
      never leave anybody guessing which of the two ledgers it is. */
-  const kindName = kind === 'all' ? t('الكل', 'both') : kindLabel(kind, locale).toLowerCase();
+  /* "both" was right when there were two ledgers and is wrong now there can be
+     three. On Overview these figures are the whole platform. */
+  const kindName = kind === 'all' ? t('الكل', 'everything') : kindLabel(kind, locale).toLowerCase();
 
   /* Every link carries BOTH dimensions. A state tab that dropped the kind would
      quietly throw the admin back into the merged list they were trying to get
@@ -148,10 +168,15 @@ async function Body({ searchParams, locale, t }) {
      has nothing to do with row 3 of subscriptions. */
   const href = (next) => {
     const q = new URLSearchParams();
-    const k = next.kind ?? kind;
+    const sec = next.section ?? section;
     const st = next.state ?? state;
-    if (k && k !== 'boost') q.set('kind', k);
-    if (st && st !== 'due') q.set('state', st);
+    if (sec && sec !== 'overview') q.set('section', sec);
+    /* The state filter belongs to a ledger and means nothing anywhere else, so
+       it is not carried onto Overview or Payment methods — a stale `state=void`
+       riding along in the URL would silently filter the next ledger opened. */
+    if (st && st !== 'due' && (next.section ? next.section !== 'overview' : isLedger)) {
+      q.set('state', st);
+    }
     if (next.page && next.page > 1) q.set('page', String(next.page));
     const query = q.toString();
     return `/${locale}/marketplace/admin/finance${query ? `?${query}` : ''}`;
@@ -169,59 +194,94 @@ async function Body({ searchParams, locale, t }) {
 
   return (
     <>
-      {/* ── Where the money is sent ──────────────────────────────────────
-          At the TOP, behind a button rather than as a form at the bottom: it is
-          set up once and then read by every showroom, and nine bank fields open
-          on a working screen are nine fields in the way of the work.
+      {/* ── The tab bar ──────────────────────────────────────────────────
+          The only top-level control on the page. Each tab carries the number
+          that makes it worth opening, so choosing one is not a guess.
           --------------------------------------------------------------- */}
       <div className="px-4 lg:px-6">
-        <Card className="p-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
-            <Landmark className="h-4 w-4" />
-            {t('طرق الدفع', 'How showrooms pay')}
-          </h2>
-          <p className="mt-1 mb-3 text-xs text-muted-foreground">
-            {t(
-              'أي بنك وأي دولة، أو نقداً. تظهر هذه الطرق لكل معرض في صفحة مستحقاته.',
-              'Any bank, any country — or cash. Every showroom sees these on their billing page.'
-            )}
-          </p>
+        <nav className="flex flex-wrap gap-2">
+          {SECTIONS.map((x) => {
+            const on = x.key === section;
 
-          <PaymentAccountsManager locale={locale} details={details} />
-        </Card>
-      </div>
-
-      {/* ── Which ledger ─────────────────────────────────────────────────
-          The first choice on the screen, because every figure below it means a
-          different thing depending on the answer. Each tab carries its own
-          outstanding total, so the one NOT being looked at cannot go unnoticed.
-          --------------------------------------------------------------- */}
-      <div className="px-4 lg:px-6">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {KINDS.map((x) => {
-            const on = x.key === kind;
-            /* Summed over the whole split rather than over two named kinds, so
-               a charge of a kind this screen does not have a tab for still
-               shows up in the combined figure instead of vanishing. */
-            const figures =
-              x.key === 'all'
-                ? Object.values(overview.split).reduce(
-                    (sum, f) => ({
-                      outstanding: sum.outstanding + f.outstanding,
-                      overdue: sum.overdue + f.overdue,
-                    }),
-                    { outstanding: 0, overdue: 0 }
-                  )
-                : overview.split[x.key];
+            const owed =
+              x.key === 'overview'
+                ? Object.values(overview.split).reduce((sum, f) => sum + f.outstanding, 0)
+                : x.key === 'promotions' ? overview.split.boost.outstanding
+                  : x.key === 'subscriptions' ? overview.split.subscription.outstanding
+                    : x.key === 'other' ? overview.split.other.outstanding
+                      : null;
 
             return (
               <Link
                 key={x.key}
-                href={href({ kind: x.key, state, page: 1 })}
+                href={href({ section: x.key, state: 'due', page: 1 })}
                 aria-current={on ? 'page' : undefined}
-                className={`raised-card rounded-xl p-4 transition-colors ${
-                  on ? 'ring-2 ring-brand-primary' : ''
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                  on
+                    ? 'border-brand-primary bg-brand-primary/10 font-semibold text-brand-primary'
+                    : 'border-gray-200 text-muted-foreground hover:border-brand-primary dark:border-white/10'
                 }`}
+              >
+                <x.icon className="h-4 w-4" />
+                {x.label}
+
+                {/* Accounts has no figure — it is a setting, not a ledger. */}
+                {owed ? (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    {money(owed)}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* ── Payment methods ──────────────────────────────────────────────
+          Its own tab now. It used to sit at the top of the working screen, so
+          the first thing between an admin and "who owes us money" was a bank
+          form they set up once a year.
+          --------------------------------------------------------------- */}
+      {section === 'accounts' ? (
+        <div className="px-4 lg:px-6">
+          <Card className="p-4">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
+              <Landmark className="h-4 w-4" />
+              {t('طرق الدفع', 'How showrooms pay')}
+            </h2>
+            <p className="mt-1 mb-3 text-xs text-muted-foreground">
+              {t(
+                'أي بنك وأي دولة، أو نقداً. تظهر هذه الطرق لكل معرض في صفحة مستحقاته.',
+                'Any bank, any country — or cash. Every showroom sees these on their billing page.'
+              )}
+            </p>
+
+            <PaymentAccountsManager locale={locale} details={details} />
+          </Card>
+        </div>
+      ) : null}
+
+      {/* ── Overview: the whole position, one card per ledger ────────────
+          These used to be the page's filter — a second row of tabs above a
+          third row of tabs. They are a SUMMARY now: each one says what that
+          ledger is owed and opens it.
+          --------------------------------------------------------------- */}
+      {section === 'overview' ? (
+      <div className="px-4 lg:px-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {SECTIONS.filter((x) => x.key !== 'overview' && x.key !== 'accounts').map((x) => {
+            const ledger =
+              x.key === 'promotions' ? 'boost' : x.key === 'subscriptions' ? 'subscription' : 'other';
+            /* Summed over the whole split rather than over two named kinds, so
+               a charge of a kind this screen does not have a tab for still
+               shows up in the combined figure instead of vanishing. */
+            const figures = overview.split[ledger];
+
+            return (
+              <Link
+                key={x.key}
+                href={href({ section: x.key, state: 'due', page: 1 })}
+                className="raised-card rounded-xl p-4 transition-colors hover:ring-2 hover:ring-brand-primary"
               >
                 <p className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
                   <x.icon className="h-4 w-4" />
@@ -240,8 +300,14 @@ async function Body({ searchParams, locale, t }) {
           })}
         </div>
       </div>
+      ) : null}
 
-      {/* ── The position, for the ledger being looked at ────────────────── */}
+      {/* ── The position ────────────────────────────────────────────────
+          On Overview it is the whole platform; inside a ledger it is that
+          ledger alone, which is what `kindName` says on the labels. Not shown
+          on Payment methods, where a revenue figure is beside the point.
+          --------------------------------------------------------------- */}
+      {section !== 'accounts' ? (
       <div className="grid grid-cols-2 gap-3 px-4 lg:grid-cols-4 lg:px-6">
         <Kpi
           icon={Wallet}
@@ -270,8 +336,11 @@ async function Body({ searchParams, locale, t }) {
         />
       </div>
 
-      {/* ── Per showroom ──────────────────────────────────────────────── */}
-      {overview.byVendor.length ? (
+      ) : null}
+
+      {/* ── Per showroom ────────────────────────────────────────────────
+          Who owes what. Not on Payment methods, for the same reason. */}
+      {section !== 'accounts' && overview.byVendor.length ? (
         <div className="px-4 lg:px-6">
           <Card className="p-4">
             <h2 className="text-sm font-semibold text-brand-primary">
@@ -330,7 +399,11 @@ async function Body({ searchParams, locale, t }) {
         </div>
       ) : null}
 
-      {/* ── The charges, for this ledger only ──────────────────────────── */}
+      {/* ── The charges, for this ledger only ────────────────────────────
+          Only inside a ledger. On Overview a table of every charge of every
+          kind is the mixed-up list this whole split exists to undo, and on
+          Payment methods it is simply unrelated. */}
+      {isLedger ? (
       <div className="px-4 lg:px-6">
         <h2 className="mb-2 text-sm font-semibold text-brand-primary">
           {kind === 'all'
@@ -533,7 +606,17 @@ async function Body({ searchParams, locale, t }) {
           </nav>
         ) : null}
       </div>
+      ) : null}
 
+      {/* Overview's way into the work, so the summary is not a dead end. */}
+      {section === 'overview' ? (
+        <p className="px-4 text-xs text-muted-foreground lg:px-6">
+          {t(
+            'اختر دفتراً من الأعلى لعرض المستحقات وتسجيل الدفعات.',
+            'Pick a ledger above to see its charges and record payments.'
+          )}
+        </p>
+      ) : null}
     </>
   );
 }

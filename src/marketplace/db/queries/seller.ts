@@ -14,7 +14,7 @@ import { summarize } from '@/marketplace/lib/review';
  */
 
 const LISTING_SELECT = `
-  id, slug, type, state, name, price, compare_at, stock,
+  id, slug, type, state, name, price, compare_at, currency, stock,
   attributes, media, city, views, published_at, created_at, is_featured,
   car_brands ( name ),
   car_models ( name )
