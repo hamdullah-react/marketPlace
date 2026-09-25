@@ -24,6 +24,7 @@ import { adminForAction } from '@/marketplace/auth/session';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { writeAudit } from '@/marketplace/db/queries/admin';
 import { getVendorAccess } from '@/marketplace/db/queries/access';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
 import { extendedTo } from '@/marketplace/lib/access';
 
@@ -106,6 +107,14 @@ export async function extendAccess(prevState, formData) {
   );
 
   notifyVendorLeads(vendorId, 'access_changed', { allowed: true, until });
+
+  await recordNotification({
+    audience: 'vendor',
+    vendorId,
+    kind: 'access_extended',
+    data: { until },
+    href: '/marketplace/seller/billing',
+  });
   refresh();
 
   return ok({ vendorId, until });
@@ -152,6 +161,14 @@ export async function blockVendor(prevState, formData) {
   // Takes the dashboard away from an open tab at once — see LiveAccess and
   // useLiveLeads, which both listen for this.
   notifyVendorLeads(vendorId, 'access_changed', { allowed: false, reason });
+
+  await recordNotification({
+    audience: 'vendor',
+    vendorId,
+    kind: 'access_blocked',
+    data: { reason },
+    href: '/marketplace/subscription',
+  });
   refresh();
 
   return ok({ vendorId, blocked: true });

@@ -35,6 +35,7 @@ import { notifyVendorLeads } from '@/marketplace/lib/realtime';
 import { SITE_TAGS } from '@/marketplace/lib/sitePages';
 import { billingDetails, validateAccount, cleanIban } from '@/marketplace/lib/billing';
 import { extendedTo } from '@/marketplace/lib/access';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { getVendorAccess } from '@/marketplace/db/queries/access';
 import { activateBoost, deactivateBoost } from '@/marketplace/db/queries/boosts';
 
@@ -227,6 +228,7 @@ export async function recordPayment(prevState, formData) {
    * start is reported back and fixable, where a lost payment is not.
    */
   let featuredUntil = null;
+  let featuredDays = null;
   let boostError = null;
 
   if (charge.kind !== 'subscription' && charge.boost_id) {
@@ -236,6 +238,7 @@ export async function recordPayment(prevState, formData) {
       boostError = live.error;
     } else if (live.endsAt) {
       featuredUntil = live.endsAt;
+      featuredDays = live.days;
       await writeAudit(
         viewer,
         'boost.start',
@@ -253,6 +256,39 @@ export async function recordPayment(prevState, formData) {
   // Their billing page is open often enough that this is worth a nudge: the
   // showroom's outstanding total has just dropped.
   notifyVendorLeads(charge.vendor_id, 'billing_changed', { id: chargeId, paid: true });
+
+  await recordNotification({
+    audience: 'vendor',
+    vendorId: charge.vendor_id,
+    kind: 'charge_paid',
+    data: { ref: charge.ref, amount: charge.amount },
+    href: '/marketplace/seller/billing',
+  });
+
+  /* Two separate things a payment can buy, and each is worth its own line:
+     the promotion going live, and the dashboard reopening. */
+  if (featuredUntil) {
+    await recordNotification({
+      audience: 'vendor',
+      vendorId: charge.vendor_id,
+      kind: 'boost_started',
+      /* The BOOST's length, from the boost. access_days is the subscription
+         field and is null on a promotion charge — reading it here would have
+         put "for undefined days" in front of a seller. */
+      data: { days: featuredDays ?? undefined },
+      href: '/marketplace/seller/promotions',
+    });
+  }
+
+  if (accessUntil) {
+    await recordNotification({
+      audience: 'vendor',
+      vendorId: charge.vendor_id,
+      kind: 'access_extended',
+      data: { until: accessUntil },
+      href: '/marketplace/seller/billing',
+    });
+  }
 
   // Their Promotions page shows it going live, and the card picks up its badge.
   if (featuredUntil) {

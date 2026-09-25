@@ -42,6 +42,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { currentViewer } from '@/marketplace/auth/session';
 import { getVendorFormFields } from '@/marketplace/db/queries/forms';
 import { getOpenLead } from '@/marketplace/db/queries/leads';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
 import { validateAnswer, isMultiValue } from '@/marketplace/lib/form-fields';
 import { isAllowedPhone } from '@/marketplace/lib/phone';
@@ -220,6 +221,17 @@ export async function sendLead(prevState, formData) {
    * sees the lead on their next page load, which is where they were before.
    */
   notifyVendorLeads(listing.vendor_id, 'lead_new', { id: lead.id, stage: 'new' });
+
+  /* And the record, for the showroom that was not looking. The car's title and
+     the buyer's name are SNAPSHOTTED rather than referenced: this has to still
+     read as a sentence after the car is sold and taken down. */
+  await recordNotification({
+    audience: 'vendor',
+    vendorId: listing.vendor_id,
+    kind: 'lead_new',
+    data: { car: listing.name, buyer: lead.contact_name },
+    href: '/marketplace/seller/leads',
+  });
 
   revalidatePath(`/${locale}/marketplace/seller/leads`);
   revalidatePath(`/${locale}/marketplace/account/requests`);

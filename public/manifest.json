@@ -1,0 +1,25 @@
+{
+  "name": "Alromaih Marketplace",
+  "short_name": "Alromaih",
+  "description": "New and used cars from verified showrooms.",
+  "start_url": "/ar/marketplace",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#0B6B3A",
+  "icons": [
+    {
+      "src": "/alromaih/new%20logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/alromaih/new%20logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

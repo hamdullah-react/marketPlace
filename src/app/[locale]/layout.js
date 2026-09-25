@@ -62,6 +62,21 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#0B6B3A",
+};
+
+/**
+ * The manifest is what makes the app INSTALLABLE, and on an iPhone that is not
+ * a nicety: Safari exposes no PushManager at all in an ordinary tab. A seller
+ * on iOS has to add the site to their Home Screen before web push exists for
+ * them, and a site with no manifest cannot be added in a way that counts.
+ *
+ * On Android and desktop it is optional and still worth having — it is what
+ * gives the installed app its name, its icon and its colour.
+ */
+export const metadata = {
+  manifest: "/manifest.json",
+  appleWebApp: { capable: true, title: "Alromaih", statusBarStyle: "default" },
 };
 
 export function generateStaticParams() {

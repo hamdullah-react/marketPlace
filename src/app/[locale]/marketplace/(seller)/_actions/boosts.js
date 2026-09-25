@@ -10,6 +10,7 @@ import { SITE_URL } from '@/marketplace/lib/sitePages';
 import { vendorForAction } from '@/marketplace/auth/session';
 import { getBoostPlans } from '@/marketplace/db/queries/boosts';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { notifyAdmins } from '@/marketplace/lib/realtime';
 
 /**
@@ -158,6 +159,15 @@ export async function requestBoost(prevState, formData) {
     refresh();
     // Every open admin panel chimes and shows the new request.
     notifyAdmins('boost_new', { listingId });
+
+    await recordNotification({
+      audience: 'admin',
+      kind: 'boost_requested',
+      /* The car only. The showroom's own name is not in scope here and the
+         admin's bell links straight to the queue, where it is on the row. */
+      data: { car: listing.name },
+      href: '/marketplace/admin/content/featured',
+    });
     // …and the team gets an email, sent after the response so it can never
     // slow down or fail the seller's request.
     after(() =>

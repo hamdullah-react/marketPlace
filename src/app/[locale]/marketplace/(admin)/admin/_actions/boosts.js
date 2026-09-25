@@ -5,6 +5,7 @@ import { adminForAction } from '@/marketplace/auth/session';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { writeAudit } from '@/marketplace/db/queries/admin';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { raiseBoostCharge } from '@/marketplace/db/queries/billing';
 import { activateBoost } from '@/marketplace/db/queries/boosts';
 import { notifyVendorLeads, notifyAdmins } from '@/marketplace/lib/realtime';
@@ -53,7 +54,7 @@ export async function decideBoost(prevState, formData) {
     /* `price` is not decoration: raiseBoostCharge bills from it, and a boost
        read without it looks exactly like a free one. That is what silently
        un-billed every approved promotion until now. */
-    .select('id, listing_id, vendor_id, days, price, state, ends_at, listings ( id, state, featured_until )')
+    .select('id, listing_id, vendor_id, days, price, state, ends_at, listings ( id, name, state, featured_until )')
     .eq('id', boostId)
     .maybeSingle();
 
@@ -156,6 +157,19 @@ export async function decideBoost(prevState, formData) {
   // admins' queues drop the request they no longer need to look at.
   notifyVendorLeads(boost.vendor_id, 'boost_changed', { id: boostId, decision });
   notifyAdmins('boost_changed', { id: boostId, decision });
+
+  /* Only the two decisions a showroom needs telling about. 'end' is something
+     they asked for or already know, and a bell for it would be the platform
+     narrating itself. */
+  if (decision === 'approve' || decision === 'reject') {
+    await recordNotification({
+      audience: 'vendor',
+      vendorId: boost.vendor_id,
+      kind: decision === 'approve' ? 'boost_approved' : 'boost_rejected',
+      data: { car: boost.listings?.name ?? null, note },
+      href: '/marketplace/seller/promotions',
+    });
+  }
   // `billingError` is null on every path but a failed charge, so the form only
   // mentions money when something about it actually needs attention.
   /* `awaitingPayment` is what the admin's screen says out loud: the request is

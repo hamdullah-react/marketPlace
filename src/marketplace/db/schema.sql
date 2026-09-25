@@ -5565,4 +5565,218 @@ begin
   end if;
 end $$;
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  NOTIFICATIONS — what happened while you were not looking
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  The marketplace already tells an OPEN dashboard when something happens: a
+--  server action broadcasts on a private channel and the page updates itself
+--  (§21.7). That is a live wire, not a record — close the tab and everything
+--  said on it is gone. A showroom that was away when a request arrived has no
+--  way to learn that it did.
+--
+--  This is the record. One row per thing worth knowing, kept until it is read
+--  and for a while after, so the bell can answer "what did I miss".
+--
+--  ── Addressed to a SHOWROOM or to the PLATFORM, not to a person ────────────
+--
+--  `audience` is 'vendor' or 'admin', and read state is shared within it —
+--  exactly the argument §21.3 makes about the lead inbox. A showroom is three
+--  salespeople working one queue: showing each of them the same twelve unread
+--  items, and making each clear them separately, would turn the badge into
+--  something to ignore. It answers the question the showroom actually has:
+--  what has NOBODY here seen.
+--
+--  read_by records who opened it first, which is the part a manager wants.
+--
+--  ── The TEXT is not stored. The FACTS are ──────────────────────────────────
+--
+--  `kind` says what happened and `data` carries the handful of values the
+--  sentence needs. The wording is built in the app, in the reader's language —
+--  because this platform ships in two and an Arabic seller must not be sent a
+--  row of English that was frozen at write time.
+--
+--  What IS stored is a SNAPSHOT of those values: the car's title, the buyer's
+--  name, the amount, the reference. Same rule as leads.contact_name and
+--  reviews.buyer_name — a notification about a car that has since been deleted
+--  still has to read as a sentence, and re-reading the live row would either
+--  fail or quietly rewrite history.
+--
+--  ── href, so the bell goes somewhere ───────────────────────────────────────
+--
+--  Stored rather than derived from `kind`, because the destination of "your
+--  promotion was approved" is a page whose path the database should not have to
+--  know the shape of. Locale-relative: it is prefixed when it is rendered.
+
+create table if not exists notifications (
+  id         uuid primary key default gen_random_uuid(),
+
+  audience   text not null check (audience in ('vendor', 'admin')),
+  -- Set for a showroom's notification, null for the platform's.
+  vendor_id  uuid references vendors (id) on delete cascade,
+
+  kind       text not null,
+  data       jsonb not null default '{}'::jsonb,
+  href       text,
+
+  read_at    timestamptz,
+  read_by    text,
+
+  created_at timestamptz not null default now(),
+
+  -- A vendor notification belongs to a vendor; an admin one belongs to nobody
+  -- in particular. Without this a 'vendor' row with a null vendor_id would be
+  -- addressed to every showroom at once, which is the one thing it must not be.
+  constraint notifications_audience_shape
+    check ((audience = 'vendor') = (vendor_id is not null))
+);
+
+-- The bell's two queries: the unread COUNT, and the newest twenty.
+-- Partial, so the count scans only what is unread rather than every
+-- notification the showroom has ever received.
+create index if not exists notifications_vendor_unread_idx
+  on notifications (vendor_id)
+  where audience = 'vendor' and read_at is null;
+
+create index if not exists notifications_admin_unread_idx
+  on notifications (created_at desc)
+  where audience = 'admin' and read_at is null;
+
+create index if not exists notifications_vendor_idx
+  on notifications (vendor_id, created_at desc) where audience = 'vendor';
+
+create index if not exists notifications_admin_idx
+  on notifications (created_at desc) where audience = 'admin';
+
+alter table notifications enable row level security;
+
+-- A showroom reads its own; staff read the platform's. Nobody WRITES through
+-- this connection: rows are inserted by server actions on the service role,
+-- for the same reason a charge is — a notification a showroom could forge, or
+-- quietly delete, is not a record of anything.
+drop policy if exists notifications_vendor_read on notifications;
+create policy notifications_vendor_read on notifications
+  for select using (audience = 'vendor' and is_vendor_member(vendor_id));
+
+drop policy if exists notifications_admin_read on notifications;
+create policy notifications_admin_read on notifications
+  for select using (audience = 'admin' and is_staff());
+
+--  ── Housekeeping ──────────────────────────────────────────────────────────
+--
+--  A bell is not an archive. Read notifications older than thirty days and
+--  unread ones older than ninety are noise that only grows — the pipeline, the
+--  charges and the audit log are where the durable record lives, and each of
+--  those is reachable from its own page.
+--
+--  Called by hand or from a scheduled job; nothing depends on it having run.
+create or replace function prune_notifications()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from notifications
+  where (read_at is not null and created_at < now() - interval '30 days')
+     or (read_at is null and created_at < now() - interval '90 days');
+$$;
+
+do $$
+declare
+  n int;
+begin
+  select count(*) into n from notifications where read_at is null;
+  raise notice 'Notifications: table ready, % unread.', n;
+end $$;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  WEB PUSH — the notification that arrives with the app closed
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  The NOTIFICATIONS section records what happened; the bell shows it when
+--  somebody next opens the dashboard. This is the other half: the message that
+--  reaches a phone whose browser is closed and swiped out of the recents list.
+--
+--  ── A subscription is a DEVICE, not a person ───────────────────────────────
+--
+--  The browser hands us an endpoint URL and two keys, and that triple IS the
+--  address. One person has several — a phone, a laptop, a second browser — and
+--  every one of them wants the message, so the endpoint is the primary key and
+--  a person may hold any number of rows.
+--
+--  ── Addressed the same way the bell is ─────────────────────────────────────
+--
+--  `audience` and `vendor_id` mirror `notifications` exactly, so the send is a
+--  lookup with the same shape as the insert: everything recorded for this
+--  showroom goes to every device that showroom has registered. A salesperson
+--  who signs in on their own phone starts receiving them; one who leaves is
+--  removed with their membership.
+--
+--  user_id rides along so a person can be shown their own devices, and so a
+--  single device can be revoked without touching the rest of the desk.
+--
+--  ── Dead endpoints are deleted, not kept ───────────────────────────────────
+--
+--  A push service answers 404 or 410 when a subscription is gone for good — the
+--  browser was uninstalled, the permission revoked, the data cleared. The
+--  sender removes the row on those two codes. Without that the table fills with
+--  addresses that can never be delivered to, and every send gets slower for
+--  everybody.
+
+create table if not exists push_subscriptions (
+  -- The endpoint IS the identity. Re-subscribing the same browser returns the
+  -- same URL, so an upsert on this key updates rather than duplicating.
+  endpoint   text primary key,
+
+  audience   text not null check (audience in ('vendor', 'admin')),
+  vendor_id  uuid references vendors (id) on delete cascade,
+  user_id    uuid references auth.users (id) on delete cascade,
+
+  -- The two halves of the ECDH handshake the payload is encrypted with. Opaque
+  -- to us: they go straight back to the web-push library.
+  p256dh     text not null,
+  auth       text not null,
+
+  -- For "you are receiving these on Chrome on Windows", and for telling two of
+  -- somebody's devices apart in a list.
+  user_agent text,
+
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+
+  -- Same rule as notifications: a vendor subscription belongs to a vendor, a
+  -- platform one to nobody in particular.
+  constraint push_subscriptions_audience_shape
+    check ((audience = 'vendor') = (vendor_id is not null))
+);
+
+-- The send is "every device for this showroom" or "every device for staff".
+create index if not exists push_subscriptions_vendor_idx
+  on push_subscriptions (vendor_id) where audience = 'vendor';
+
+create index if not exists push_subscriptions_admin_idx
+  on push_subscriptions (created_at) where audience = 'admin';
+
+-- For showing somebody their own devices.
+create index if not exists push_subscriptions_user_idx
+  on push_subscriptions (user_id);
+
+alter table push_subscriptions enable row level security;
+
+--  Nothing reads or writes this through the anon key. The rows carry a
+--  delivery address for a person's device: a leaked list is a list of who to
+--  push to, and there is no page that needs to read one. Every write goes
+--  through a server action on the service role.
+--
+--  No policy is created deliberately — with RLS on and no policy, the anon and
+--  authenticated roles can do nothing at all, which is the intent.
+
+do $$
+declare
+  n int;
+begin
+  select count(*) into n from push_subscriptions;
+  raise notice 'Web push: % device(s) subscribed.', n;
+end $$;
+
 notify pgrst, 'reload schema';

@@ -45,6 +45,7 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
+import NotificationBell from "../../_components/NotificationBell";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { useLiveLeads } from "./useLiveLeads";
 
@@ -117,6 +118,28 @@ const NAV_SECONDARY = [
  * footprint the skeleton reserves, so the sidebar does not resize when it
  * resolves.
  */
+/**
+ * The bell, once its promise settles.
+ *
+ * A one-line component so `use()` can sit inside the Suspense boundary rather
+ * than at the top of the shell, where it would block the header, the nav and
+ * the content behind two reads nobody is waiting on.
+ */
+function Bell({ locale, vendorId, promise, currency }) {
+  const data = promise ? use(promise) : { items: [], unread: 0 };
+
+  return (
+    <NotificationBell
+      locale={locale}
+      audience="vendor"
+      vendorId={vendorId}
+      items={data?.items ?? []}
+      unread={data?.unread ?? 0}
+      currency={currency}
+    />
+  );
+}
+
 function VendorIdentity({ vendorPromise, locale, t, isAr }) {
   const vendor = use(vendorPromise);
 
@@ -267,7 +290,9 @@ function VendorIdentitySkeleton() {
   );
 }
 
-export default function SellerShell({ locale = "ar", vendorPromise, children }) {
+export default function SellerShell({ locale = "ar", vendorPromise, children, notificationsPromise = null, currency = null }) {
+  /* No vendorId prop: the shell already resolves one below for the live-leads
+     channel and the vendor picker, and a second copy could disagree with it. */
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const pathname = usePathname() || "";
@@ -437,7 +462,17 @@ export default function SellerShell({ locale = "ar", vendorPromise, children }) 
             {/* The dashboard has no public header, so the language toggle
                 lives here — otherwise there is no way out of a locale once
                 you are inside the seller area. */}
-            <div className="ms-auto shrink-0">
+            <div className="ms-auto flex shrink-0 items-center gap-1">
+              {/* Its own boundary: the bell is two reads the header should not
+                  wait for, and a quiet bell is the right fallback. */}
+              <Suspense fallback={<span className="inline-block h-8 w-8" />}>
+                <Bell
+                  locale={locale}
+                  vendorId={vendorId}
+                  promise={notificationsPromise}
+                  currency={currency}
+                />
+              </Suspense>
               <LanguageSwitcher />
             </div>
           </div>

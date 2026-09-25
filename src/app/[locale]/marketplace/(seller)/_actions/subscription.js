@@ -28,6 +28,7 @@
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { vendorForRenewal } from '@/marketplace/auth/session';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { notifyAdmins } from '@/marketplace/lib/realtime';
 import { DUE_DAYS } from '@/marketplace/lib/billing';
 
@@ -107,6 +108,16 @@ export async function requestRenewal(prevState, formData) {
      time-critical notification in the app: at the other end of it is a seller
      sitting in front of a locked dashboard. */
   notifyAdmins('renewal_requested', { id: created?.id ?? null, vendor: vendorId, ref: created?.ref ?? null });
+
+  await recordNotification({
+    audience: 'admin',
+    kind: 'renewal_requested',
+    /* The showroom's name is not in scope here; the admin bell links to the
+       Subscriptions queue, which names every one of them on its rows. The
+       amount and the reference are what make this actionable. */
+    data: { amount: created?.amount ?? null, ref: created?.ref ?? null },
+    href: '/marketplace/admin/subscriptions',
+  });
 
   refresh(locale);
   return ok({ ref: created?.ref ?? null, days, chargeId: created?.id ?? null });

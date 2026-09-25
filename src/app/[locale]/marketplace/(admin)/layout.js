@@ -1,5 +1,6 @@
 import { setRequestLocale } from 'next-intl/server';
 import { requireAdmin } from '@/marketplace/auth/session';
+import { getNotifications } from '@/marketplace/db/queries/notifications';
 import { countPendingBoosts } from '@/marketplace/db/queries/boosts';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import AdminShell from './_components/AdminShell';
@@ -20,12 +21,21 @@ export default async function AdminLayout({ children, params }) {
   setRequestLocale(locale);
 
   const viewer = await requireAdmin();
-  const [pendingBoosts, site] = await Promise.all([countPendingBoosts(), getSiteSettings()]);
+  const [pendingBoosts, site, notifications] = await Promise.all([
+    countPendingBoosts(),
+    getSiteSettings(),
+    /* The bell. Awaited here with the rest rather than streamed, because it is
+       two indexed reads and it lives in the header — a bell that pops in a
+       moment after the page is a bell somebody has already looked past. */
+    getNotifications({ audience: 'admin' }).catch(() => ({ items: [], unread: 0 })),
+  ]);
 
   return (
     <AdminShell
       locale={locale}
       pendingBoosts={pendingBoosts}
+      notifications={notifications}
+      currency={site.currency}
       brand={{
         name: locale === 'en' ? site.name.en : site.name.ar,
         logoUrl: site.logoUrl,

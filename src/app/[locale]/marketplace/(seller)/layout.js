@@ -1,6 +1,7 @@
 import { setRequestLocale } from 'next-intl/server';
 import { requireVendor } from '@/marketplace/auth/session';
 import { getShellVendor } from './_apicalls/shellApi';
+import { getNotifications } from '@/marketplace/db/queries/notifications';
 import SellerShell from './_components/SellerShell';
 import TrialEndingBanner from './_components/TrialEndingBanner';
 
@@ -70,7 +71,16 @@ export default async function SellerLayout({ children, params }) {
   const ending = vendor.access.state === 'ending';
 
   return (
-    <SellerShell locale={locale} vendorPromise={getShellVendor(locale)}>
+    <SellerShell
+      locale={locale}
+      vendorPromise={getShellVendor(locale)}
+      /* NOT awaited, for the same reason as the shell vendor above: a layout
+         sits over every page's boundaries, so anything it waits for holds the
+         whole dashboard. The bell resolves inside its own Suspense. */
+      notificationsPromise={getNotifications({ audience: 'vendor', vendorId: vendor.id }).catch(
+        () => ({ items: [], unread: 0 })
+      )}
+    >
       {ending ? (
         <TrialEndingBanner locale={locale} daysLeft={vendor.access.daysLeft} until={vendor.access.until} />
       ) : null}

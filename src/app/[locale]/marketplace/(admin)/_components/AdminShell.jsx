@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
+import NotificationBell from "../../_components/NotificationBell";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { signOut } from "../../(auth)/_actions/auth";
 
@@ -63,7 +64,7 @@ const NAV_CONTENT = {
 // exact: /admin/settings/staff is the Admins page, not part of Settings.
 const NAV_SETTINGS = { href: "/marketplace/admin/settings", icon: SettingsIcon, ar: "الإعدادات", en: "Settings", exact: true };
 
-export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, brand = null, children }) {
+export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, brand = null, notifications = null, currency = null, children }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const pathname = usePathname() || "";
@@ -200,7 +201,14 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
               aria-label={live ? "live" : "offline"}
               className={`h-2 w-2 shrink-0 rounded-full ${live ? "bg-green-500" : "bg-amber-500"}`}
             />
-            <div className="ms-auto shrink-0">
+            <div className="ms-auto flex shrink-0 items-center gap-1">
+              <NotificationBell
+                locale={locale}
+                audience="admin"
+                items={notifications?.items ?? []}
+                unread={notifications?.unread ?? 0}
+                currency={currency}
+              />
               <LanguageSwitcher />
             </div>
           </div>
