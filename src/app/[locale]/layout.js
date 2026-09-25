@@ -78,7 +78,7 @@ export const metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "Alromaih",
+    title: "Sauda",
     statusBarStyle: "default",
   },
   /* iOS does NOT read the manifest's icons for the Home Screen — it reads

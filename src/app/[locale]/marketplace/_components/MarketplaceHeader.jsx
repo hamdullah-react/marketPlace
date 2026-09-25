@@ -150,10 +150,10 @@ export default function MarketplaceHeader({
   locale = "ar", viewer = null, offerCount = 0, savedCount = 0, brand = null, languages = null,
 }) {
   const isAr = locale === "ar";
-  // From Admin → Settings, with the built-in logo as the fallback.
-  const logo = brand?.logoUrl || "/alromaih/new logo.png";
+  // From Admin → Settings, with the built-in mark as the fallback.
+  const logo = brand?.logoUrl || "/sauda/logo.png";
   const darkLogo = brand?.logoDarkUrl || null;
-  const brandName = brand?.name || "Alromaih";
+  const brandName = brand?.name || "Sauda";
   const pathname = usePathname() || "";
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);

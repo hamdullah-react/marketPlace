@@ -52,6 +52,33 @@ function toKey(base64) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
+/**
+ * ── No step may hang for ever ───────────────────────────────────────────────
+ *
+ * Turning notifications on is four awaits against the browser and one against
+ * the server, and two of them can simply never settle. `serviceWorker.ready`
+ * waits for a worker to become active and never rejects if it does not, and
+ * `pushManager.subscribe()` can sit indefinitely on a device whose push service
+ * is unreachable.
+ *
+ * A promise that never settles is the worst failure this control can have,
+ * because the spinner keeps turning and the person keeps waiting — which is
+ * exactly what an Android phone was doing: "Finish turning it on for this
+ * device", spinning, for ever, with nothing to read.
+ *
+ * So every step is raced against a clock and names itself when it loses. A
+ * named timeout is a diagnosis; a spinner is not.
+ */
+function withTimeout(promise, ms, step) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise).finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`TIMEOUT:${step}`)), ms);
+    }),
+  ]);
+}
+
 const isApple = () =>
   typeof navigator !== "undefined" && /iP(hone|ad|od)/.test(navigator.userAgent);
 
@@ -184,16 +211,35 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
 
       /* Registered here rather than on every page load: a service worker is
          only needed by somebody who has actually asked for notifications. */
-      const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await navigator.serviceWorker.ready;
+      const reg = await withTimeout(
+        navigator.serviceWorker.register("/sw.js", { scope: "/" }),
+        15000,
+        "register"
+      );
+
+      /* `ready` waits for an ACTIVE worker. If it does not come, the
+         registration we already hold is still worth trying — subscribing may
+         well succeed on it — so a timeout here falls through rather than
+         failing the whole thing. This is the step that hung. */
+      const active = await withTimeout(navigator.serviceWorker.ready, 12000, "ready").catch(
+        () => reg
+      );
+
+      const existing = await withTimeout(active.pushManager.getSubscription(), 8000, "read").catch(
+        () => null
+      );
 
       const sub =
-        (await reg.pushManager.getSubscription()) ??
-        (await reg.pushManager.subscribe({
-          // Chrome refuses any other value: a push must always be visible.
-          userVisibleOnly: true,
-          applicationServerKey: toKey(key),
-        }));
+        existing ??
+        (await withTimeout(
+          active.pushManager.subscribe({
+            // Chrome refuses any other value: a push must always be visible.
+            userVisibleOnly: true,
+            applicationServerKey: toKey(key),
+          }),
+          20000,
+          "subscribe"
+        ));
 
       const fd = new FormData();
       fd.set("audience", audience);
@@ -201,7 +247,7 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
       fd.set("subscription", JSON.stringify(sub.toJSON()));
       fd.set("userAgent", navigator.userAgent);
 
-      const saved = await subscribeToPush(null, fd);
+      const saved = await withTimeout(subscribeToPush(null, fd), 20000, "save");
       if (report(saved)) {
         setRegistered(true);
         done(t("تم التفعيل على هذا الجهاز.", "Turned on for this device."));
@@ -209,7 +255,35 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
         setBusy(false);
       }
     } catch (err) {
-      done(t("تعذّر التفعيل: ", "Could not turn it on: ") + (err?.message ?? String(err)));
+      const message = String(err?.message ?? err);
+
+      /* Each step fails for its own reason, and the reason is what tells
+         somebody what to try. "Could not turn it on" on its own sends them
+         back to press the same button again. */
+      const timedOut = message.startsWith("TIMEOUT:") ? message.slice(8) : null;
+
+      const reason = {
+        register: t(
+          "لم يتمكن المتصفح من تسجيل عامل الخدمة. أغلق التبويب وافتحه من جديد ثم حاول مرة أخرى.",
+          "The browser could not register the service worker. Close the tab, open it again and retry."
+        ),
+        ready: t(
+          "عامل الخدمة لم يبدأ. أغلق كل تبويبات الموقع ثم افتحه من جديد.",
+          "The service worker never started. Close every tab for this site, then open it again."
+        ),
+        read: t("تعذّر قراءة اشتراك هذا الجهاز.", "Could not read this device's subscription."),
+        subscribe: t(
+          "لم تستجب خدمة الإشعارات. على أندرويد تحتاج خدمات Google Play، وقد يمنعها توفير البيانات أو شبكة مقيّدة.",
+          "The push service did not answer. On Android this needs Google Play services, and a data saver or a restricted network can block it."
+        ),
+        save: t(
+          "لم يصل التسجيل إلى الخادم. تحقق من الاتصال وحاول مرة أخرى.",
+          "The registration did not reach the server. Check the connection and try again."
+        ),
+      }[timedOut];
+
+      setFailure(reason ?? t("تعذّر التفعيل: ", "Could not turn it on: ") + message);
+      setBusy(false);
     }
   };
 

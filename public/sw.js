@@ -58,7 +58,19 @@ self.addEventListener("push", (event) => {
     // below rather than throwing — see the note above about Chrome.
   }
 
-  const title = payload.title || "Alromaih Marketplace";
+
+
+
+
+
+
+
+
+
+
+
+
+  const title = payload.title || "Sauda";
 
   const options = {
     body: payload.body || "",

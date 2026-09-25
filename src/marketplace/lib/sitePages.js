@@ -21,14 +21,21 @@ export const SITE_TAGS = {
   pages: 'site-pages',
 };
 
-/** Used until an admin saves their own — and whenever the SQL has not been run. */
+/**
+ * Used until an admin saves their own — and whenever the SQL has not been run.
+ *
+ * This is the platform's OWN identity, not a dealership's. It carried the
+ * Alromaih wordmark, which was the mark of one showroom on a marketplace that
+ * hosts many, and it is what every page fell back to before an admin had saved
+ * anything at all.
+ */
 export const BRAND_FALLBACK = {
-  name: { ar: 'سوق الرميح', en: 'Alromaih Marketplace' },
+  name: { ar: 'سوق الرميح', en: 'Sauda' },
   tagline: {
     ar: 'سيارات جديدة ومستعملة من معارض موثوقة، بأسعار واضحة وتواصل مباشر مع البائع.',
     en: 'New and used cars from verified showrooms — clear pricing, and a direct line to the seller.',
   },
-  logoUrl: '/alromaih/new logo.png',
+  logoUrl: '/sauda/logo.png',
 };
 
 export const TITLE_MAX = 60;
