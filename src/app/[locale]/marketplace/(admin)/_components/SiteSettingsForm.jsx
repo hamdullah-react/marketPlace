@@ -138,7 +138,7 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
               id="name" label={t("اسم التطبيق", "App name")} required
               mode={mode} locale={locale} maxLength={80}
               ar={row?.name?.ar ?? ""} en={row?.name?.en ?? ""}
-              phAr="سوق الرميح" phEn="Alromaih Marketplace"
+              phAr="سوق الرميح" phEn="Sauda"
               onChange={setName}
             />
             <BilingualField

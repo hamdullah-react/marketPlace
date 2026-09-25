@@ -191,7 +191,7 @@ const EXPIRY = {
 const BRAND = '#0B6B3A';
 
 /** Used when Admin → Settings could not be read. */
-const DEFAULT_BRAND = { ar: 'سوق الرميح', en: 'Alromaih Marketplace' };
+const DEFAULT_BRAND = { ar: 'سوق الرميح', en: 'Sauda' };
 
 const escapeHtml = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);

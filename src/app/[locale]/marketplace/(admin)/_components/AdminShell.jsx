@@ -147,7 +147,7 @@ export default function AdminShell({
                     </div>
                   )}
                   <div className="grid flex-1 text-start leading-tight">
-                    <span className="truncate text-base font-semibold">{brand?.name || t("سوق الرميح", "Alromaih Marketplace")}</span>
+                    <span className="truncate text-base font-semibold">{brand?.name || t("سوق الرميح", "Sauda")}</span>
                     <span className="truncate text-xs font-normal text-muted-foreground">
                       {t("لوحة الإدارة", "Admin panel")}
                     </span>

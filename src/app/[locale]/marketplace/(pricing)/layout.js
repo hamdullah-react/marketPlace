@@ -24,7 +24,7 @@ import LanguageSwitcher from '../_components/LanguageSwitcher';
  *
  * The other stripped-back group in this app, (blocked), forces noindex because
  * it is a private message to one showroom. This is the opposite kind of page —
- * "what does it cost to sell on Alromaih" is a question people type into a
+ * "what does it cost to sell here" is a question people type into a
  * search box — so it takes its metadata from Admin → Website content → Pages
  * SEO like every other public page, and follows whatever the marketplace's own
  * indexing decision is. (Every page in lib/sitePages.js is noindex today, which

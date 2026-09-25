@@ -70,9 +70,9 @@ export async function generateMetadata({ params }) {
 
     // The company name is a proper noun, but it has an English form — the
     // inherited value was the Arabic one on every page.
-    authors: [{ name: isEn ? 'Alromaih Cars' : 'الرميح للسيارات' }],
-    creator: isEn ? 'Alromaih Cars' : 'الرميح للسيارات',
-    publisher: isEn ? 'Alromaih Cars' : 'الرميح للسيارات',
+    authors: [{ name: isEn ? 'Sauda' : 'سوق الرميح' }],
+    creator: isEn ? 'Sauda' : 'سوق الرميح',
+    publisher: isEn ? 'Sauda' : 'سوق الرميح',
 
     // Pages opt in from Admin → Website content → Pages SEO.
     robots: { index: false, follow: false },
