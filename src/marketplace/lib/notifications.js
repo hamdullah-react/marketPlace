@@ -82,6 +82,18 @@ const KINDS = {
     body: [d.buyer, d.rating ? `${d.rating}★` : null].filter(Boolean).join(' · '),
   }),
 
+  /* Not an event — the "send a test" button in the bell. It is here rather
+     than as a hardcoded string in the sender so it reads in the recipient's
+     language like everything else, and so a test looks exactly like the real
+     thing on the lock screen. */
+  push_test: (d, { locale }) => ({
+    title: locale === 'ar' ? 'الإشعارات تعمل' : 'Notifications are working',
+    body:
+      locale === 'ar'
+        ? 'هذه رسالة تجريبية. ستصلك الإشعارات الحقيقية بنفس الطريقة.'
+        : 'This is a test. Real notifications will arrive the same way.',
+  }),
+
   /* ── For the platform ────────────────────────────────────────────────── */
   boost_requested: (d, { locale }) => ({
     title: locale === 'ar' ? 'طلب ترويج جديد' : 'New promotion request',

@@ -338,6 +338,25 @@ export const ERRORS = {
     ar: 'تعذّر قراءة مزايا الخطة. أعد المحاولة.',
     en: 'Could not read the plan’s features. Please try again.',
   },
+  // ── web push ──
+  // The keys live in the environment, so this is a deployment answer and the
+  // message names the thing to set rather than saying "try again".
+  // Thrown by subscribeToPush when push_subscriptions does not exist (42P01).
+  // It had no message at all, so a device that could not register showed an
+  // empty line — the one case where saying nothing is worse than saying too
+  // much, because the fix is a section of schema.sql nobody would guess at.
+  PUSH_NOT_MIGRATED: {
+    ar: 'جدول الإشعارات غير موجود. شغّل قسم WEB PUSH في schema.sql.',
+    en: 'The push table does not exist. Run the WEB PUSH section of schema.sql.',
+  },
+  PUSH_NOT_CONFIGURED: {
+    ar: 'الإشعارات غير مضبوطة على هذا الخادم. أضف مفاتيح VAPID ثم أعد النشر.',
+    en: 'Push is not configured on this server. Add the VAPID keys, then redeploy.',
+  },
+  PUSH_NO_DEVICES: {
+    ar: 'لا يوجد جهاز مسجّل بعد. فعّل الإشعارات على هذا الجهاز أولاً.',
+    en: 'No device is registered yet. Turn notifications on for this device first.',
+  },
   PLAN_FEATURES_TOO_MANY: {
     ar: 'الحد ١٢ ميزة لكل خطة — البطاقة الأطول من ذلك لا يقرأها أحد.',
     en: 'Twelve features per plan is the limit — a longer card is one nobody reads.',

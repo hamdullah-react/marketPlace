@@ -27,11 +27,57 @@
  * and eat the rest of what they were writing.
  */
 
-import { startTransition, useState } from "react";
+import { Suspense, startTransition, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Search, X } from "lucide-react";
 
-export default function SearchBox({
+/**
+ * ── The Suspense boundary lives HERE, not at every call site ────────────────
+ *
+ * `useSearchParams()` reads data that only exists once a URL is known, so on a
+ * prerendered route it suspends the client tree above it. Without a boundary
+ * the whole page fails to prerender — `next build` stops with
+ * CLIENT_HOOK_DYNAMIC, which is what it did on /marketplace/vendors.
+ *
+ * It is invisible in development, and the Next docs say why: routes there are
+ * rendered on demand, so the hook never suspends and the missing boundary
+ * cannot be felt. The first sign of it is a failed production build.
+ *
+ * Wrapping it here rather than at each `<SearchBox />` means a page cannot
+ * forget — this is a shared control used on public pages and dashboards alike,
+ * and the one that forgets is the one that breaks the build.
+ *
+ * The fallback is the SAME box, inert. A spinner or a gap would shift the
+ * layout for the instant before hydration on a control that sits in a toolbar.
+ */
+export default function SearchBox(props) {
+  return (
+    <Suspense fallback={<InertBox {...props} />}>
+      <LiveBox {...props} />
+    </Suspense>
+  );
+}
+
+/** What the box looks like before the URL is known. Identical, and does nothing. */
+function InertBox({ locale = "ar", placeholder = "", label = "", className = "" }) {
+  const t = (ar, en) => (locale === "ar" ? ar : en);
+
+  return (
+    <div className={`relative ${className}`}>
+      <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <input
+        type="search"
+        defaultValue=""
+        readOnly
+        placeholder={placeholder || t("ابحث ثم Enter", "Search, then Enter")}
+        aria-label={label || placeholder || t("ابحث", "Search")}
+        className="w-full rounded-lg border border-gray-200 bg-white py-1.5 ps-8 pe-7 text-xs outline-none dark:border-white/10 dark:bg-white/5"
+      />
+    </div>
+  );
+}
+
+function LiveBox({
   locale = "ar",
   /** The query param to write. `q` unless a page already uses it for something. */
   param = "q",

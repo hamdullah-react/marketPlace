@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { adminForAction, vendorForAction } from '@/marketplace/auth/session';
 import { markNotificationsRead } from '@/marketplace/db/queries/notifications';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { pushNotification } from '@/marketplace/lib/push';
 
 /**
  * Clearing the bell.
@@ -132,4 +133,67 @@ export async function unsubscribeFromPush(prevState, formData) {
 
   if (error) return bad('SAVE_FAILED');
   return ok({ subscribed: false });
+}
+
+/**
+ * Send this showroom (or the platform) a test notification, now.
+ *
+ * ── Why a button for this exists at all ─────────────────────────────────────
+ *
+ * Every step before the send can be checked from a dashboard — the keys are
+ * set or they are not, the device registered or it did not, the row is in the
+ * table or it is missing. Whether a notification ACTUALLY ARRIVES on a phone
+ * with the browser closed cannot be checked from here at all; it can only be
+ * tested by sending one. The alternative is waiting for a real lead and
+ * guessing, which is how a broken notification system stays broken for a week.
+ *
+ * ── It is a real push, not a simulation ─────────────────────────────────────
+ *
+ * Same sender, same payload shape, same service worker as a genuine event, so a
+ * test that arrives proves the whole path and a test that does not narrows it
+ * to one place. It is deliberately NOT recorded in `notifications`: the bell is
+ * a record of things that happened to the business, and "somebody pressed
+ * test" is not one of them.
+ *
+ * ── Scoped by the SESSION ───────────────────────────────────────────────────
+ *
+ * The audience comes from the form and is only a request; who it resolves to
+ * comes from adminForAction()/vendorForAction(), exactly as subscribeToPush
+ * does. Nobody can make this ring somebody else's phone.
+ */
+export async function sendTestPush(prevState, formData) {
+  const audience = formData.get('audience') === 'admin' ? 'admin' : 'vendor';
+
+  let vendorId = null;
+  if (audience === 'admin') {
+    const { error: denied } = await adminForAction();
+    if (denied) return bad(denied);
+  } else {
+    const wanted = formData.get('vendorId');
+    const resolved = await vendorForAction(typeof wanted === 'string' ? wanted : null);
+    if (resolved.error) return bad(resolved.error);
+    vendorId = resolved.vendorId;
+  }
+
+  /* Awaited, unlike every other push in the app. A test whose result nobody
+     waits for cannot report how many devices it reached, which is the only
+     thing the person pressing it wants to know. */
+  const sent = await pushNotification({
+    audience,
+    vendorId,
+    kind: 'push_test',
+    data: {},
+    href: audience === 'admin' ? '/marketplace/admin' : '/marketplace/seller',
+  });
+
+  if (!sent.ok) {
+    // PUSH_OFF is the keys being absent on this server — by far the most
+    // common answer, and the one with a specific fix.
+    return bad(sent.error === 'PUSH_OFF' ? 'PUSH_NOT_CONFIGURED' : 'SAVE_FAILED');
+  }
+  // Registered on another device, or nowhere yet. Silence here would read as
+  // success on a device that is about to receive nothing.
+  if (!sent.sent) return bad('PUSH_NO_DEVICES');
+
+  return ok({ sent: sent.sent });
 }
