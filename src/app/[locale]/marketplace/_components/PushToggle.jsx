@@ -116,6 +116,8 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [failure, setFailure] = useState("");
+  // The raw browser error, shown small under the advice.
+  const [detail, setDetail] = useState("");
   // How many devices the last test reached, once one has been sent.
   const [tested, setTested] = useState(null);
   // Set once this browser is registered, so the test button can appear.
@@ -181,6 +183,7 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
   const enable = async () => {
     setNote("");
     setFailure("");
+    setDetail("");
 
     /* ── Everything that does not cost the prompt, first ──────────────── */
     if (!key) {
@@ -229,17 +232,60 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
         () => null
       );
 
-      const sub =
-        existing ??
-        (await withTimeout(
-          active.pushManager.subscribe({
+      const ask = (registration) =>
+        withTimeout(
+          registration.pushManager.subscribe({
             // Chrome refuses any other value: a push must always be visible.
             userVisibleOnly: true,
             applicationServerKey: toKey(key),
           }),
           20000,
           "subscribe"
-        ));
+        );
+
+      let sub = existing;
+
+      if (!sub) {
+        try {
+          sub = await ask(active);
+        } catch (first) {
+          /* ── "Registration failed - push service error" ──────────────────
+             Chrome's own words, and they describe the device rather than this
+             site: the phone already holds a push registration for this origin
+             that the push service will not honour. It happens after a failed
+             attempt, after the keys change, and after a service worker is
+             replaced — all three of which have happened here.
+
+             The cure is to stop asking the browser to reuse it. Everything is
+             torn down — the subscription, then the worker — and asked for once,
+             fresh. This is worth a try before reporting a failure, because the
+             alternative for the person holding the phone is "clear this site's
+             data in Chrome settings", which nobody finds.
+
+             Exactly ONE retry. A loop here would hammer the push service with
+             the same request on a device where it genuinely cannot work. */
+          try {
+            const stale = await active.pushManager.getSubscription().catch(() => null);
+            if (stale) await stale.unsubscribe().catch(() => {});
+            await active.unregister?.().catch(() => {});
+          } catch {
+            // Nothing to tear down. The retry below is still worth making.
+          }
+
+          const rebuilt = await withTimeout(
+            navigator.serviceWorker.register("/sw.js", { scope: "/" }),
+            15000,
+            "register"
+          );
+          const ready = await withTimeout(navigator.serviceWorker.ready, 12000, "ready").catch(
+            () => rebuilt
+          );
+
+          // If it fails again it is the device, not a stale registration, and
+          // the message below says which.
+          sub = await ask(ready);
+        }
+      }
 
       const fd = new FormData();
       fd.set("audience", audience);
@@ -282,7 +328,25 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
         ),
       }[timedOut];
 
-      setFailure(reason ?? t("تعذّر التفعيل: ", "Could not turn it on: ") + message);
+      /* Chrome says "Registration failed - push service error" when the DEVICE
+         cannot register with Google's push service. By the time it reaches here
+         the stale-registration cure above has already been tried, so what is
+         left is the device itself — and the three answers below are the ones
+         that actually fix it, in the order they are worth trying. */
+      const pushService =
+        /push service error|AbortError|Registration failed/i.test(message) &&
+        t(
+          "لم يقبل جهازك التسجيل لدى خدمة الإشعارات. جرّب بالترتيب: ١) تأكد أن «خدمات Google Play» مفعّلة وغير مقيّدة، ٢) أوقف موفّر البيانات ووضع توفير البطارية لمتصفح Chrome، ٣) جرّب شبكة أخرى — بعض شبكات الجوال تحجب FCM.",
+          "Your device would not register with the push service. In order: 1) check Google Play services is enabled and not restricted, 2) turn off Data Saver and battery optimisation for Chrome, 3) try another network — some mobile networks block FCM."
+        );
+
+      setFailure(
+        reason ?? pushService ?? t("تعذّر التفعيل: ", "Could not turn it on: ") + message
+      );
+      /* The browser's own words, kept beside the advice rather than replaced by
+         it. The advice is for the person holding the phone; this line is what
+         they can send to somebody who can read it. */
+      setDetail(reason || pushService ? message : "");
       setBusy(false);
     }
   };
@@ -291,6 +355,7 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
     setBusy(true);
     setNote("");
     setFailure("");
+    setDetail("");
     try {
       const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
@@ -320,6 +385,7 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
   const runTest = async () => {
     setNote("");
     setFailure("");
+    setDetail("");
     setBusy(true);
 
     const fd = new FormData();
@@ -430,9 +496,14 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
           read on a phone, at the bottom of a list, and the sentence that says
           why nothing happened has to be the thing the eye lands on. */}
       {failure ? (
-        <p className="mt-1.5 rounded-lg bg-red-50 p-2 text-[11px] text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {failure}
-        </p>
+        <div className="mt-1.5 rounded-lg bg-red-50 p-2 dark:bg-red-950/40">
+          <p className="text-[11px] text-red-700 dark:text-red-300">{failure}</p>
+          {detail ? (
+            <p className="mt-1 font-mono text-[10px] text-red-700/70 dark:text-red-300/70" dir="ltr">
+              {detail}
+            </p>
+          ) : null}
+        </div>
       ) : note ? (
         <p className="mt-1 px-1 text-[11px] text-muted-foreground">{note}</p>
       ) : null}

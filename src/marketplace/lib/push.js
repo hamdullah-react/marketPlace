@@ -25,9 +25,22 @@ import { notificationText } from '@/marketplace/lib/notifications';
  *
  * The payload carries the finished sentence, because a service worker has no
  * session and cannot look anything up (see public/sw.js). Which language that
- * sentence is in is therefore decided HERE, at send time, and the honest answer
- * is that we do not know what the recipient is reading — a showroom is several
- * people. Arabic is the default, matching the platform's own default_locale.
+ * sentence is in is therefore decided HERE, at send time.
+ *
+ * It used to be hardcoded 'ar', with a comment calling that "the platform's own
+ * default". It was not: the platform's default lives in
+ * site_settings.default_locale, an admin sets it, and on this deployment it is
+ * English — so every push arrived in Arabic on a dashboard whose every label was
+ * English. A hardcoded language is a setting nobody can change.
+ *
+ * Resolved per RECIPIENT, in the order that knows most about them:
+ *
+ *   a showroom   its own Store settings → the platform's → Arabic
+ *   the platform the platform's → Arabic
+ *
+ * 'both' is an authoring choice, not a reading one — a notification is one
+ * sentence and cannot be in two languages — so it falls through to the next
+ * answer rather than being treated as a language.
  */
 
 let configured = null;
@@ -55,6 +68,46 @@ function ready() {
   }
 
   return configured;
+}
+
+/** 'ar' or 'en' only — 'both' and anything unrecognised are not a language. */
+const oneLanguage = (value) => (value === 'ar' || value === 'en' ? value : null);
+
+/**
+ * Which language this notification should be written in.
+ *
+ * Two small reads, on a path that already runs after the response and is
+ * allowed to fail quietly — a push in the wrong language is better than no
+ * push, so every step falls through rather than throwing.
+ */
+async function readLocale(db, audience, vendorId) {
+  let platform = null;
+
+  try {
+    const { data } = await db
+      .from('site_settings')
+      .select('default_locale')
+      .eq('id', true)
+      .maybeSingle();
+    platform = oneLanguage(data?.default_locale);
+  } catch {
+    // The column arrives with the WEBSITE CONTENT section; without it the
+    // platform simply has no stated preference.
+  }
+
+  if (audience === 'vendor' && vendorId) {
+    try {
+      const { data } = await db.from('vendors').select('settings').eq('id', vendorId).maybeSingle();
+      const own = oneLanguage(data?.settings?.default_locale);
+      // The showroom's own choice outranks the platform's — it is their staff
+      // reading it.
+      if (own) return own;
+    } catch {
+      // No settings, or an old shape. The platform's answer still stands.
+    }
+  }
+
+  return platform ?? 'ar';
 }
 
 /**
@@ -87,10 +140,7 @@ export async function pushNotification({ audience, vendorId = null, kind, data =
   }
   if (!devices?.length) return { ok: true, sent: 0 };
 
-  /* Arabic, because that is the platform's default and a showroom is several
-     people with no single "current" language. The locale is sent along so the
-     notification is laid out right way round on the device. */
-  const locale = 'ar';
+  const locale = await readLocale(db, audience, vendorId);
   const { title, body } = notificationText(kind, data, { locale });
 
   const payload = JSON.stringify({
@@ -98,8 +148,9 @@ export async function pushNotification({ audience, vendorId = null, kind, data =
     body,
     kind,
     url: href ? `/${locale}${href}` : '/',
-    dir: 'rtl',
-    lang: 'ar',
+    // So the phone lays the text out the right way round.
+    dir: locale === 'ar' ? 'rtl' : 'ltr',
+    lang: locale,
   });
 
   const dead = [];

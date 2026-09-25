@@ -99,15 +99,62 @@ export function unlockAudio() {
 }
 
 /**
- * A short two-note chime, synthesised rather than shipped.
+ * A car horn, synthesised rather than shipped.
  *
- * No audio file: an mp3 is a network request, a cache entry and a deploy asset
- * for eight-tenths of a second of sound, and the browser can make this exact
- * noise from three numbers.
+ * ── Why a horn, and why it is still made of three numbers ───────────────────
+ *
+ * This was a rising two-note chime, which is the sound every web app makes. A
+ * horn is the sound of the thing being sold, and on a screen full of cars it is
+ * recognised before it is understood.
+ *
+ * Still no audio file. An mp3 would be a network request, a cache entry and a
+ * deploy asset for half a second of sound — and a horn is, acoustically, two
+ * detuned tones and a filter. What makes it read as a HORN rather than a beep
+ * is the interval: a real car horn is two notes a minor third apart sounding
+ * together, which is why one tone alone sounds like an alarm clock.
+ *
+ * Sawtooth rather than sine, because a horn is a reed and a sine is a whistle.
+ * The lowpass takes the top off it so a laptop speaker does not turn the
+ * harmonics into fizz.
+ *
+ * Two blasts, short then slightly longer — the way somebody actually taps a
+ * horn. One long note reads as a fault; two taps read as "look here".
  *
  * Silent when the context was never unlocked, which is the correct outcome for
  * a page nobody has touched — not a bug to work around.
  */
+function blast(ctx, at, length) {
+  // A minor third, the classic pairing: 440 Hz with 370 Hz under it.
+  const tones = [440, 370];
+
+  // One filter and one gain for the pair, so they sound like a single horn
+  // rather than two instruments that happen to agree.
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 2600;
+
+  const vol = ctx.createGain();
+
+  /* The envelope IS the character. A horn starts almost instantly (a reed
+     under pressure), holds flat, and stops — no long tail. The ramps exist
+     because a square-edged gate on a tone is an audible click at both ends. */
+  vol.gain.setValueAtTime(0, at);
+  vol.gain.linearRampToValueAtTime(0.14, at + 0.012);
+  vol.gain.setValueAtTime(0.14, at + length - 0.03);
+  vol.gain.exponentialRampToValueAtTime(0.0001, at + length);
+
+  filter.connect(vol).connect(ctx.destination);
+
+  for (const freq of tones) {
+    const osc = ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.value = freq;
+    osc.connect(filter);
+    osc.start(at);
+    osc.stop(at + length + 0.02);
+  }
+}
+
 export function ting() {
   try {
     // Not created here on purpose: a context first built at chime time starts
@@ -118,28 +165,8 @@ export function ting() {
 
     const now = ctx.currentTime;
 
-    // Two notes a fifth apart, the second a touch later — a rising interval
-    // reads as "something arrived", where a single beep reads as an error.
-    [
-      { freq: 880, at: 0, gain: 0.16 },
-      { freq: 1320, at: 0.09, gain: 0.12 },
-    ].forEach(({ freq, at, gain }) => {
-      const osc = ctx.createOscillator();
-      const vol = ctx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.value = freq;
-
-      // An exponential tail, not an abrupt stop. A square-edged gate on a sine
-      // wave is an audible click at both ends.
-      vol.gain.setValueAtTime(0, now + at);
-      vol.gain.linearRampToValueAtTime(gain, now + at + 0.01);
-      vol.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.35);
-
-      osc.connect(vol).connect(ctx.destination);
-      osc.start(now + at);
-      osc.stop(now + at + 0.4);
-    });
+    blast(ctx, now, 0.16);
+    blast(ctx, now + 0.24, 0.26);
   } catch {
     // A blocked or unavailable AudioContext is not a reason to lose the badge.
   }
