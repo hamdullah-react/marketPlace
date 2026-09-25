@@ -5780,3 +5780,64 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  A PLAN IS A PUBLIC OFFER — what the pricing page needs to show one
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  `vendor_plans` held four facts: a name, a length, a price and whether it is
+--  on. That is enough for the dialog an admin renews a showroom from, and not
+--  enough for a page that has to SELL the plan to somebody who has not signed
+--  up yet. A card reading "90 days — 900" answers how much and never what for.
+--
+--  ── Why a list of lines and not one block of text ──────────────────────────
+--
+--  The obvious shortcut is a single `description` holding "Unlimited cars,
+--  featured placement, 3 team members" and letting the page print it. It fails
+--  the moment two plans exist side by side, which is the whole point of a
+--  pricing page: a reader compares plans LINE BY LINE, and lines can only line
+--  up if they are separate values. A paragraph also cannot be rendered as a
+--  list of ticks without the page guessing where one promise ends.
+--
+--  So there are two columns, and they are different things:
+--
+--    description   one sentence under the name — who the plan is for.
+--    features      the ticks. An ARRAY of {ar, en}, in the admin's own order.
+--
+--  ── Both bilingual, like every other label in this schema ──────────────────
+--
+--  A feature is read by a buyer of the plan in their own language, so it is
+--  {ar, en} — not the plain text a media folder's name gets (§26), because that
+--  one is never seen outside the dashboard and these are the public copy.
+--
+--  ── `popular` is presentation, and it is still DATA ────────────────────────
+--
+--  Which card is lifted, ringed and labelled is a commercial decision that
+--  changes with a campaign, so it cannot be a hardcoded plan id in a component.
+--  Deliberately NOT unique: an admin marking two is a layout that looks odd,
+--  not a broken one, and a constraint here would make "move the highlight"
+--  a two-step operation that can fail halfway.
+
+alter table vendor_plans add column if not exists description jsonb;
+alter table vendor_plans add column if not exists features    jsonb not null default '[]'::jsonb;
+alter table vendor_plans add column if not exists popular     boolean not null default false;
+
+--  An array, always — a bare object or a string here would make the page's
+--  `.map()` throw on a row somebody edited by hand in the SQL editor. The
+--  CONTENTS are validated in the action (lib-side, where the length caps live);
+--  this is the shape the reader depends on.
+alter table vendor_plans drop constraint if exists vendor_plans_features_shape;
+alter table vendor_plans add constraint vendor_plans_features_shape
+  check (jsonb_typeof(features) = 'array');
+
+do $$
+declare
+  n int;
+begin
+  select count(*) into n from vendor_plans where active;
+  raise notice
+    'Plans: % active. The public pricing page lists these; a plan with no features still renders, with its name and price alone.',
+    n;
+end $$;
+
+notify pgrst, 'reload schema';

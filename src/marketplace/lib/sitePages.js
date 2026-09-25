@@ -145,6 +145,18 @@ export const SEO_PAGES = [
     description: { ar: 'رسوم البيع في سوق الرميح.', en: 'What it costs to sell on Alromaih Marketplace.' },
   },
   {
+    // The highest-intent page a showroom can land on, which is why it outranks
+    // /fees on priority: "what does it cost to list my cars" is a question
+    // people type in, and this is the page that answers it with real numbers.
+    key: 'pricing', path: '/pricing', group: 'selling', index: false, changefreq: 'weekly', priority: 0.8,
+    label: { ar: 'الأسعار', en: 'Pricing' },
+    title: { ar: 'أسعار الاشتراك للمعارض', en: 'Showroom subscription pricing' },
+    description: {
+      ar: 'خطط الاشتراك للمعارض في سوق الرميح — الأسعار والمدد وما تشمله كل خطة. التصفّح والشراء مجاني للمشترين.',
+      en: 'Subscription plans for showrooms on Alromaih Marketplace — prices, lengths and what each plan includes. Browsing and buying stays free for buyers.',
+    },
+  },
+  {
     key: 'seller-terms', path: '/seller-terms', group: 'selling', index: false, changefreq: 'yearly', priority: 0.3,
     label: { ar: 'شروط البائع', en: 'Seller terms' },
     title: { ar: 'شروط البائع', en: 'Seller Terms' },

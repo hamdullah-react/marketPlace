@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { requireAdmin } from '@/marketplace/auth/session';
 import { getNotifications } from '@/marketplace/db/queries/notifications';
 import { countPendingBoosts } from '@/marketplace/db/queries/boosts';
+import { countAwaitingPayments } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import AdminShell from './_components/AdminShell';
 
@@ -21,8 +22,14 @@ export default async function AdminLayout({ children, params }) {
   setRequestLocale(locale);
 
   const viewer = await requireAdmin();
-  const [pendingBoosts, site, notifications] = await Promise.all([
+  const [pendingBoosts, awaitingPayments, site, notifications] = await Promise.all([
     countPendingBoosts(),
+    /* The number on Finance and on Subscriptions. Two head-only counts, read
+       here with the rest rather than inside the pages, because a badge has to be
+       on the sidebar whichever page of the panel somebody is standing on — and a
+       showroom waiting to be let back in must not depend on an admin happening
+       to open Finance to be noticed. */
+    countAwaitingPayments(),
     getSiteSettings(),
     /* The bell. Awaited here with the rest rather than streamed, because it is
        two indexed reads and it lives in the header — a bell that pops in a
@@ -34,6 +41,7 @@ export default async function AdminLayout({ children, params }) {
     <AdminShell
       locale={locale}
       pendingBoosts={pendingBoosts}
+      awaitingPayments={awaitingPayments}
       notifications={notifications}
       currency={site.currency}
       brand={{

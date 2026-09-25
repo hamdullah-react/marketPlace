@@ -113,6 +113,8 @@ const NAV = [
   { key: "vendors", ar: "المعارض", en: "Showrooms", href: "/marketplace/vendors" },
   { key: "compare", ar: "المقارنة", en: "Compare", href: "/marketplace/compare" },
   { key: "sell", ar: "بِع سيارتك", en: "Sell Your Car", href: "/marketplace/sell" },
+  // Beside Sell, because it answers the next question somebody asks after it.
+  { key: "pricing", ar: "الأسعار", en: "Pricing", href: "/marketplace/pricing" },
   { key: "how", ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
   { key: "about", ar: "من نحن", en: "About Us", href: "/marketplace/about" },
 ];

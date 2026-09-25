@@ -38,6 +38,7 @@ import { extendedTo } from '@/marketplace/lib/access';
 import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { getVendorAccess } from '@/marketplace/db/queries/access';
 import { activateBoost, deactivateBoost } from '@/marketplace/db/queries/boosts';
+import { parseInstant, isFuture } from '@/marketplace/lib/datetime';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -96,14 +97,23 @@ export async function recordPayment(prevState, formData) {
   if (!UUID.test(chargeId)) return bad('NOT_FOUND');
   if (!method) return bad('METHOD_REQUIRED');
 
-  /* A date typed into the form, defaulting to now. `datetime-local` gives a
-     local wall-clock string with no zone, which Date parses as local time —
-     which is what the admin meant by it. */
-  const paidAt = when ? new Date(when) : new Date();
-  if (!Number.isFinite(paidAt.getTime())) return bad('DATE_INVALID');
+  /* ── The date, as an INSTANT ────────────────────────────────────────
+     This used to be `new Date(when)` on a zone-less wall clock, with a comment
+     saying JS reads it as local time "which is what the admin meant". The
+     parsing is local to whoever parses, and here that is the SERVER — UTC in
+     production. An admin in Pakistan recording a payment at 09:52 had it read
+     as 09:52 UTC, five hours ahead of the real moment, and was told their
+     payment could not be dated in the future. It worked on a laptop and only
+     on a laptop, because there the two zones agree.
+
+     The browser now converts before sending (see lib/datetime.js), so what
+     arrives is an instant and nothing here has to guess a zone. */
+  const paidAt = when ? parseInstant(when) : new Date();
+  if (!paidAt) return bad('DATE_INVALID');
   // A payment cannot have arrived tomorrow. A wrong date here lands in the
-  // wrong month's collected figure and is hard to spot afterwards.
-  if (paidAt.getTime() > Date.now() + 60_000) return bad('DATE_FUTURE');
+  // wrong month's collected figure and is hard to spot afterwards. The
+  // tolerance is for a device clock that runs fast, not for a typo.
+  if (isFuture(paidAt)) return bad('DATE_FUTURE');
 
   const db = getMarketplaceDb();
   const { charge, error: readError } = await load(db, chargeId);
@@ -401,6 +411,94 @@ export async function voidCharge(prevState, formData) {
   );
 
   notifyVendorLeads(charge.vendor_id, 'billing_changed', { id: chargeId, voided: true });
+
+  refresh();
+  return ok({ chargeId, ref: charge.ref });
+}
+
+/**
+ * Remove a charge from the record entirely.
+ *
+ * ── Why this exists beside Cancel ───────────────────────────────────────────
+ *
+ * Cancelling (void) keeps the row and marks it, which is right when a showroom
+ * was billed and the platform then waived it: they saw the charge, and a screen
+ * that silently loses it starts the conversation "you sent me an invoice"
+ * against a page showing nothing.
+ *
+ * It is wrong for a row that should never have existed — a duplicate, a test, a
+ * promotion requested and abandoned. Those accumulate in the ledger as
+ * permanent noise nobody can clear, and an admin reconciling a month has to
+ * read past them every time. So Delete is for the rows that are not history,
+ * only clutter.
+ *
+ * ── A PAID charge is never deleted ──────────────────────────────────────────
+ *
+ * Money arrived. The row is the record of that, it is what a bank statement is
+ * reconciled against, and for a subscription it is also the reason a showroom
+ * has the access it has. Un-record the payment first if the money did not
+ * actually come — that path exists (undoPayment), it is audited, and it takes
+ * back the days it granted. Deleting instead would remove the evidence and
+ * leave the access.
+ *
+ * ── Deleting does NOT take a promotion off the grid ─────────────────────────
+ *
+ * That is deliberate, and worth being explicit about. A paid promotion cannot
+ * reach this action at all, and an unpaid one was never started (see A PROMOTION
+ * STARTS WHEN IT IS PAID FOR). So there is no case where deleting a charge
+ * should silently un-feature a car — the promotion itself is ended from Boost
+ * requests, where an admin can see what they are stopping.
+ */
+export async function deleteCharge(prevState, formData) {
+  const { viewer, error: denied } = await adminForAction();
+  if (denied) return bad(denied);
+
+  const chargeId = str(formData, 'chargeId');
+  if (!UUID.test(chargeId)) return bad('NOT_FOUND');
+
+  const db = getMarketplaceDb();
+  const { charge, error: readError } = await load(db, chargeId);
+  if (readError) return bad(readError);
+
+  if (charge.state === 'paid') return bad('CHARGE_PAID_NO_DELETE');
+
+  /* Scoped by state at the DATABASE as well as checked above: between the read
+     and the delete another admin may have recorded the payment, and the whole
+     point of the rule is that a paid charge survives. */
+  const { data: gone, error } = await db
+    .from('vendor_charges')
+    .delete()
+    .eq('id', chargeId)
+    .neq('state', 'paid')
+    .select('id');
+
+  if (error) return bad('DELETE_FAILED', { detail: error.message });
+  // Zero rows means it was paid a moment ago, or is already gone.
+  if (!gone?.length) return bad('CHARGE_PAID_NO_DELETE');
+
+  /* The whole row, in `before`. This is the only action here that leaves
+     nothing behind to look at, so the audit entry has to BE the record —
+     "CHG-2026-00014 for 900 against this showroom was deleted by this admin".
+     An audit line naming a row nobody can read any more is not an answer. */
+  await writeAudit(
+    viewer,
+    'charge.delete',
+    'charge',
+    chargeId,
+    {
+      ref: charge.ref,
+      vendor_id: charge.vendor_id,
+      amount: charge.amount,
+      state: charge.state,
+      kind: charge.kind ?? null,
+      access_days: charge.access_days ?? null,
+      boost_id: charge.boost_id ?? null,
+    },
+    null
+  );
+
+  // The showroom's billing page is showing this row right now.
+  notifyVendorLeads(charge.vendor_id, 'billing_changed', { id: chargeId, deleted: true });
 
   refresh();
   return ok({ chargeId, ref: charge.ref });

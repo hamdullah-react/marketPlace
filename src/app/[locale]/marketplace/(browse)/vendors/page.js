@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
 import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
+import SearchBox from '@/app/[locale]/marketplace/_components/SearchBox';
 
 /** Managed on Admin → Website content → Pages SEO (defaults in lib/sitePages.js). */
 export async function generateMetadata({ params }) {
@@ -53,6 +54,15 @@ export default async function VendorsPage({ params, searchParams }) {
           different moments, so the page filled in piece by piece and read as
           loading more than once. One boundary swaps every skeleton for the
           finished page together. */}
+      {/* Static, so it paints with the heading and never blanks between
+          searches — the grid below is the only part that streams. */}
+      <div className="mx-auto mt-8 max-w-md">
+        <SearchBox
+          locale={locale}
+          placeholder={t('ابحث باسم المعرض أو المدينة', 'Search by showroom name or city')}
+        />
+      </div>
+
       <Suspense
         fallback={
           <>
@@ -79,6 +89,7 @@ export default async function VendorsPage({ params, searchParams }) {
 async function CityBar({ searchParams, locale, t }) {
   const sp = await searchParams;
   const active = sp?.city || '';
+  const term = typeof sp?.q === 'string' ? sp.q : '';
 
   const { data } = await getMarketplaceDb()
     .from('vendors')
@@ -89,8 +100,15 @@ async function CityBar({ searchParams, locale, t }) {
   const cities = [...new Set((data ?? []).map((r) => r.city).filter(Boolean))].sort();
   if (!cities.length) return null;
 
-  const href = (city) =>
-    `/${locale}/marketplace/vendors${city ? `?city=${encodeURIComponent(city)}` : ''}`;
+  /* The two controls compose: picking a city must not silently clear the term
+     somebody typed, or the grid changes for a reason nothing on screen shows. */
+  const href = (city) => {
+    const params = new URLSearchParams();
+    if (city) params.set('city', city);
+    if (term) params.set('q', term);
+    const qs = params.toString();
+    return `/${locale}/marketplace/vendors${qs ? `?${qs}` : ''}`;
+  };
 
   const pill = (on) =>
     `rounded-lg px-3 py-1.5 text-sm ${
@@ -129,12 +147,14 @@ async function Grid({ searchParams, locale, t }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp?.page) || 1);
   const city = sp?.city || undefined;
+  const term = typeof sp?.q === 'string' ? sp.q.slice(0, 80) : '';
 
   let items = [];
   let total = 0;
   try {
     ({ items, total } = await getApprovedVendors({
       city,
+      q: term,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }));
@@ -170,9 +190,11 @@ async function Grid({ searchParams, locale, t }) {
           {t('لا توجد معارض هنا بعد', 'No showrooms here yet')}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {city
-            ? t('جرّب مدينة أخرى.', 'Try another city.')
-            : t('كن أول معرض على السوق.', 'Be the first showroom on the marketplace.')}
+          {term
+            ? t('جرّب اسماً آخر، أو امسح البحث.', 'Try another name, or clear the search.')
+            : city
+              ? t('جرّب مدينة أخرى.', 'Try another city.')
+              : t('كن أول معرض على السوق.', 'Be the first showroom on the marketplace.')}
         </p>
         <Link
           href={`/${locale}/marketplace/sell`}
@@ -250,6 +272,8 @@ async function Grid({ searchParams, locale, t }) {
             <Link
               href={`/${locale}/marketplace/vendors?${new URLSearchParams({
                 ...(city ? { city } : {}),
+                // Page 2 of a search has to still be that search.
+                ...(term ? { q: term } : {}),
                 page: String(page - 1),
               })}`}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm dark:border-gray-600"
@@ -266,6 +290,7 @@ async function Grid({ searchParams, locale, t }) {
             <Link
               href={`/${locale}/marketplace/vendors?${new URLSearchParams({
                 ...(city ? { city } : {}),
+                ...(term ? { q: term } : {}),
                 page: String(page + 1),
               })}`}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm dark:border-gray-600"

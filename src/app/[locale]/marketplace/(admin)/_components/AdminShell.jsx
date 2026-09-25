@@ -37,6 +37,8 @@ import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { signOut } from "../../(auth)/_actions/auth";
 
 const BOOSTS_HREF = "/marketplace/admin/content/featured";
+const FINANCE_HREF = "/marketplace/admin/finance";
+const SUBSCRIPTIONS_HREF = "/marketplace/admin/subscriptions";
 
 const NAV_MAIN = [
   { href: "/marketplace/admin", icon: LayoutDashboardIcon, ar: "لوحة الإدارة", en: "Dashboard", exact: true },
@@ -45,8 +47,8 @@ const NAV_MAIN = [
   { href: BOOSTS_HREF, icon: SparklesIcon, ar: "طلبات التمييز", en: "Boost requests" },
   { href: "/marketplace/admin/content/boost-plans", icon: BadgeDollarSignIcon, ar: "خطط التمييز والأسعار", en: "Boost plans & prices" },
   { href: "/marketplace/admin/reviews", icon: StarIcon, ar: "التقييمات", en: "Reviews" },
-  { href: "/marketplace/admin/finance", icon: WalletIcon, ar: "المالية", en: "Finance" },
-  { href: "/marketplace/admin/subscriptions", icon: CalendarClockIcon, ar: "الاشتراكات", en: "Subscriptions" },
+  { href: FINANCE_HREF, icon: WalletIcon, ar: "المالية", en: "Finance" },
+  { href: SUBSCRIPTIONS_HREF, icon: CalendarClockIcon, ar: "الاشتراكات", en: "Subscriptions" },
 ];
 
 /* The "Website content" dropdown in the sidebar. */
@@ -64,7 +66,17 @@ const NAV_CONTENT = {
 // exact: /admin/settings/staff is the Admins page, not part of Settings.
 const NAV_SETTINGS = { href: "/marketplace/admin/settings", icon: SettingsIcon, ar: "الإعدادات", en: "Settings", exact: true };
 
-export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, brand = null, notifications = null, currency = null, children }) {
+export default function AdminShell({
+  locale = "ar",
+  viewer,
+  pendingBoosts = 0,
+  /** { total, subscription, boost, other } — payments waiting to be confirmed. */
+  awaitingPayments = null,
+  brand = null,
+  notifications = null,
+  currency = null,
+  children,
+}) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const pathname = usePathname() || "";
@@ -150,7 +162,27 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
           <NavGroup
             label={t("الإدارة", "Administration")}
             items={NAV_MAIN}
-            badges={{ [BOOSTS_HREF]: livePending }}
+            /* ── Three numbers, each on the page that clears it ────────────
+               Finance carries every payment waiting to be confirmed, and
+               Subscriptions carries the SUBSCRIPTION ones on their own. They
+               overlap deliberately: an unpaid renewal is a showroom locked out
+               of its dashboard right now, and the one thing that must not
+               happen is for it to hide inside a bigger total on a page an
+               admin is not looking at.
+
+               The tooltip on each says what the number is — see NavGroup. A
+               digit beside a label is otherwise a mystery somebody has to
+               click to solve. */
+            badges={{
+              [BOOSTS_HREF]: livePending,
+              [FINANCE_HREF]: awaitingPayments?.total ?? 0,
+              [SUBSCRIPTIONS_HREF]: awaitingPayments?.subscription ?? 0,
+            }}
+            badgeTitles={{
+              [BOOSTS_HREF]: t("طلبات تمييز بانتظار المراجعة", "Promotion requests waiting for review"),
+              [FINANCE_HREF]: t("دفعات بانتظار التأكيد", "Payments waiting to be confirmed"),
+              [SUBSCRIPTIONS_HREF]: t("طلبات تجديد بانتظار التأكيد", "Renewals waiting to be confirmed"),
+            }}
             {...navCtx}
           />
           <WebsiteGroup group={NAV_CONTENT} settings={NAV_SETTINGS} {...navCtx} />
@@ -222,7 +254,7 @@ export default function AdminShell({ locale = "ar", viewer, pendingBoosts = 0, b
 
 /* ── Module scope — see SellerShell for why nav pieces are never nested. ── */
 
-function NavGroup({ label, items, className, badges, isActive, t, locale }) {
+function NavGroup({ label, items, className, badges, badgeTitles, isActive, t, locale }) {
   return (
     <SidebarGroup className={className}>
       {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
@@ -234,7 +266,7 @@ function NavGroup({ label, items, className, badges, isActive, t, locale }) {
                 <Link href={`/${locale}${href}`}>
                   <Icon />
                   <span>{t(ar, en)}</span>
-                  <CountBadge n={badges?.[href]} />
+                  <CountBadge n={badges?.[href]} title={badgeTitles?.[href]} />
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -299,10 +331,25 @@ function WebsiteGroup({ group, settings, isActive, t, locale }) {
   );
 }
 
-function CountBadge({ n }) {
+/**
+ * The number beside a nav item.
+ *
+ * `title` is not decoration: a bare digit on a sidebar is a puzzle, and the one
+ * beside Finance ("4") could as easily be four unpaid charges as four anything
+ * else. aria-label carries the same words, so it is read out rather than
+ * announced as a stray number.
+ */
+function CountBadge({ n, title = "" }) {
   if (!n) return null;
+
+  const label = title ? `${title}: ${n}` : String(n);
+
   return (
-    <span className="raised-solid ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-semibold tabular-nums text-white">
+    <span
+      title={label}
+      aria-label={label}
+      className="raised-solid ms-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-semibold tabular-nums text-white"
+    >
       {n > 99 ? "99+" : n}
     </span>
   );

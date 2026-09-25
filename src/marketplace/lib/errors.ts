@@ -296,6 +296,13 @@ export const ERRORS = {
     en: 'That charge is paid. Un-record the payment first if the money did not actually arrive.',
   },
   ALREADY_VOID: { ar: 'هذا المستحق ملغى بالفعل.', en: 'That charge is already cancelled.' },
+  // Deleting is for rows that are clutter rather than history — see
+  // deleteCharge, which explains why a receipt is not the payer's or the
+  // platform's to erase.
+  CHARGE_PAID_NO_DELETE: {
+    ar: 'لا يمكن حذف مستحق مدفوع. ألغِ تسجيل الدفعة أولاً إذا لم تُستلم فعلاً.',
+    en: 'A paid charge cannot be deleted. Un-record the payment first if the money did not actually arrive.',
+  },
   ACCOUNT_LABEL_REQUIRED: { ar: 'أدخل اسماً للحساب', en: 'Give the account a name' },
   ACCOUNT_NUMBER_REQUIRED: {
     ar: 'أدخل الآيبان أو رقم الحساب',
@@ -327,6 +334,14 @@ export const ERRORS = {
     en: 'You already have a renewal request waiting. Contact us to confirm the payment.',
   },
   PLAN_NOT_FOUND: { ar: 'هذه الخطة غير متاحة.', en: 'That plan is not available.' },
+  PLAN_FEATURES_INVALID: {
+    ar: 'تعذّر قراءة مزايا الخطة. أعد المحاولة.',
+    en: 'Could not read the plan’s features. Please try again.',
+  },
+  PLAN_FEATURES_TOO_MANY: {
+    ar: 'الحد ١٢ ميزة لكل خطة — البطاقة الأطول من ذلك لا يقرأها أحد.',
+    en: 'Twelve features per plan is the limit — a longer card is one nobody reads.',
+  },
   ACCESS_NOT_MIGRATED: {
     ar: 'الاشتراكات غير مفعّلة بعد. شغّل قسم VENDOR ACCESS في schema.sql.',
     en: 'Subscriptions are not set up yet. Run the VENDOR ACCESS section of schema.sql.',

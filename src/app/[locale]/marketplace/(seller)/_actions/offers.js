@@ -25,6 +25,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { parseInstant } from '@/marketplace/lib/datetime';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { vendorForAction, getUser } from '@/marketplace/auth/session';
 import { discountedPrice } from '@/marketplace/lib/offer';
@@ -47,17 +48,28 @@ function refresh() {
 }
 
 /**
- * A datetime-local input gives "2026-06-15T09:00" with no zone.
+ * The start or end of an offer, as an instant.
  *
- * Read as LOCAL time, which is what the seller meant — they typed the time
- * their showroom opens, not a UTC instant. new Date() on that string already
- * does this; the explicit note is here because the alternative (appending Z)
- * would silently shift every offer by three hours in Riyadh.
+ * ── This used to shift every offer by the seller's own offset ───────────────
+ *
+ * The old version took the picker's zone-less "2026-06-15T09:00" and called
+ * new Date() on it, reasoning that JS reads a bare wall clock as local time,
+ * "which is what the seller meant". It does — as local to WHOEVER PARSES IT,
+ * and this is a server action. On a laptop in Riyadh the server and the seller
+ * shared a zone and it was right; on Vercel the server is UTC, so an offer a
+ * seller set to start at 09:00 started at 12:00 their time, and one set to end
+ * at 23:59 on the last day of a campaign ran three hours into the next.
+ *
+ * Nothing reported it, because an offer that runs at the wrong hour still
+ * looks like an offer.
+ *
+ * DateTimePicker now converts before submitting (lib/datetime.js), so what
+ * arrives is an instant. A value with no zone is refused rather than guessed
+ * at — see parseInstant.
  */
 function when(value) {
-  if (!value) return null;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  const date = parseInstant(value);
+  return date ? date.toISOString() : null;
 }
 
 /**

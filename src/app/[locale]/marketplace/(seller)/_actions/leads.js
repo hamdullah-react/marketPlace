@@ -19,6 +19,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { parseInstant } from '@/marketplace/lib/datetime';
 import { redirect } from 'next/navigation';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { vendorForAction, getUser } from '@/marketplace/auth/session';
@@ -148,13 +149,15 @@ export async function updateLead(prevState, formData) {
 
   if (note.length > 2000) return bad('NOTE_TOO_LONG');
 
-  // A datetime-local value carries no zone. Passed through as-is so Postgres
-  // reads it in the connection's zone rather than being silently shifted by a
-  // Date round-trip on a server that is not in Riyadh.
+  /* An instant, converted in the browser — the comment that used to be here
+     said this was "passed through as-is" to avoid a shift on a server that is
+     not in Riyadh, and then did a Date round-trip anyway, which is exactly the
+     shift it warned about. A reminder set for 9am was stored as noon.
+     See lib/datetime.js. */
   let followUpAt = null;
   if (followUp) {
-    const parsed = new Date(followUp);
-    if (Number.isNaN(parsed.getTime())) return bad('DATE_INVALID');
+    const parsed = parseInstant(followUp);
+    if (!parsed) return bad('DATE_INVALID');
     followUpAt = parsed.toISOString();
   }
 

@@ -23,6 +23,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { toLocalInput, toInstant } from "@/marketplace/lib/datetime";
 import { Loader2, Check, Trash2, AlertCircle } from "lucide-react";
 import { useActionResult } from "./useActionResult";
 import { setLeadStage, updateLead, deleteLead } from "../_actions/leads";
@@ -103,10 +104,21 @@ export default function LeadWorkspace({ locale = "ar", vendorId, lead, answers =
 
   const current = shownStage;
 
-  // `follow_up_at` is an ISO string with a zone; datetime-local wants
-  // YYYY-MM-DDTHH:mm and nothing else, so it is trimmed rather than reformatted
-  // through Date — which would shift it by the server's offset.
-  const followUpValue = lead.follow_up_at ? String(lead.follow_up_at).slice(0, 16) : "";
+  /* ── The stored instant, shown on the seller's own clock ──────────────
+     This used to be `String(lead.follow_up_at).slice(0, 16)`, on the reasoning
+     that reformatting through Date "would shift it by the server's offset".
+     That is backwards in a CLIENT component: the getters here read the
+     VIEWER's zone, which is the one the seller set the reminder in. Slicing
+     the raw ISO instead printed the UTC wall clock, so a seller in Pakistan
+     set 9am, and the box read it back as 4am. */
+  const [followUp, setFollowUp] = useState(() => toLocalInput(lead.follow_up_at));
+
+  /* Seeded once and then owned by the box — no effect syncing it back from the
+     prop. Two reasons: this workspace is one lead per page (/seller/leads/[id]),
+     so a different lead is a remount rather than a prop change; and after a save
+     the value on screen is already the value that was saved. Re-seeding on every
+     revalidation would only be able to do one thing — throw away a date somebody
+     was in the middle of typing when a live update arrived. */
 
   const input =
     "w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-brand-primary dark:border-white/10 dark:bg-white/5 dark:text-white";
@@ -229,14 +241,19 @@ export default function LeadWorkspace({ locale = "ar", vendorId, lead, answers =
             <label htmlFor="followUpAt" className="mb-1 block text-xs font-medium">
               {t("متابعة في", "Follow up")}
             </label>
+            {/* The visible box edits a wall clock and carries NO name; the
+                hidden one is what the form posts, as an instant. Without that
+                split the server receives "09:00" with no zone and has to guess
+                whose morning it was. */}
             <input
               id="followUpAt"
-              name="followUpAt"
               type="datetime-local"
-              defaultValue={followUpValue}
+              value={followUp}
+              onChange={(e) => setFollowUp(e.target.value)}
               dir="ltr"
               className={input}
             />
+            <input type="hidden" name="followUpAt" value={toInstant(followUp)} />
           </div>
 
           <div>

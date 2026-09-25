@@ -221,6 +221,58 @@ export async function getBillingOverview({ days = 30, recent = 50, kind = 'all' 
   };
 }
 
+/**
+ * How many payments are waiting to be confirmed — the number on the sidebar.
+ *
+ * ── Why a count and not a list ──────────────────────────────────────────────
+ *
+ * This is read by the admin LAYOUT, on every page of the panel. A list would be
+ * fifty rows fetched to render a single digit; `head: true` with an exact count
+ * asks the database for the number and transfers no rows at all.
+ *
+ * ── Split by kind, because they are not equally urgent ──────────────────────
+ *
+ * An unpaid promotion is a car that is not on the grid yet. An unpaid
+ * SUBSCRIPTION is a showroom sitting in front of a locked dashboard believing it
+ * has paid — so the two get their own figures, and the sidebar puts each on the
+ * page that deals with it rather than one merged badge on both.
+ *
+ * Silent on failure, and 0 is the honest answer when the table is not there: a
+ * badge is decoration on top of a panel that has to keep working, and the
+ * pages themselves say plainly when billing has not been set up.
+ */
+export async function countAwaitingPayments() {
+  const empty = { total: 0, subscription: 0, boost: 0, other: 0 };
+
+  try {
+    const db = getMarketplaceDb();
+
+    const due = (kind) => {
+      const q = db.from('vendor_charges').select('id', { count: 'exact', head: true }).eq('state', 'due');
+      return kind ? q.eq('kind', kind) : q;
+    };
+
+    const [all, subscription, boost] = await Promise.all([due(null), due('subscription'), due('boost')]);
+
+    if (all.error) return empty;
+
+    const total = all.count ?? 0;
+    const subs = subscription.error ? 0 : (subscription.count ?? 0);
+    const boosts = boost.error ? 0 : (boost.count ?? 0);
+
+    return {
+      total,
+      subscription: subs,
+      boost: boosts,
+      // Anything of a kind this function does not name, so a hand-entered
+      // charge is still counted somewhere instead of vanishing.
+      other: Math.max(0, total - subs - boosts),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 /** One page of charges, filtered by kind and state — the Finance list's tabs. */
 export async function listCharges({ state = 'all', kind = 'all', vendorId = null, limit = 50, offset = 0 } = {}) {
   const build = (select) => {

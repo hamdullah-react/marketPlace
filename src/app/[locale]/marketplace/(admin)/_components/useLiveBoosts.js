@@ -15,6 +15,14 @@
  * so a request decided by another admin or in another tab is never counted
  * twice. The anon client carries the admin's session; listing_boosts_staff_all
  * is what lets it read.
+ *
+ * ── It also relays one event that is NOT a boost ────────────────────────────
+ *
+ * `renewal_requested`. It does not touch `count` — that is promotions waiting —
+ * it calls onBoost(), which refreshes the route, and the admin layout re-reads
+ * the payments-waiting figures with it. This hook is already the panel's one
+ * socket on the admin's own topic, and opening a second channel to carry one
+ * more event would double the connections to say the same thing.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -136,6 +144,20 @@ export function useLiveBoosts(userId, { initial = 0, onBoost, onRevoked } = {}) 
         .on("broadcast", { event: "boost_changed" }, () => {
           handler.current?.();
           recount();
+        })
+        /* ── A showroom asking to renew ────────────────────────────────────
+           Not a boost, so the pending count below is untouched — but it IS the
+           most time-critical thing that reaches this panel: at the other end of
+           it is a seller sitting in front of a locked dashboard believing they
+           have paid.
+
+           onBoost() re-renders the current admin route, and the layout re-reads
+           countAwaitingPayments() with it, so the number on Finance and on
+           Subscriptions moves without anybody navigating. It chimes for the same
+           reason a new request does. */
+        .on("broadcast", { event: "renewal_requested" }, () => {
+          ting();
+          handler.current?.();
         })
         // Another admin removed this person's role, or deleted the account.
         .on("broadcast", { event: "role_changed" }, () => leave())

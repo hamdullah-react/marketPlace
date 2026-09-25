@@ -158,18 +158,25 @@ export async function decideBoost(prevState, formData) {
   notifyVendorLeads(boost.vendor_id, 'boost_changed', { id: boostId, decision });
   notifyAdmins('boost_changed', { id: boostId, decision });
 
-  /* Only the two decisions a showroom needs telling about. 'end' is something
-     they asked for or already know, and a bell for it would be the platform
-     narrating itself. */
-  if (decision === 'approve' || decision === 'reject') {
-    await recordNotification({
-      audience: 'vendor',
-      vendorId: boost.vendor_id,
-      kind: decision === 'approve' ? 'boost_approved' : 'boost_rejected',
-      data: { car: boost.listings?.name ?? null, note },
-      href: '/marketplace/seller/promotions',
-    });
-  }
+  /* ── All three decisions reach the showroom ──────────────────────────
+     'end' used to be silent, on the reasoning that a showroom ending its own
+     promotion already knows. That was only half true: an ADMIN can end one too,
+     and then the car quietly leaves the featured row, the days the showroom paid
+     for stop, and nothing anywhere says why. The seller's evidence was a page
+     that had changed while they were not looking at it.
+
+     So a cancellation is announced like a rejection, with the admin's note —
+     which is the sentence that stops the phone call. The wording of each is in
+     lib/notifications.js and is built in the READER's language, not here. */
+  const KIND = { approve: 'boost_approved', reject: 'boost_rejected', end: 'boost_ended' };
+
+  await recordNotification({
+    audience: 'vendor',
+    vendorId: boost.vendor_id,
+    kind: KIND[decision],
+    data: { car: boost.listings?.name ?? null, note },
+    href: '/marketplace/seller/promotions',
+  });
   // `billingError` is null on every path but a failed charge, so the form only
   // mentions money when something about it actually needs attention.
   /* `awaitingPayment` is what the admin's screen says out loud: the request is

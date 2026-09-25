@@ -45,6 +45,9 @@ const refresh = () => {
   revalidatePath('/[locale]/marketplace/admin/subscriptions', 'page');
   revalidatePath('/[locale]/marketplace/admin', 'page');
   revalidatePath('/[locale]/marketplace/subscription', 'page');
+  // The public pricing page is built from these plans, and it is the one page
+  // here a stranger reads — a stale price on it is a stale price in public.
+  revalidatePath('/[locale]/marketplace/pricing', 'page');
   // Every seller page re-derives access from the session, so the dashboard has
   // to be re-rendered for the change to show on a tab that is already open.
   revalidatePath('/[locale]/marketplace/seller', 'layout');
@@ -242,6 +245,52 @@ export async function saveTrialDays(prevState, formData) {
   return ok({ days });
 }
 
+/**
+ * The ticks on a plan card.
+ *
+ * ── Parsed and REBUILT, never stored as it arrived ──────────────────────────
+ *
+ * This text is printed on a public page, so what lands in the database is a
+ * fresh array of exactly two string fields per row — not whatever JSON the form
+ * sent. A posted payload can carry anything; an object rebuilt key by key can
+ * only carry what this function chose to copy.
+ *
+ * Empty rows are dropped rather than rejected: an admin who added a fourth box
+ * and left it blank means three features, not a validation error.
+ *
+ * MAX_FEATURES is a layout limit as much as a storage one — a card with thirty
+ * ticks is not a card anybody reads.
+ */
+const MAX_FEATURES = 12;
+const FEATURE_LENGTH = 120;
+
+function readFeatures(formData) {
+  let raw;
+  try {
+    raw = JSON.parse(str(formData, 'features') || '[]');
+  } catch {
+    return { error: 'PLAN_FEATURES_INVALID' };
+  }
+
+  if (!Array.isArray(raw)) return { error: 'PLAN_FEATURES_INVALID' };
+  if (raw.length > MAX_FEATURES) return { error: 'PLAN_FEATURES_TOO_MANY' };
+
+  const features = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+
+    const ar = typeof item.ar === 'string' ? item.ar.trim().slice(0, FEATURE_LENGTH) : '';
+    const en = typeof item.en === 'string' ? item.en.trim().slice(0, FEATURE_LENGTH) : '';
+
+    // One language is enough — locale_fallback means the other side still
+    // renders. Neither is an empty row the admin never filled in.
+    if (!ar && !en) continue;
+    features.push({ ar, en });
+  }
+
+  return { features };
+}
+
 /** Create or edit a renewal plan. */
 export async function saveVendorPlan(prevState, formData) {
   const { viewer, error: denied } = await adminForAction();
@@ -254,19 +303,45 @@ export async function saveVendorPlan(prevState, formData) {
   if (!Number.isFinite(days) || days < 1 || days > 3650) return bad('PLAN_DAYS_INVALID');
   if (!Number.isFinite(price) || price < 0) return bad('PLAN_PRICE_INVALID');
 
+  const parsed = readFeatures(formData);
+  if (parsed.error) return bad(parsed.error);
+
   const row = {
     name: { ar: str(formData, 'nameAr').slice(0, 80), en: str(formData, 'nameEn').slice(0, 80) },
     days,
     price,
     active: str(formData, 'active') !== 'false',
     sort: Number.isFinite(num(formData, 'sort')) ? num(formData, 'sort') : 0,
+    // The public copy. See the A PLAN IS A PUBLIC OFFER section of schema.sql
+    // for why the sentence and the list are two columns.
+    description: {
+      ar: str(formData, 'descriptionAr').slice(0, 300),
+      en: str(formData, 'descriptionEn').slice(0, 300),
+    },
+    features: parsed.features,
+    popular: str(formData, 'popular') === 'true',
   };
 
   const db = getMarketplaceDb();
 
-  const { error } = planId
-    ? await db.from('vendor_plans').update(row).eq('id', planId)
-    : await db.from('vendor_plans').insert(row);
+  const write = (payload) =>
+    planId
+      ? db.from('vendor_plans').update(payload).eq('id', planId)
+      : db.from('vendor_plans').insert(payload);
+
+  let { error } = await write(row);
+
+  /* 42703 — this database has not had the A PLAN IS A PUBLIC OFFER section run
+     on it yet. The four original fields are still worth saving: an admin
+     setting a price should not be blocked by three columns that only the
+     pricing page reads. Said afterwards rather than silently, so the missing
+     section gets run. */
+  let partial = false;
+  if (error?.code === '42703') {
+    const { description, features, popular, ...base } = row;
+    ({ error } = await write(base));
+    partial = !error;
+  }
 
   if (error) {
     return bad(error.code === '42P01' ? 'ACCESS_NOT_MIGRATED' : 'SAVE_FAILED', { detail: error.message });
@@ -275,7 +350,7 @@ export async function saveVendorPlan(prevState, formData) {
   await writeAudit(viewer, planId ? 'plan.update' : 'plan.add', 'vendor_plan', planId || null, null, row);
 
   refresh();
-  return ok();
+  return ok({ partial });
 }
 
 /** Remove a renewal plan. */

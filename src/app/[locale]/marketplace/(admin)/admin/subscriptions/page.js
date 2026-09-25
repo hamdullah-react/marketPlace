@@ -1,15 +1,18 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
-import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Lock, Store } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock, Lock, Store } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { listVendorAccess, getVendorPlans, listOpenRenewals } from '@/marketplace/db/queries/access';
-import { getSiteSettings } from '@/marketplace/db/queries/site';
+import { getSiteSettings, readSiteSettings } from '@/marketplace/db/queries/site';
 import { accessLabel, accessTone, WARN_DAYS } from '@/marketplace/lib/access';
 import { localized, formatPrice } from '@/marketplace/lib/listing';
+import { matches } from '@/marketplace/lib/search';
+import SearchBox from '../../../_components/SearchBox';
 import VendorAccessActions from '../../_components/VendorAccessActions';
 import SubscriptionSettings from '../../_components/SubscriptionSettings';
+import DeleteChargeButton from '../../_components/DeleteChargeButton';
 
 export const instant = false;
 
@@ -35,7 +38,7 @@ export const metadata = {
  * be stale, and a showroom that lapsed thirty seconds ago appears as expired
  * without a job having had to notice.
  */
-export default async function AdminSubscriptionsPage({ params }) {
+export default async function AdminSubscriptionsPage({ params, searchParams }) {
   const { locale } = await params;
   setRequestLocale(locale);
 
@@ -55,19 +58,29 @@ export default async function AdminSubscriptionsPage({ params }) {
         </div>
 
         <Suspense fallback={<SubscriptionsSkeleton />}>
-          <Body locale={locale} t={t} />
+          <Body searchParams={searchParams} locale={locale} t={t} />
         </Suspense>
       </div>
     </div>
   );
 }
 
-async function Body({ locale, t }) {
-  const [{ ready, items }, plans, renewals, site] = await Promise.all([
+async function Body({ searchParams, locale, t }) {
+  const sp = (await searchParams) ?? {};
+  const term = typeof sp.q === 'string' ? sp.q.slice(0, 80) : '';
+
+  const [{ ready, items }, plans, renewals, site, settings] = await Promise.all([
     listVendorAccess(),
     getVendorPlans({ activeOnly: false }),
     listOpenRenewals().catch(() => []),
     getSiteSettings().catch(() => null),
+    /* The RAW row, for one column. getSiteSettings() is the cached public
+       shape and its `authoringLocale` answers 'ar' both when an admin chose
+       Arabic and when nobody has ever saved the setting — which would put an
+       Arabic box in front of an English admin on a database where the language
+       was never configured. The row keeps those two apart, and every other
+       bilingual admin screen reads it the same way. */
+    readSiteSettings().catch(() => null),
   ]);
 
   if (!ready) {
@@ -89,6 +102,24 @@ async function Body({ locale, t }) {
   }
 
   const trialDays = Number(site?.trialDays ?? 30);
+
+  /* ── Searched here, over the whole list ────────────────────────────────
+     listVendorAccess() reads every approved showroom — one platform's worth,
+     not a paged table — so the term is applied in memory and the match can be
+     the good one: both languages of the name, the slug, the city and the phone,
+     with Arabic letter forms and Arabic-Indic digits folded (lib/search.js).
+     Doing it in PostgREST would mean an `ilike` per field and no folding, so
+     "الاحمدي" would not find "الأحمدي".
+
+     `filtered` is what the grid renders. The KPIs above it deliberately keep
+     counting `items`: a headline that moves when you search is a headline that
+     cannot be read — "3 approved showrooms" is not true of the platform, only
+     of the box. */
+  const filtered = term
+    ? items.filter((v) =>
+        matches(term, [v.name, v.slug, v.city, v.contact_phone, v.contact_email])
+      )
+    : items;
 
   const counts = items.reduce(
     (acc, v) => {
@@ -176,11 +207,18 @@ async function Body({ locale, t }) {
                     {formatPrice(row.amount, locale, site?.currency)}
                   </span>
                   <Link
-                    href={`/${locale}/marketplace/admin/finance?state=due`}
+                    href={`/${locale}/marketplace/admin/finance?section=subscriptions&state=due`}
                     className="text-xs font-medium text-brand-primary hover:underline"
                   >
                     {t('تسجيل الدفعة', 'Record payment')}
                   </Link>
+
+                  {/* A request raised by mistake — the wrong plan, a duplicate,
+                      a showroom that rang to say never mind — can go from here
+                      rather than sending the admin to Finance to hunt for it.
+                      Only an UNPAID one reaches this list at all, and the action
+                      refuses a paid charge whatever this page believes. */}
+                  <DeleteChargeButton locale={locale} chargeId={row.id} label={row.ref} />
                 </li>
               ))}
             </ul>
@@ -208,14 +246,42 @@ async function Body({ locale, t }) {
             )}
           </p>
 
-          <SubscriptionSettings locale={locale} trialDays={trialDays} plans={plans} currency={site?.currency} />
+          {/* The admin's chosen writing language (Admin → Settings → Language).
+              Falls back to the DASHBOARD language, not to Arabic, so an English
+              admin on a database where the setting was never saved gets English
+              boxes rather than being asked to write Arabic. */}
+          <SubscriptionSettings
+            locale={locale}
+            trialDays={trialDays}
+            plans={plans}
+            currency={site?.currency}
+            mode={settings?.row?.default_locale ?? locale}
+          />
         </Card>
       </div>
 
       {/* ── The showrooms ──────────────────────────────────────────────── */}
       {items.length ? (
+        <div className="flex flex-wrap items-center gap-3 px-4 lg:px-6">
+          <h2 className="text-sm font-semibold text-brand-primary">
+            {t('المعارض', 'Showrooms')}
+          </h2>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {term
+              ? t(`${filtered.length} من ${items.length}`, `${filtered.length} of ${items.length}`)
+              : t(`${items.length} معرض`, `${items.length} showroom${items.length === 1 ? '' : 's'}`)}
+          </span>
+          <SearchBox
+            locale={locale}
+            className="ms-auto w-full sm:w-64"
+            placeholder={t('ابحث باسم المعرض أو المدينة أو الجوال', 'Search name, city or phone')}
+          />
+        </div>
+      ) : null}
+
+      {filtered.length ? (
         <div className="grid gap-3 px-4 sm:grid-cols-2 xl:grid-cols-3 lg:px-6">
-          {items.map((vendor) => {
+          {filtered.map((vendor) => {
             const out = !vendor.access.allowed;
 
             return (
@@ -292,9 +358,22 @@ async function Body({ locale, t }) {
         <div className="px-4 lg:px-6">
           <div className="rounded-xl border border-dashed border-gray-300 py-14 text-center dark:border-gray-700">
             <Store className="mx-auto h-9 w-9 text-gray-300 dark:text-gray-600" />
+            {/* Two different nothings. "No approved showrooms" on a platform
+                with forty of them, because somebody mistyped a name, is the
+                kind of empty state that gets reported as data loss. */}
             <p className="mt-3 font-semibold text-brand-primary">
-              {t('لا توجد معارض معتمدة', 'No approved showrooms')}
+              {term
+                ? t('لا معرض يطابق البحث', 'No showroom matches that search')
+                : t('لا توجد معارض معتمدة', 'No approved showrooms')}
             </p>
+            {term ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t(
+                  'جرّب اسماً أو مدينة أو رقماً آخر.',
+                  'Try another name, city or number.'
+                )}
+              </p>
+            ) : null}
           </div>
         </div>
       )}

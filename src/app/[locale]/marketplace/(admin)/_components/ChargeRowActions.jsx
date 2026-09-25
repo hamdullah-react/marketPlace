@@ -28,7 +28,7 @@
 
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BanknoteIcon, Loader2, RotateCcw, XCircle } from "lucide-react";
+import { BanknoteIcon, Loader2, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -36,16 +36,13 @@ import {
 import { useActionResult } from "@/marketplace/ui/useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
 import { PAYMENT_METHODS, accountKindLabel } from "@/marketplace/lib/billing";
-import { recordPayment, undoPayment, voidCharge } from "../admin/_actions/billing";
+import { localNow, toInstant } from "@/marketplace/lib/datetime";
+import { deleteCharge, recordPayment, undoPayment, voidCharge } from "../admin/_actions/billing";
 
 const INITIAL = { ok: false, error: null };
 
-/** `datetime-local` wants YYYY-MM-DDTHH:mm in LOCAL time, with no zone. */
-const localNow = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+/* The input's value is a wall clock in the ADMIN's zone; the server is handed
+   an instant. Converting here is the whole fix — see lib/datetime.js. */
 
 export default function ChargeRowActions({
   locale = "ar",
@@ -69,6 +66,7 @@ export default function ChargeRowActions({
 
   const [payOpen, setPayOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [method, setMethod] = useState("bank_transfer");
   const [paidInto, setPaidInto] = useState(accounts[0]?.label ?? "");
   const [reference, setReference] = useState("");
@@ -79,6 +77,7 @@ export default function ChargeRowActions({
   const done = () => {
     setPayOpen(false);
     setVoidOpen(false);
+    setDeleteOpen(false);
     setReference("");
     setNote("");
     setReason("");
@@ -88,8 +87,11 @@ export default function ChargeRowActions({
   const pay = useActionResult(recordPayment, INITIAL, { onSuccess: done });
   const undo = useActionResult(undoPayment, INITIAL, { autoClearMs: 0, onSuccess: done });
   const drop = useActionResult(voidCharge, INITIAL, { autoClearMs: 0, onSuccess: done });
+  /* No auto-clear: a refusal here — a paid charge — is the one thing the admin
+     has to read before pressing anything else. */
+  const erase = useActionResult(deleteCharge, INITIAL, { autoClearMs: 0, onSuccess: done });
 
-  const busy = pay.pending || undo.pending || drop.pending;
+  const busy = pay.pending || undo.pending || drop.pending || erase.pending;
 
   const send = (runner, fields) => {
     const fd = new FormData();
@@ -99,7 +101,7 @@ export default function ChargeRowActions({
     startTransition(() => runner.formAction(fd));
   };
 
-  const error = [pay, undo, drop]
+  const error = [pay, undo, drop, erase]
     .map((r) => (r.result?.error ? errorText(r.result.error, locale, r.result.params) : null))
     .find(Boolean);
 
@@ -148,7 +150,89 @@ export default function ChargeRowActions({
             {t("إلغاء تسجيل الدفعة", "Un-record payment")}
           </Button>
         ) : null}
+
+        {/* ── Delete ───────────────────────────────────────────────────────
+            Offered on anything that is not PAID — an unpaid charge and a
+            cancelled one are both rows that can be clutter rather than history.
+            A paid one has no button at all: the action refuses it, and a button
+            whose only outcome is an error is a button that should not be drawn.
+            See deleteCharge for the whole argument. */}
+        {charge?.state && charge.state !== "paid" ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            className="ms-auto gap-1.5 text-muted-foreground hover:text-red-600"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("حذف", "Delete")}
+          </Button>
+        ) : null}
       </div>
+
+      {/* ── Delete, for good ─────────────────────────────────────────────── */}
+      <Dialog open={deleteOpen} onOpenChange={(next) => setDeleteOpen(Boolean(next))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("حذف المستحق؟", "Delete this charge?")}</DialogTitle>
+            <DialogDescription>
+              {/* The difference between the two destructive buttons, in one
+                  sentence, at the moment it matters. An admin who wanted the
+                  showroom to keep SEEING that it was waived wants Cancel. */}
+              {t(
+                "يُحذف نهائياً ولا يظهر للمعرض بعدها. إن كنت تريد أن يبقى ظاهراً كملغى، استخدم «إلغاء المستحق» بدلاً من الحذف.",
+                "It goes for good and the showroom stops seeing it. If you want them to still see that it was cancelled, use Cancel charge instead."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <dl className="space-y-1 rounded-xl bg-brand-primary/5 p-3 text-xs">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">{t("الرقم", "Reference")}</dt>
+              <dd className="font-mono" dir="ltr">
+                {charge?.ref}
+              </dd>
+            </div>
+            {vendorName ? (
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">{t("المعرض", "Showroom")}</dt>
+                <dd className="truncate font-medium">{vendorName}</dd>
+              </div>
+            ) : null}
+            {amountLabel ? (
+              <div className="flex justify-between gap-3 border-t pt-1 dark:border-white/10">
+                <dt className="font-medium">{t("المبلغ", "Amount")}</dt>
+                <dd className="font-bold tabular-nums">{amountLabel}</dd>
+              </div>
+            ) : null}
+          </dl>
+
+          {error ? (
+            <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setDeleteOpen(false)}>
+              {t("تراجع", "Keep it")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={busy}
+              className="gap-1.5"
+              onClick={() => send(erase, {})}
+            >
+              {erase.pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {t("حذف نهائي", "Delete for good")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Record a payment ────────────────────────────────────────────── */}
       <Dialog open={payOpen} onOpenChange={(next) => setPayOpen(Boolean(next))}>
@@ -220,6 +304,10 @@ export default function ChargeRowActions({
                 <input
                   type="datetime-local"
                   value={paidAt}
+                  /* The browser's own limit, in the admin's zone. A control
+                     that will not offer tomorrow beats an error that explains
+                     why tomorrow was refused. */
+                  max={localNow()}
                   onChange={(e) => setPaidAt(e.target.value)}
                   disabled={busy}
                   className={field}
@@ -279,7 +367,12 @@ export default function ChargeRowActions({
                 size="sm"
                 disabled={busy}
                 className="gap-1.5"
-                onClick={() => send(pay, { method, reference, paidAt, paidInto, note })}
+                /* toInstant() is what stops the server having to guess a zone —
+                     it was the cause of "a payment cannot be dated in the future"
+                     on a production server running in UTC. */
+                onClick={() =>
+                  send(pay, { method, reference, paidAt: toInstant(paidAt), paidInto, note })
+                }
               >
                 {pay.pending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

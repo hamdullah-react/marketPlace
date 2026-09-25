@@ -16,7 +16,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Loader2, AlertCircle, MailCheck, Eye, EyeOff } from "lucide-react";
+import { Loader2, AlertCircle, MailCheck, Eye, EyeOff, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -105,7 +105,31 @@ function limitMessage(result, locale) {
   return null;
 }
 
-export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) {
+/**
+ * Why somebody was sent here, when they did not come here on purpose.
+ *
+ * ── A KEY, never the text ───────────────────────────────────────────────────
+ *
+ * The notice arrives as `?notice=showroom` and is looked up in this table. It is
+ * emphatically NOT a message passed in the URL: a login page that prints
+ * whatever a query string says is a phishing page somebody else can write —
+ * "your account is locked, confirm your card details" on our domain, with our
+ * logo, above a real password box. A closed set of keys cannot be made to say
+ * anything this file does not already say.
+ *
+ * An unknown key renders nothing, which is the right failure: a stale link
+ * shows the ordinary login page rather than an error about a banner.
+ */
+const NOTICES = {
+  // Set by the pricing page. The point is that they have not hit a paywall —
+  // the prices are public — they have hit the one action that needs an account.
+  showroom: {
+    ar: "الاشتراك للمعارض. سجّل الدخول بحساب معرضك لإكمال الطلب — التصفّح والشراء مجاني للمشترين ولا يحتاج خطة.",
+    en: "Subscriptions are for showrooms. Sign in with your showroom account to finish the request — browsing and buying stays free for buyers and needs no plan.",
+  },
+};
+
+export default function AuthForm({ mode = "signin", locale = "ar", next = "", notice = "" }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const isSignUp = mode === "signup";
@@ -267,6 +291,15 @@ export default function AuthForm({ mode = "signin", locale = "ar", next = "" }) 
       </CardHeader>
 
       <CardContent>
+        {/* Above the fields, because it explains the fields. Rendered from the
+            table only — see NOTICES for why the URL cannot supply the words. */}
+        {NOTICES[notice] ? (
+          <p className="mb-5 flex items-start gap-2 rounded-xl bg-brand-primary/10 p-3 text-xs text-brand-primary">
+            <Store className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{NOTICES[notice][isAr ? "ar" : "en"]}</span>
+          </p>
+        ) : null}
+
         <form
           action={action.formAction}
           onSubmit={(e) => {

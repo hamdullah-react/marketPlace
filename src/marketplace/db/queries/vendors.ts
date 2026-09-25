@@ -1,4 +1,5 @@
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { likePattern } from '@/marketplace/lib/search';
 
 const SELECT = `
   id, slug, name, verified, city, logo_url, banner_url,
@@ -50,11 +51,30 @@ const SELECT_SEO = `${SELECT_DETAIL},
 let warnedAboutSeo = false;
 
 /** Only approved vendors are ever visible on the storefront. */
+/**
+ * ── `q` is filtered in the DATABASE, unlike the admin's lists ───────────────
+ *
+ * This one pages — twenty-four showrooms at a time out of however many the
+ * marketplace ends up with — so the term has to be applied where all the rows
+ * are. A JS filter over the current page would search the page and answer "no
+ * showrooms" for one sitting on page two, and the count under the grid would be
+ * the count of the unfiltered set.
+ *
+ * The cost of doing it here is that Postgres compares the raw strings, so the
+ * Arabic folding in lib/search.js does not apply and "الاحمدي" will not find
+ * "الأحمدي". Accepted for now: the alternative is a maintained search column and
+ * a trigram index (what §21.5 did for leads), which is worth doing when the
+ * showroom list is long enough for anybody to notice.
+ *
+ * likePattern() strips the characters that are PostgREST's own filter grammar —
+ * without it a comma in the term does not fail to match, it rewrites the filter.
+ */
 export async function getApprovedVendors({
   city,
+  q,
   limit = 24,
   offset = 0,
-}: { city?: string | null; limit?: number; offset?: number } = {}) {
+}: { city?: string | null; q?: string | null; limit?: number; offset?: number } = {}) {
   let query = getMarketplaceDb()
     .from('vendors')
     .select(SELECT, { count: 'exact' })
@@ -73,6 +93,21 @@ export async function getApprovedVendors({
     .range(offset, offset + limit - 1);
 
   if (city) query = query.eq('city', city);
+
+  const pattern = likePattern(q);
+  if (pattern) {
+    // Both languages of the name, the slug and the city: a visitor types the
+    // showroom's name in whichever language they think in, and often types a
+    // city into the same box because it is the only box on the page.
+    query = query.or(
+      [
+        `name->>ar.ilike.${pattern}`,
+        `name->>en.ilike.${pattern}`,
+        `slug.ilike.${pattern}`,
+        `city.ilike.${pattern}`,
+      ].join(',')
+    );
+  }
 
   const { data, error, count } = await query;
   if (error) throw new Error(`getApprovedVendors: ${error.message}`);

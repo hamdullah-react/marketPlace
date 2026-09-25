@@ -16,19 +16,49 @@ const ACCESS_COLUMNS =
   'id, slug, name, state, logo_url, city, contact_phone, contact_email, approved_at, created_at, ' +
   'access_until, access_blocked, access_block_reason, access_blocked_at';
 
-/** The renewal plans an admin has published. Empty until they create one. */
+/**
+ * The renewal plans an admin has published. Empty until they create one.
+ *
+ * ── Read twice, on purpose ──────────────────────────────────────────────────
+ *
+ * `description`, `features` and `popular` are what the public pricing page is
+ * built out of, and they arrived after this table did. A database that has not
+ * been brought up to date answers 42703 for the whole select — so the second
+ * attempt asks for the four columns that have always existed, and the page
+ * renders name-and-price cards instead of nothing at all. An admin panel that
+ * goes blank because a column is missing is the worse failure of the two.
+ */
+const PLAN_COLUMNS = 'id, name, days, price, active, sort, description, features, popular';
+const PLAN_COLUMNS_BASE = 'id, name, days, price, active, sort';
+
 export async function getVendorPlans({ activeOnly = true } = {}) {
-  let query = getMarketplaceDb()
-    .from('vendor_plans')
-    .select('id, name, days, price, active, sort')
-    .order('sort', { ascending: true })
-    .order('days', { ascending: true });
+  const read = (columns) => {
+    let query = getMarketplaceDb()
+      .from('vendor_plans')
+      .select(columns)
+      .order('sort', { ascending: true })
+      .order('days', { ascending: true });
 
-  if (activeOnly) query = query.eq('active', true);
+    if (activeOnly) query = query.eq('active', true);
+    return query;
+  };
 
-  const { data, error } = await query;
+  let { data, error } = await read(PLAN_COLUMNS);
+  if (error?.code === '42703') ({ data, error } = await read(PLAN_COLUMNS_BASE));
+
   if (error) return [];
-  return data ?? [];
+
+  /* Normalised here rather than in three components. `features` is jsonb and
+     can legitimately be absent (the older shape), null (nobody filled it in) or
+     an array; every reader wants an array of {ar, en} and none of them should
+     have to defend against the other two. */
+  return (data ?? []).map((plan) => ({
+    ...plan,
+    features: Array.isArray(plan.features)
+      ? plan.features.filter((f) => f && typeof f === 'object')
+      : [],
+    popular: plan.popular === true,
+  }));
 }
 
 /**

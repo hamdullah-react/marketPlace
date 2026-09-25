@@ -45,6 +45,15 @@ const KINDS = {
     body: [car(d, locale), d.note].filter(Boolean).join(' · '),
   }),
 
+  /* Ended by the platform rather than by the clock — see decideBoost. The note
+     is the whole point of the message, so it is not trimmed away when long. */
+  boost_ended: (d, { locale }) => ({
+    title: locale === 'ar' ? 'تم إيقاف الترويج' : 'Promotion stopped',
+    body:
+      [car(d, locale), d.note].filter(Boolean).join(' · ') ||
+      (locale === 'ar' ? 'تواصل مع الإدارة للتفاصيل' : 'Get in touch with the platform team'),
+  }),
+
   boost_started: (d, { locale }) => ({
     title: locale === 'ar' ? 'بدأ الترويج' : 'Promotion is live',
     body:

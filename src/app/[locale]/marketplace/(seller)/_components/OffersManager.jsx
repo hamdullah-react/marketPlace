@@ -28,6 +28,7 @@ import { offerStatus, discountedPrice } from "@/marketplace/lib/offer";
 import { localized, formatPrice } from "@/marketplace/lib/listing";
 import CatalogCombo from "./CatalogCombo";
 import DateTimePicker from "./DateTimePicker";
+import { toLocalInput } from "@/marketplace/lib/datetime";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -188,16 +189,11 @@ export default function OffersManager({
   const labelCls = "text-xs font-medium text-gray-700 dark:text-gray-300";
 
   /* DateTimePicker speaks "YYYY-MM-DDTHH:mm" in LOCAL time, so an offer being
-     edited has to be converted back out of its stored UTC. Slicing the ISO
-     string instead would show the seller a UTC clock and shift Riyadh by
-     three hours. */
-  const forInput = (iso) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
+     edited has to be converted back out of its stored UTC — slicing the ISO
+     string instead would show the seller a UTC clock and shift Riyadh by three
+     hours. This was right and hand-written; it is the shared helper now, so the
+     read side and the write side cannot drift apart. */
+  const forInput = toLocalInput;
 
   const dateLabel = (iso) =>
     iso

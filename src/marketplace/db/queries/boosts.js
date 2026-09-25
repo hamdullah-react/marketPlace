@@ -11,6 +11,7 @@ import 'server-only';
 
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { isMissingSchema } from './engagement';
+import { matches } from '@/marketplace/lib/search';
 
 // `*` rather than a column list, so the page keeps working whether or not the
 // price column (BOOST PLANS AND PRICES section) exists yet.
@@ -158,8 +159,24 @@ export async function getBoostsForListings(listingIds) {
 /**
  * For the admin page. `tab` is pending (oldest first — first come, first
  * served), active (running now) or history (everything decided and over).
+ *
+ * ── `q` is applied HERE, in JS, and that is a decision ──────────────────────
+ *
+ * The searchable fields are on the EMBEDDED rows — the car's bilingual name and
+ * the showroom's — and PostgREST cannot filter a parent by a child's column
+ * without an inner join that would also silently drop any boost whose listing
+ * was deleted. Those are exactly the rows an admin goes looking for.
+ *
+ * So the tab is fetched (capped at `limit`, which is one screenful of a
+ * platform's promotions, not a paged table) and the term is matched over it with
+ * the Arabic-aware fold in lib/search.js. `total` comes back alongside so the
+ * page can say "4 of 37" rather than pretending the list is all there is.
+ *
+ * If this list ever grows past its cap, the honest fix is a search column on
+ * listing_boosts maintained by a trigger — the same answer §21.5 reached for
+ * leads — not a wider limit here.
  */
-export async function listBoosts({ tab = 'pending', limit = 100 } = {}) {
+export async function listBoosts({ tab = 'pending', limit = 100, q = '' } = {}) {
   const nowIso = new Date().toISOString();
 
   const build = (select) => {
@@ -218,7 +235,21 @@ export async function listBoosts({ tab = 'pending', limit = 100 } = {}) {
     items.sort((a, b) => rankOf(a) - rankOf(b));
   }
 
-  return { ready: true, items };
+  const found = q
+    ? items.filter((b) =>
+        matches(q, [
+          b.listings?.name,
+          b.vendors?.name,
+          b.vendors?.slug,
+          b.contact_phone,
+          b.contact_email,
+          b.note,
+          b.review_note,
+        ])
+      )
+    : items;
+
+  return { ready: true, items: found, total: items.length };
 }
 
 /** A seller's own requests, newest first, for their Promotions page. */
@@ -238,13 +269,31 @@ export async function getVendorBoosts(vendorId, limit = 50) {
     return { ready: !missing, items: [] };
   }
 
-  // Decided here rather than in the page: "still running" depends on the
-  // clock, and a component must not read the clock while rendering.
+  /* Both of these are decided HERE rather than in the page, and for the same
+     reason: they depend on the clock, and a component must not read the clock
+     while rendering — react-hooks/purity fails the build over it, correctly,
+     because a value that changes between two renders of the same data is a
+     value that can flicker.
+
+     `declinedRecently` is what the seller's Promotions page lifts out of the
+     table into a banner (see the note there for why thirty days, and not an
+     unread flag). */
   const now = Date.now();
-  const items = (data ?? []).map((b) => ({
-    ...b,
-    running: b.state === 'approved' && Boolean(b.ends_at) && Date.parse(b.ends_at) > now,
-  }));
+  const RECENT_MS = 30 * 24 * 60 * 60 * 1000;
+
+  const items = (data ?? []).map((b) => {
+    const decidedAt = Date.parse(b.reviewed_at ?? b.created_at ?? '');
+
+    return {
+      ...b,
+      running: b.state === 'approved' && Boolean(b.ends_at) && Date.parse(b.ends_at) > now,
+      declinedRecently:
+        (b.state === 'rejected' || b.state === 'cancelled') &&
+        Number.isFinite(decidedAt) &&
+        now - decidedAt < RECENT_MS,
+    };
+  });
+
   return { ready: true, items };
 }
 

@@ -39,5 +39,6 @@ async function SignInForm({ locale, searchParams }) {
   // the action, not here — the check belongs next to the redirect.
   const sp = await searchParams;
 
-  return <AuthForm mode="signin" locale={locale} next={sp?.next ?? ''} />;
+  // `notice` is a KEY looked up in AuthForm, not a message — see NOTICES there.
+  return <AuthForm mode="signin" locale={locale} next={sp?.next ?? ''} notice={sp?.notice ?? ''} />;
 }

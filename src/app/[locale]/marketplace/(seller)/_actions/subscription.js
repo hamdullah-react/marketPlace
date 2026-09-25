@@ -49,6 +49,9 @@ const refresh = (locale) => {
   revalidatePath('/[locale]/marketplace/seller/billing', 'page');
   revalidatePath('/[locale]/marketplace/admin/finance', 'page');
   revalidatePath('/[locale]/marketplace/admin/subscriptions', 'page');
+  /* The pricing page shows "you already have a request waiting" once one
+     exists, so it is part of what this changes. */
+  revalidatePath('/[locale]/marketplace/pricing', 'page');
 };
 
 /** Raise a renewal charge for one of the published plans. */

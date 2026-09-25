@@ -46,6 +46,7 @@ const COLUMNS = [
       { ar: "بِع سيارتك", en: "Sell Your Car", href: "/marketplace/sell" },
       { ar: "انضم كمعرض", en: "Become a Vendor", href: "/marketplace/sell/apply" },
       { ar: "لوحة البائع", en: "Seller Dashboard", href: "/marketplace/seller" },
+      { ar: "الأسعار", en: "Pricing", href: "/marketplace/pricing" },
       { ar: "الرسوم", en: "Fees", href: "/marketplace/fees" },
     ],
   },

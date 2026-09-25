@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
-import { Send, ShieldCheck, Sparkles } from 'lucide-react';
+import { Send, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TableSkeleton } from '../../../_components/Skeletons';
 import { resolveListingsVendor } from '../listings/_apicalls/listingsPageApi';
@@ -174,6 +174,28 @@ async function HistorySection({ searchParams, locale }) {
     );
   }
 
+  /* ── Turned down, and said so where they are looking ──────────────────
+     A rejection already rang the bell and already had its own row in the table
+     below — a red "Rejected" chip five columns across, with the reason under it.
+     That is discoverable and it is not NOTICEABLE: the seller opens this page to
+     send a request, sees a form, and scrolls past the row that explains why the
+     last one never went live.
+
+     So the recent decisions against them are lifted out of the table and stated
+     above it, with the team's reason. Both states, because from the seller's
+     side "we turned it down" and "we stopped it" are the same question — what
+     happened to my promotion, and what do I do now.
+
+     THIRTY DAYS, not "unread": there is no per-request read flag, and inventing
+     one would mean a column and a write on every page view. A month is long
+     enough that nobody misses the news and short enough that the banner clears
+     itself instead of becoming furniture.
+
+     The cutoff is applied in getVendorBoosts, not here — `declinedRecently`
+     arrives already decided, because reading the clock during render is a
+     purity error and a flickering banner. */
+  const declined = items.filter((b) => b.declinedRecently);
+
   const status = (b) => {
     if (b.state === 'pending') {
       return { label: t('بانتظار المراجعة', 'Waiting for review'), cls: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' };
@@ -207,6 +229,54 @@ async function HistorySection({ searchParams, locale }) {
   };
 
   return (
+    <>
+      {declined.length ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
+          <p className="flex items-center gap-2 text-sm font-semibold text-red-800 dark:text-red-300">
+            <XCircle className="h-4 w-4 shrink-0" />
+            {declined.length === 1
+              ? t('طلب ترويج لم يُقبل', 'A promotion request was not accepted')
+              : t(`${declined.length} طلبات ترويج لم تُقبل`, `${declined.length} promotion requests were not accepted`)}
+          </p>
+
+          <ul className="mt-2 space-y-2">
+            {declined.map((b) => (
+              <li key={b.id} className="text-sm text-red-800/90 dark:text-red-300/90">
+                <span className="font-medium">
+                  {b.listings ? localized(b.listings.name, locale) : t('إعلان محذوف', 'Deleted listing')}
+                </span>
+                <span className="mx-1.5 opacity-60">·</span>
+                <span className="text-xs">
+                  {b.state === 'rejected'
+                    ? t('رُفض الطلب', 'The request was rejected')
+                    : t('أُوقف الترويج', 'The promotion was stopped')}
+                </span>
+                {b.reviewed_at ? (
+                  <span className="text-xs opacity-70"> — {date(b.reviewed_at)}</span>
+                ) : null}
+
+                {/* The reason, verbatim. Without it the banner is an
+                    accusation with no case attached, and the seller's only
+                    next move is to ring somebody. */}
+                {b.review_note ? (
+                  <p className="mt-0.5 text-xs italic">
+                    {t('السبب: ', 'Reason: ')}
+                    {b.review_note}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-3 text-xs text-red-800/80 dark:text-red-300/80">
+            {t(
+              'يمكنك إرسال طلب جديد لنفس السيارة بعد معالجة السبب. لم يُخصم أي مبلغ على طلب لم يُقبل.',
+              'You can send a fresh request for the same car once the reason is dealt with. Nothing is charged for a request that was not accepted.'
+            )}
+          </p>
+        </div>
+      ) : null}
+
     <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
       <table className="w-full min-w-[720px] text-sm">
         <thead className="bg-gray-50 dark:bg-[#141414]">
@@ -290,5 +360,6 @@ async function HistorySection({ searchParams, locale }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }

@@ -33,6 +33,7 @@ import { ar as arLocale, enGB } from "date-fns/locale";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { toInstant } from "@/marketplace/lib/datetime";
 
 /** "YYYY-MM-DDTHH:mm" in LOCAL time — what the server action parses. */
 function toLocalValue(date) {
@@ -93,7 +94,12 @@ export default function DateTimePicker({
   return (
     <div className="relative">
       {/* The form reads this, not the popover. */}
-      <input type="hidden" name={name} value={value ?? ""} />
+      {/* What the FORM carries is an instant, not the wall clock on screen.
+          `value` stays the local string because that is what the calendar and
+          the time box are editing; toInstant() resolves it against the
+          seller's own zone at the moment it is submitted, so a server in UTC
+          does not have to guess — which it used to, wrongly. */}
+      <input type="hidden" name={name} value={toInstant(value)} />
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>

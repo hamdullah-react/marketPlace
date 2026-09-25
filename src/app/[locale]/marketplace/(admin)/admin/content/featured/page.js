@@ -9,6 +9,7 @@ import { localized, formatPrice } from '@/marketplace/lib/listing';
 import SafeThumb from '../../../../_components/SafeThumb';
 import BoostRowActions from '../../../_components/BoostRowActions';
 import BoostOrderList from '../../../_components/BoostOrderList';
+import SearchBox from '../../../../_components/SearchBox';
 
 export const instant = false;
 
@@ -41,6 +42,15 @@ function whatsappNumber(phone) {
   if (digits.startsWith('05')) return `966${digits.slice(1)}`;
   if (digits.startsWith('5') && digits.length === 9) return `966${digits}`;
   return digits;
+}
+
+/** A tab link that keeps the current search. */
+function tabHref(tab, term) {
+  const params = new URLSearchParams();
+  if (tab !== 'pending') params.set('tab', tab);
+  if (term) params.set('q', term);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
 }
 
 export default async function AdminBoostsPage({ params, searchParams }) {
@@ -93,10 +103,11 @@ async function BoostsSection({ searchParams, locale }) {
     n == null ? null : new Intl.NumberFormat(isAr ? 'ar-SA' : 'en', { maximumFractionDigits: 2 }).format(Number(n));
 
   const tab = TABS.some((x) => x.value === sp?.tab) ? sp.tab : 'pending';
+  const term = typeof sp?.q === 'string' ? sp.q.slice(0, 80) : '';
 
   // Opening this page retires anything that has run out, so "Running" is true.
   await sweepExpiredBoosts({ force: true }).catch(() => {});
-  const { ready, items } = await listBoosts({ tab });
+  const { ready, items, total = 0 } = await listBoosts({ tab, q: term });
 
   const stateLabel = (s) =>
     ({
@@ -109,11 +120,14 @@ async function BoostsSection({ searchParams, locale }) {
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap gap-2 border-b border-gray-200 pb-3 dark:border-gray-700">
+      <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-gray-200 pb-3 dark:border-gray-700">
         {TABS.map((x) => (
           <Link
             key={x.value}
-            href={`/${locale}/marketplace/admin/content/featured${x.value === 'pending' ? '' : `?tab=${x.value}`}`}
+            /* The term travels with the tab. Dropping it would throw an admin
+               who searched a showroom back into the whole queue the moment they
+               looked at another tab — which reads as the search having failed. */
+            href={`/${locale}/marketplace/admin/content/featured${tabHref(x.value, term)}`}
             className={`rounded-lg px-3 py-1.5 text-sm ${
               tab === x.value ? 'raised-solid bg-brand-primary text-white' : 'raised-hover text-gray-600 dark:text-gray-400'
             }`}
@@ -121,6 +135,19 @@ async function BoostsSection({ searchParams, locale }) {
             {t(x.ar, x.en)}
           </Link>
         ))}
+
+        <div className="ms-auto flex w-full items-center gap-2 sm:w-auto">
+          {term ? (
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {t(`${items.length} من ${total}`, `${items.length} of ${total}`)}
+            </span>
+          ) : null}
+          <SearchBox
+            locale={locale}
+            className="w-full sm:w-64"
+            placeholder={t('ابحث بالسيارة أو المعرض أو الجوال', 'Search car, showroom or phone')}
+          />
+        </div>
       </div>
 
       {!ready ? (
@@ -136,8 +163,20 @@ async function BoostsSection({ searchParams, locale }) {
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center dark:border-gray-700">
           <p className="font-semibold text-brand-primary">
-            {tab === 'pending' ? t('لا توجد طلبات بانتظارك', 'No requests waiting') : t('لا شيء هنا', 'Nothing here')}
+            {term
+              ? t('لا نتائج لهذا البحث', 'Nothing matches that search')
+              : tab === 'pending'
+                ? t('لا توجد طلبات بانتظارك', 'No requests waiting')
+                : t('لا شيء هنا', 'Nothing here')}
           </p>
+          {term && total > 0 ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t(
+                `يوجد ${total} طلب في هذا التبويب — جرّب كلمة أخرى.`,
+                `There ${total === 1 ? 'is' : 'are'} ${total} in this tab — try another word.`
+              )}
+            </p>
+          ) : null}
         </div>
       ) : tab === 'active' ? (
         /* Running promotions are a LIST IN ORDER, not a table: the order is the
