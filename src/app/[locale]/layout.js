@@ -76,7 +76,23 @@ export const viewport = {
  */
 export const metadata = {
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, title: "Alromaih", statusBarStyle: "default" },
+  appleWebApp: {
+    capable: true,
+    title: "Alromaih",
+    statusBarStyle: "default",
+  },
+  /* iOS does NOT read the manifest's icons for the Home Screen — it reads
+     apple-touch-icon. Without one the icon becomes a screenshot of whatever page
+     was open when the site was added, which is how an installed app ends up
+     looking like a mistake and gets deleted. On an iPhone, deleting the
+     installed app deletes the only place push can exist. */
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export function generateStaticParams() {

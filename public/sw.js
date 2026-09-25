@@ -27,7 +27,15 @@
  * unreadable.
  */
 
-const FALLBACK_ICON = "/alromaih/new%20logo.png";
+/* Square, and the right sizes. This used to point at the wordmark, which is
+   2301x512 — a notification icon is rendered in a small square, so a wide logo
+   arrived squashed or cropped to a slice of itself.
+
+   `badge` is a different job from `icon`: Android draws it in the status bar as
+   a SILHOUETTE, so only its shape survives. A small, mostly-solid mark is the
+   only kind that reads at that size. */
+const FALLBACK_ICON = "/icons/icon-192.png";
+const FALLBACK_BADGE = "/icons/badge-96.png";
 
 self.addEventListener("install", () => {
   // Take over immediately rather than waiting for every old tab to close. A
@@ -55,7 +63,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || "",
     icon: payload.icon || FALLBACK_ICON,
-    badge: payload.badge || FALLBACK_ICON,
+    badge: payload.badge || FALLBACK_BADGE,
     dir: payload.dir || "auto",
     lang: payload.lang || undefined,
 
@@ -70,6 +78,20 @@ self.addEventListener("push", (event) => {
        by KIND, so a new lead never hides a payment confirmation. */
     tag: payload.tag || payload.kind || "alromaih",
     renotify: Boolean(payload.tag || payload.kind),
+
+    /* ── Android alerts on VIBRATION as much as on sound ──────────────────
+       Without a pattern here a phone can show the notification silently and
+       without moving, which reads as "it never arrived". The pattern is only
+       honoured on Android; desktop ignores it rather than erroring, so there
+       is no need to detect the platform.
+
+       This is also the half of "no sound" that a site can actually control.
+       The other half is the operating system's: Chrome hands the notification
+       to Windows, and whether Windows plays a sound is a per-app setting
+       (Settings → Notifications → Google Chrome) and off entirely while Focus
+       Assist or Do Not Disturb is on. `silent: false` above is the strongest
+       statement the web platform lets a page make. */
+    vibrate: payload.vibrate || [200, 100, 200],
 
     /* Where notificationclick should go. Everything the click handler needs
        has to be in here: it cannot ask the server. */

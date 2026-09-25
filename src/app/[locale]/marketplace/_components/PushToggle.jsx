@@ -38,13 +38,10 @@
  * comes from the action's own result.
  */
 
-import { startTransition, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BellRing, BellOff, Check, Loader2, Send, Share, TriangleAlert } from "lucide-react";
-import { useActionResult } from "@/marketplace/ui/useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
 import { subscribeToPush, unsubscribeFromPush, sendTestPush } from "../_actions/notifications";
-
-const INITIAL = { ok: false, error: null };
 
 /** base64url → Uint8Array, which is the only shape applicationServerKey takes. */
 function toKey(base64) {
@@ -91,6 +88,9 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
 
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [failure, setFailure] = useState("");
+  // How many devices the last test reached, once one has been sent.
+  const [tested, setTested] = useState(null);
   // Set once this browser is registered, so the test button can appear.
   const [registered, setRegistered] = useState(false);
 
@@ -123,40 +123,37 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
     };
   }, []);
 
-  const done = useCallback((message) => {
-    setNote(message);
-    setBusy(false);
-  }, []);
-
-  const on = useActionResult(subscribeToPush, INITIAL, {
-    autoClearMs: 0,
-    onSuccess: () => {
-      setRegistered(true);
-      done(t("تم التفعيل على هذا الجهاز.", "Turned on for this device."));
-    },
-  });
-
-  const off = useActionResult(unsubscribeFromPush, INITIAL, {
-    autoClearMs: 0,
-    onSuccess: () => {
-      setRegistered(false);
-      done(t("تم الإيقاف على هذا الجهاز.", "Turned off for this device."));
-    },
-  });
-
-  const test = useActionResult(sendTestPush, INITIAL, { autoClearMs: 0 });
-
-  /* A refusal from the server is the whole point of showing anything — a
-     device that did not register must not be told it did. */
-  const actionError = [on, off, test]
-    .map((r) => (r.result?.error ? errorText(r.result.error, locale, r.result.params) : null))
-    .find(Boolean);
+  /**
+   * ── The server actions are AWAITED, not dispatched into a transition ──────
+   *
+   * This control lives inside the notification dropdown, and on a phone the
+   * permission prompt is a modal sheet: it takes focus, and the menu underneath
+   * can close — unmounting this component in the middle of the flow.
+   *
+   * With the work tied to the component (useActionResult + startTransition),
+   * whatever had not been dispatched by then was simply lost. The permission was
+   * granted, the subscription was created in the browser, and the row never
+   * reached the server — which is exactly the state a phone ends up in: allowed,
+   * and never receiving anything.
+   *
+   * A server action is just an async function. Awaiting it makes the request
+   * independent of whether this component is still on screen; the state updates
+   * afterwards are best-effort and only affect what is displayed.
+   */
+  const report = (result) => {
+    if (result?.ok) {
+      setFailure("");
+      return true;
+    }
+    setFailure(result?.error ? errorText(result.error, locale, result.params) : t("تعذّر الإكمال.", "Could not finish."));
+    return false;
+  };
 
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   const enable = async () => {
     setNote("");
-    on.dismiss();
+    setFailure("");
 
     /* ── Everything that does not cost the prompt, first ──────────────── */
     if (!key) {
@@ -204,9 +201,13 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
       fd.set("subscription", JSON.stringify(sub.toJSON()));
       fd.set("userAgent", navigator.userAgent);
 
-      // busy stays true until the action answers — onSuccess clears it, and a
-      // failure surfaces through actionError.
-      startTransition(() => on.formAction(fd));
+      const saved = await subscribeToPush(null, fd);
+      if (report(saved)) {
+        setRegistered(true);
+        done(t("تم التفعيل على هذا الجهاز.", "Turned on for this device."));
+      } else {
+        setBusy(false);
+      }
     } catch (err) {
       done(t("تعذّر التفعيل: ", "Could not turn it on: ") + (err?.message ?? String(err)));
     }
@@ -215,7 +216,7 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
   const disable = async () => {
     setBusy(true);
     setNote("");
-    off.dismiss();
+    setFailure("");
     try {
       const reg = await navigator.serviceWorker.getRegistration("/");
       const sub = await reg?.pushManager.getSubscription();
@@ -224,8 +225,16 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
         const fd = new FormData();
         fd.set("audience", audience);
         fd.set("endpoint", sub.endpoint);
-        startTransition(() => off.formAction(fd));
+        const dropped = await unsubscribeFromPush(null, fd);
         await sub.unsubscribe();
+
+        if (report(dropped)) {
+          setRegistered(false);
+          setTested(null);
+          done(t("تم الإيقاف على هذا الجهاز.", "Turned off for this device."));
+        } else {
+          setBusy(false);
+        }
       } else {
         done(t("لا يوجد اشتراك على هذا الجهاز.", "This device was not registered."));
       }
@@ -234,13 +243,18 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
     }
   };
 
-  const runTest = () => {
+  const runTest = async () => {
     setNote("");
-    test.dismiss();
+    setFailure("");
+    setBusy(true);
+
     const fd = new FormData();
     fd.set("audience", audience);
     if (vendorId) fd.set("vendorId", vendorId);
-    startTransition(() => test.formAction(fd));
+
+    const sent = await sendTestPush(null, fd);
+    if (report(sent)) setTested(sent.sent ?? 0);
+    setBusy(false);
   };
 
   /* ── The states that cannot be pressed out of ───────────────────────── */
@@ -287,11 +301,11 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
     <div className="border-t px-3 py-2 dark:border-white/10">
       <button
         type="button"
-        disabled={busy || on.pending || off.pending}
+        disabled={busy}
         onClick={granted && registered ? disable : enable}
         className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-start text-xs font-medium text-brand-primary hover:bg-black/5 disabled:opacity-60 dark:hover:bg-white/5"
       >
-        {busy || on.pending || off.pending ? (
+        {busy ? (
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
         ) : granted && registered ? (
           <BellOff className="h-3.5 w-3.5 shrink-0" />
@@ -318,28 +332,33 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
       {granted && registered ? (
         <button
           type="button"
-          disabled={test.pending}
+          disabled={busy}
           onClick={runTest}
           className="mt-1 flex w-full items-center gap-2 rounded-lg px-1 py-1 text-start text-[11px] text-muted-foreground hover:bg-black/5 disabled:opacity-60 dark:hover:bg-white/5"
         >
-          {test.pending ? (
+          {busy ? (
             <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-          ) : test.result?.ok ? (
+          ) : tested !== null ? (
             <Check className="h-3 w-3 shrink-0 text-green-600" />
           ) : (
             <Send className="h-3 w-3 shrink-0" />
           )}
-          {test.result?.ok
+          {tested !== null
             ? t(
-                `أُرسلت إلى ${test.result.sent} جهاز — أغلق التبويب لتراها`,
-                `Sent to ${test.result.sent} device${test.result.sent === 1 ? "" : "s"} — close the tab to see it`
+                `أُرسلت إلى ${tested} جهاز — أغلق التبويب لتراها`,
+                `Sent to ${tested} device${tested === 1 ? "" : "s"} — close the tab to see it`
               )
             : t("أرسل إشعاراً تجريبياً", "Send a test notification")}
         </button>
       ) : null}
 
-      {actionError ? (
-        <p className="mt-1 px-1 text-[11px] text-red-600 dark:text-red-400">{actionError}</p>
+      {/* A failure is boxed rather than being another grey line: this panel is
+          read on a phone, at the bottom of a list, and the sentence that says
+          why nothing happened has to be the thing the eye lands on. */}
+      {failure ? (
+        <p className="mt-1.5 rounded-lg bg-red-50 p-2 text-[11px] text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {failure}
+        </p>
       ) : note ? (
         <p className="mt-1 px-1 text-[11px] text-muted-foreground">{note}</p>
       ) : null}
