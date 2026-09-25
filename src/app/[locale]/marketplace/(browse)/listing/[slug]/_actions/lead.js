@@ -233,6 +233,19 @@ export async function sendLead(prevState, formData) {
     href: '/marketplace/seller/leads',
   });
 
+  /* ── And the buyer's own copy ──────────────────────────────────────────
+     The showroom was told; the person who sent it was told nothing, and a
+     request sent into silence becomes a phone call an hour later asking
+     whether it arrived. The id comes from the SESSION, not the form, so this
+     cannot be addressed to anybody else. */
+  await recordNotification({
+    audience: 'buyer',
+    userId: viewer.userId,
+    kind: 'lead_sent',
+    data: { car: listing.name },
+    href: '/marketplace/account/requests',
+  });
+
   revalidatePath(`/${locale}/marketplace/seller/leads`);
   revalidatePath(`/${locale}/marketplace/account/requests`);
 

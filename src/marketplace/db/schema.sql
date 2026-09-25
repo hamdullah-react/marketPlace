@@ -5841,3 +5841,101 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  NOTIFICATIONS REACH THE BUYER TOO
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  `audience` was 'vendor' or 'admin'. That covered every notification the
+--  platform had, and it quietly encoded an assumption that is wrong on a
+--  marketplace: that only the two businesses need telling, and the person
+--  buying the car finds out by refreshing.
+--
+--  A buyer's side of the same conversation is not smaller than the seller's:
+--  they sent a request and want to know it was seen, the showroom moved it to
+--  "quoted" and they should hear that, they left a review and the showroom
+--  replied. Every one of those is the other half of an event the seller is
+--  already notified about.
+--
+--  ── Addressed to a PERSON, where the others are addressed to a desk ────────
+--
+--  This is the important difference and the reason for a new column rather than
+--  reusing vendor_id. A showroom's notification belongs to the SHOWROOM — three
+--  salespeople share it and read state is shared with it (see the NOTIFICATIONS
+--  section). A buyer is one person; there is no desk, no colleague, and nothing
+--  to share. So a buyer row carries `user_id` and is read by exactly one
+--  account.
+--
+--  ── The shape check now has three arms ─────────────────────────────────────
+--
+--  vendor → a vendor_id and no user_id
+--  buyer  → a user_id and no vendor_id
+--  admin  → neither: it belongs to whoever is staff at the time, which is a
+--           role and not a row.
+--
+--  Without this a 'buyer' notification with a null user_id would be addressed
+--  to every buyer on the marketplace, which is the one thing it must never be.
+
+alter table notifications
+  add column if not exists user_id uuid references auth.users (id) on delete cascade;
+
+alter table notifications drop constraint if exists notifications_audience_check;
+alter table notifications add constraint notifications_audience_check
+  check (audience in ('vendor', 'admin', 'buyer'));
+
+alter table notifications drop constraint if exists notifications_audience_shape;
+alter table notifications add constraint notifications_audience_shape
+  check (
+    (audience = 'vendor' and vendor_id is not null and user_id is null) or
+    (audience = 'buyer'  and user_id is not null and vendor_id is null) or
+    (audience = 'admin'  and vendor_id is null and user_id is null)
+  );
+
+-- The buyer's bell: their unread count, and their newest twenty. Partial, for
+-- the same reason the other two are — the count must not scan a lifetime of
+-- read notifications to answer "is there a dot on the bell".
+create index if not exists notifications_buyer_unread_idx
+  on notifications (user_id)
+  where audience = 'buyer' and read_at is null;
+
+create index if not exists notifications_buyer_idx
+  on notifications (user_id, created_at desc) where audience = 'buyer';
+
+-- One person, their own row. No membership, no colleague, no shared desk —
+-- which is why this policy is a single equality where the vendor one has to ask
+-- about membership.
+drop policy if exists notifications_buyer_read on notifications;
+create policy notifications_buyer_read on notifications
+  for select using (audience = 'buyer' and user_id = auth.uid());
+
+-- ── The same three audiences for the devices ───────────────────────────────
+--
+-- push_subscriptions already carries user_id — it was there so a person could
+-- be shown their own devices. For a buyer it becomes the ADDRESS rather than a
+-- detail, so the shape check gains the same three arms.
+
+alter table push_subscriptions drop constraint if exists push_subscriptions_audience_check;
+alter table push_subscriptions add constraint push_subscriptions_audience_check
+  check (audience in ('vendor', 'admin', 'buyer'));
+
+alter table push_subscriptions drop constraint if exists push_subscriptions_audience_shape;
+alter table push_subscriptions add constraint push_subscriptions_audience_shape
+  check (
+    (audience = 'vendor' and vendor_id is not null) or
+    (audience = 'buyer'  and user_id is not null and vendor_id is null) or
+    (audience = 'admin'  and vendor_id is null)
+  );
+
+create index if not exists push_subscriptions_buyer_idx
+  on push_subscriptions (user_id) where audience = 'buyer';
+
+do $$
+declare
+  n int;
+begin
+  select count(*) into n from notifications where audience = 'buyer';
+  raise notice 'Notifications: the buyer audience is available (% row(s) so far).', n;
+end $$;
+
+notify pgrst, 'reload schema';

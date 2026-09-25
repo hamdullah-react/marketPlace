@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { notifyNewUser } from '@/marketplace/db/queries/notifications';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
 import { postAuthDestination } from '@/marketplace/auth/session';
 
@@ -30,12 +31,24 @@ export async function GET(request, { params }) {
   }
 
   const supabase = await getMarketplaceAuthServer();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data: session, error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
     // Expired or already used — both mean "ask for a fresh one", which is the
     // login page's job, not an error page's.
     return NextResponse.redirect(new URL(`/${locale}/marketplace/login?error=link`, url.origin));
+  }
+
+  /* A Google sign-in is also how somebody joins, and this route runs on every
+     one of them — the first and the four hundredth. notifyNewUser() is the
+     thing that knows the difference, so it is safe to call from here. */
+  const person = session?.user;
+  if (person?.id) {
+    await notifyNewUser({
+      userId: person.id,
+      name: person.user_metadata?.full_name ?? person.user_metadata?.name ?? null,
+      email: person.email ?? null,
+    });
   }
 
   /**

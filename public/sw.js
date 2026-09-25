@@ -112,7 +112,29 @@ self.addEventListener("push", (event) => {
     timestamp: payload.timestamp || Date.now(),
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  /* ── And tell any open page, so it can make a noise ────────────────────
+     A service worker cannot play a sound. It has no DOM, no Audio and no Web
+     Audio — `silent: false` above is the only say it has, and the operating
+     system decides the rest.
+
+     A PAGE can. So when a push lands while the dashboard is open, the worker
+     posts a message to every client and the page plays the horn itself. That
+     is the one situation where a car horn is possible at all, and it was
+     silent before: the horn was wired to the realtime channel, which a push
+     does not travel on. */
+  const announce = self.clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((clients) => {
+      for (const client of clients) {
+        client.postMessage({ type: "push", kind: payload.kind || null });
+      }
+    })
+    .catch(() => {
+      // No clients, or a browser that refuses to enumerate them. The
+      // notification itself has already been shown either way.
+    });
+
+  event.waitUntil(Promise.all([self.registration.showNotification(title, options), announce]));
 });
 
 self.addEventListener("notificationclick", (event) => {

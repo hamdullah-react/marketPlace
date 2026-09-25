@@ -20,6 +20,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { vendorForAction } from '@/marketplace/auth/session';
 import { notifyBuyerRequests } from '@/marketplace/lib/realtime';
 import { REPLY_MAX } from '@/marketplace/lib/review';
@@ -86,6 +87,19 @@ export async function replyToReview(prevState, formData) {
      notification nobody wants. */
   if (!clearing) {
     notifyBuyerRequests(review.buyer_user_id, 'review_changed', { id: reviewId, replied: true });
+
+    /* And the record, for the buyer who is not sitting on the page. The reply
+       itself is snapshotted into it: a showroom answering a complaint is the
+       one notification a buyer opens immediately, and making them navigate to
+       read one sentence wastes the moment. Trimmed, because a notification is
+       a line and not a letter. */
+    await recordNotification({
+      audience: 'buyer',
+      userId: review.buyer_user_id,
+      kind: 'review_reply',
+      data: { reply: reply.slice(0, 120) },
+      href: '/marketplace/account/reviews',
+    });
   }
 
   revalidatePath(`/${locale}/marketplace/seller/reviews`);

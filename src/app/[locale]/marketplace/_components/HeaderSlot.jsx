@@ -1,6 +1,7 @@
 import { getViewer } from '@/marketplace/auth/session';
 import { getNavData } from '@/marketplace/db/queries/cars';
 import { getSavedCount } from '@/marketplace/db/queries/account';
+import { getNotifications } from '@/marketplace/db/queries/notifications';
 import { getSiteLanguages, getSiteSettings } from '@/marketplace/db/queries/site';
 import MarketplaceHeader from './MarketplaceHeader';
 
@@ -56,7 +57,18 @@ export default async function HeaderSlot({ locale = 'ar' }) {
    * by a layout and layouts do not re-run on navigation, so the moment a heart
    * is tapped it is savedStore.js that keeps the badge honest.
    */
-  const savedCount = viewer ? await getSavedCount(viewer.userId) : 0;
+  /* Both of the viewer's own numbers, together. The bell is the buyer's only
+     way to learn that a showroom answered them — every other audience has a
+     dashboard to look at, and a buyer has a header. */
+  const [savedCount, notifications] = viewer
+    ? await Promise.all([
+        getSavedCount(viewer.userId),
+        getNotifications({ audience: 'buyer', userId: viewer.userId }).catch(() => ({
+          items: [],
+          unread: 0,
+        })),
+      ])
+    : [0, { items: [], unread: 0 }];
 
   return (
     <MarketplaceHeader
@@ -69,6 +81,8 @@ export default async function HeaderSlot({ locale = 'ar' }) {
         logoDarkUrl: site.logoDarkUrl,
       }}
       languages={langs.enabled}
+      currency={site.currency}
+      notifications={notifications}
       viewer={
         viewer
           ? {
@@ -81,6 +95,10 @@ export default async function HeaderSlot({ locale = 'ar' }) {
               isStaff: viewer.isStaff,
               isAdmin: viewer.isAdmin,
               isVendor: viewer.vendors.length > 0,
+              // The bell addresses notifications to this id. It is the
+              // viewer's OWN id and reaches nothing else — the server scopes
+              // every read and write by the session regardless.
+              userId: viewer.userId,
             }
           : null
       }

@@ -139,8 +139,8 @@ function blast(ctx, at, length) {
      under pressure), holds flat, and stops — no long tail. The ramps exist
      because a square-edged gate on a tone is an audible click at both ends. */
   vol.gain.setValueAtTime(0, at);
-  vol.gain.linearRampToValueAtTime(0.14, at + 0.012);
-  vol.gain.setValueAtTime(0.14, at + length - 0.03);
+  vol.gain.linearRampToValueAtTime(0.2, at + 0.012);
+  vol.gain.setValueAtTime(0.2, at + length - 0.03);
   vol.gain.exponentialRampToValueAtTime(0.0001, at + length);
 
   filter.connect(vol).connect(ctx.destination);

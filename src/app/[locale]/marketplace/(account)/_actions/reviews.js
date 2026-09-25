@@ -21,6 +21,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { currentViewer } from '@/marketplace/auth/session';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
 import {
@@ -107,7 +108,7 @@ export async function saveReview(prevState, formData) {
 
   const { data: lead, error: leadError } = await db
     .from('leads')
-    .select('id, vendor_id, listing_id, stage, created_at')
+    .select('id, vendor_id, listing_id, stage, created_at, contact_name')
     .eq('id', leadId)
     .eq('buyer_user_id', viewer.userId)
     .maybeSingle();
@@ -156,6 +157,30 @@ export async function saveReview(prevState, formData) {
 
   // The showroom's dashboard: somebody just rated them, which is worth a chime.
   notifyVendorLeads(lead.vendor_id, 'review_new', { id: created?.id ?? null, rating });
+
+  /* ── The two records a new review deserves ──────────────────────────────
+     `review_new` and `review_to_moderate` have been declared in the KINDS
+     table since the bell was built and NEITHER was ever recorded — the wording
+     existed and nothing called it, so a showroom learned it had been rated by
+     happening to open its Reviews page, and the platform learned it never.
+
+     The showroom, because a rating moves its average and its position in the
+     browse list. The platform, because a one-star review is the thing somebody
+     should read before the seller rings up about it. */
+  await recordNotification({
+    audience: 'vendor',
+    vendorId: lead.vendor_id,
+    kind: 'review_new',
+    data: { buyer: lead.contact_name ?? null, rating },
+    href: '/marketplace/seller/reviews',
+  });
+
+  await recordNotification({
+    audience: 'admin',
+    kind: 'review_to_moderate',
+    data: { rating, vendor: null },
+    href: '/marketplace/admin/reviews',
+  });
   refresh(locale);
 
   return ok({ reviewId: created?.id ?? null, created: true });

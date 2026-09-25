@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { after as later } from 'next/server';
+import { notifyShowroomFollowers } from '@/marketplace/db/queries/notifications';
 import { vendorForAction } from '@/marketplace/auth/session';
 
 /**
@@ -63,7 +65,7 @@ export async function setListingState(prevState, formData) {
 
     const { data: current, error: readError } = await db
       .from('listings')
-      .select('id, state, published_at, media')
+      .select('id, slug, name, state, published_at, media')
       .eq('id', listingId)
       .eq('vendor_id', vendorId)
       .maybeSingle();
@@ -90,6 +92,31 @@ export async function setListingState(prevState, formData) {
       .from('listings').update(patch).eq('id', listingId).eq('vendor_id', vendorId);
 
     if (error) return { ok: false, error: 'SAVE_FAILED', detail: error.message, token: stamp() };
+
+    /* ── The FIRST time it goes live, and only then ───────────────────
+       `published_at` is stamped once and never rewritten, so an empty one is
+       the precise definition of "this car is new" — a seller pausing and
+       re-publishing an old listing must not announce it again to the same
+       people. That is the whole guard, and it is the same field the browse
+       list orders by, so the two cannot disagree.
+
+       Not awaited and unable to fail the publish: the car is live either way,
+       and a notification is a courtesy on top of that.
+
+       A bulk upload of forty cars will send forty notifications, one per car.
+       Stated rather than pretended away — batching them into "12 new cars at
+       Riyadh Motors" needs a digest with a schedule behind it, which is a
+       feature and not a tweak to this line. */
+    if (next === 'live' && !current.published_at) {
+      later(() =>
+        notifyShowroomFollowers({
+          vendorId,
+          listing: { id: current.id, name: current.name },
+          vendorName: null,
+          href: current.slug ? `/marketplace/listing/${current.slug}` : null,
+        })
+      );
+    }
 
     bump();
     return { ok: true, error: null, token: stamp(), saved: next, from: current.state };

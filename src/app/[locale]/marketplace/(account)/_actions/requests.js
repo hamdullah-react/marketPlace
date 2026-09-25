@@ -38,6 +38,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { currentViewer } from '@/marketplace/auth/session';
 import { canBuyerCancel, OPEN_STAGE_KEYS } from '@/marketplace/lib/lead-stages';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
@@ -64,7 +65,7 @@ export async function cancelRequest(prevState, formData) {
 
   const { data: lead, error: readError } = await db
     .from('leads')
-    .select('id, stage, vendor_id')
+    .select('id, stage, vendor_id, listing_title, contact_name')
     .eq('id', leadId)
     .eq('buyer_user_id', viewer.userId)
     .maybeSingle();
@@ -102,6 +103,23 @@ export async function cancelRequest(prevState, formData) {
    * instead of re-rendering it into a 404.
    */
   notifyVendorLeads(lead.vendor_id, 'lead_changed', { id: lead.id, deleted: true });
+
+  /* ── And a record, for the salesperson who was not looking ─────────────
+     The broadcast above only reaches a dashboard that is open right now. A
+     withdrawn request matters most to the person who was going to ring them
+     tomorrow — without this they find out by calling somebody who has already
+     bought elsewhere.
+
+     Snapshotted before the delete, because the row is gone by the time this
+     runs and a notification that reads "a buyer withdrew" with no name and no
+     car is not worth sending. */
+  await recordNotification({
+    audience: 'vendor',
+    vendorId: lead.vendor_id,
+    kind: 'lead_cancelled',
+    data: { buyer: lead.contact_name ?? null, car: lead.listing_title ?? null },
+    href: '/marketplace/seller/leads',
+  });
 
   revalidatePath(`/${locale}/marketplace/account/requests`);
   revalidatePath('/[locale]/marketplace/seller/leads', 'page');

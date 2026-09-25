@@ -30,6 +30,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { notifyNewUser } from '@/marketplace/db/queries/notifications';
 import { postAuthDestination } from '@/marketplace/auth/session';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
 import { sendCode } from '@/marketplace/auth/otp-service';
@@ -91,9 +92,26 @@ export async function verifySignupOtp(prevState, formData) {
   // 'magiclink' because that is what the confirmation code was minted as — see
   // sendCode(). Verifying one both signs the person in and stamps
   // email_confirmed_at, which is the entire job of a confirmation code.
-  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'magiclink' });
+  const { data: verified, error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: 'magiclink',
+  });
 
   if (error) return bad(codeError(error.message));
+
+  /* Somebody has joined. Told to the platform, not to them — and only the
+     first time, however often this code path runs afterwards (see
+     notifyNewUser). It cannot fail the sign-in: a person who has just proved
+     they own this address must get in whatever the bell does. */
+  const joined = verified?.user;
+  if (joined?.id) {
+    await notifyNewUser({
+      userId: joined.id,
+      name: joined.user_metadata?.full_name ?? null,
+      email: joined.email ?? email,
+    });
+  }
 
   revalidatePath('/[locale]/marketplace', 'layout');
   redirect(await postAuthDestination(safeNext(str(formData, 'next'), locale), locale));

@@ -22,6 +22,7 @@ import { revalidatePath } from 'next/cache';
 import { parseInstant } from '@/marketplace/lib/datetime';
 import { redirect } from 'next/navigation';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { vendorForAction, getUser } from '@/marketplace/auth/session';
 import { LEAD_STAGES } from '@/marketplace/db/queries/leads';
 import { notifyVendorLeads, notifyBuyerRequests } from '@/marketplace/lib/realtime';
@@ -82,7 +83,7 @@ async function ownLead(formData) {
   const db = getMarketplaceDb();
   const { data, error } = await db
     .from('leads')
-    .select('id, stage, assigned_to, follow_up_at, outcome_note, read_at, buyer_user_id, deleted_at')
+    .select('id, stage, assigned_to, follow_up_at, outcome_note, read_at, buyer_user_id, deleted_at, listing_title')
     .eq('id', leadId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -127,6 +128,24 @@ export async function setLeadStage(prevState, formData) {
     .eq('vendor_id', found.vendorId);
 
   if (error) return bad('SAVE_FAILED', { detail: error.message });
+
+  /* ── The buyer hears about it ──────────────────────────────────────────
+     refresh() already broadcasts to a request page they happen to have open.
+     This is for the far commoner case: they are not looking. "The showroom has
+     been in touch" and "you have a price" are the two moments a buyer is
+     actually waiting for, and until now the only way to learn either was to
+     keep reopening the page.
+
+     `new` is skipped — a lead moving back to new is housekeeping, not news. */
+  if (stage !== 'new') {
+    await recordNotification({
+      audience: 'buyer',
+      userId: found.lead.buyer_user_id,
+      kind: 'lead_stage',
+      data: { stage, car: found.lead.listing_title ?? null },
+      href: '/marketplace/account/requests',
+    });
+  }
 
   refresh(found.vendorId, found.leadId, found.lead.buyer_user_id, { stage });
   return ok({ saved: stage });

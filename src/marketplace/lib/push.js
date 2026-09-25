@@ -80,7 +80,7 @@ const oneLanguage = (value) => (value === 'ar' || value === 'en' ? value : null)
  * allowed to fail quietly — a push in the wrong language is better than no
  * push, so every step falls through rather than throwing.
  */
-async function readLocale(db, audience, vendorId) {
+async function readLocale(db, audience, vendorId, userId = null) {
   let platform = null;
 
   try {
@@ -93,6 +93,18 @@ async function readLocale(db, audience, vendorId) {
   } catch {
     // The column arrives with the WEBSITE CONTENT section; without it the
     // platform simply has no stated preference.
+  }
+
+  if (audience === 'buyer' && userId) {
+    try {
+      const { data } = await db.from('profiles').select('locale').eq('id', userId).maybeSingle();
+      // A buyer is one person and their profile says which language they chose
+      // when they signed up — the most specific answer there is.
+      const own = oneLanguage(data?.locale);
+      if (own) return own;
+    } catch {
+      // No profile row yet. The platform's answer still stands.
+    }
   }
 
   if (audience === 'vendor' && vendorId) {
@@ -119,7 +131,14 @@ async function readLocale(db, audience, vendorId) {
  * @param data     the same snapshot the row stores
  * @param href     locale-relative, e.g. /marketplace/seller/leads
  */
-export async function pushNotification({ audience, vendorId = null, kind, data = {}, href = null }) {
+export async function pushNotification({
+  audience,
+  vendorId = null,
+  userId = null,
+  kind,
+  data = {},
+  href = null,
+}) {
   if (!ready()) return { ok: false, error: 'PUSH_OFF' };
 
   const db = getMarketplaceDb();
@@ -129,7 +148,11 @@ export async function pushNotification({ audience, vendorId = null, kind, data =
     .select('endpoint, p256dh, auth')
     .eq('audience', audience);
 
-  query = audience === 'vendor' ? query.eq('vendor_id', vendorId) : query;
+  /* A showroom's devices belong to the showroom; a buyer's belong to the
+     person. Addressing one by the other's key would push a buyer's message to
+     a showroom's desk. */
+  if (audience === 'vendor') query = query.eq('vendor_id', vendorId);
+  else if (audience === 'buyer') query = query.eq('user_id', userId);
 
   const { data: devices, error } = await query;
 
@@ -140,7 +163,7 @@ export async function pushNotification({ audience, vendorId = null, kind, data =
   }
   if (!devices?.length) return { ok: true, sent: 0 };
 
-  const locale = await readLocale(db, audience, vendorId);
+  const locale = await readLocale(db, audience, vendorId, userId);
   const { title, body } = notificationText(kind, data, { locale });
 
   const payload = JSON.stringify({

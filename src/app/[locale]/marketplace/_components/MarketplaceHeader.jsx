@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import LanguageSwitcher from "./LanguageSwitcher";
+import NotificationBell from "./NotificationBell";
 import { syncSavedCount, useSavedCount } from "./savedStore";
 import { signOut } from "../(auth)/_actions/auth";
 
@@ -148,6 +149,7 @@ const loadDirect = (src) => /\.svg($|\?)/i.test(src ?? "") || /^https?:\/\//i.te
 
 export default function MarketplaceHeader({
   locale = "ar", viewer = null, offerCount = 0, savedCount = 0, brand = null, languages = null,
+  notifications = null, currency = null,
 }) {
   const isAr = locale === "ar";
   // From Admin → Settings, with the built-in mark as the fallback.
@@ -608,6 +610,23 @@ export default function MarketplaceHeader({
                     </span>
                   ) : null}
                 </Link>
+
+                {/* ── The buyer's bell ─────────────────────────────────
+                    Signed-in only, and deliberately beside the hearts rather
+                    than inside the profile menu: a notification that has to be
+                    found under a dropdown is one nobody sees. This is the only
+                    place a buyer can learn that a showroom answered them — the
+                    other two audiences have a dashboard, a buyer has a header.
+                    --------------------------------------------------------- */}
+                {viewer ? (
+                  <NotificationBell
+                    locale={locale}
+                    audience="buyer"
+                    items={notifications?.items ?? []}
+                    unread={notifications?.unread ?? 0}
+                    currency={currency}
+                  />
+                ) : null}
 
                 {/* Hidden when the admin has only one language switched on. */}
                 {!languages || languages.length > 1 ? <LanguageSwitcher /> : null}

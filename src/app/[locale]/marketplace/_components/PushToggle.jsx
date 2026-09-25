@@ -41,6 +41,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BellRing, BellOff, Check, Loader2, Send, Share, TriangleAlert } from "lucide-react";
 import { errorText } from "@/marketplace/lib/errors";
+import { ting, unlockAudio } from "../(seller)/_components/useLiveLeads";
 import { subscribeToPush, unsubscribeFromPush, sendTestPush } from "../_actions/notifications";
 
 /** base64url → Uint8Array, which is the only shape applicationServerKey takes. */
@@ -387,6 +388,19 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
     setFailure("");
     setDetail("");
     setBusy(true);
+
+    /* The horn, here and now. Two reasons it is played locally rather than
+       waited for:
+
+       1. This press IS a gesture, which is the only moment a browser will let
+          an AudioContext start. Unlocking it here means every later horn —
+          from a real lead, or from a push landing on this page — can sound.
+       2. It is the only way to HEAR the sound on demand. The test sends a
+          push, and a push that arrives on a phone plays the operating system's
+          sound, not ours; without this the horn had no trigger anybody could
+          reach, which is exactly why it seemed not to work. */
+    unlockAudio();
+    ting();
 
     const fd = new FormData();
     fd.set("audience", audience);

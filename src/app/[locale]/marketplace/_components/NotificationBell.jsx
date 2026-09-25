@@ -24,7 +24,7 @@
  * the COUNT is not deleting the history.
  */
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
@@ -37,6 +37,7 @@ import { useActionResult } from "../(seller)/_components/useActionResult";
 import { notificationText, timeAgo } from "@/marketplace/lib/notifications";
 import { markAllNotificationsRead } from "../_actions/notifications";
 import PushToggle from "./PushToggle";
+import { ting, unlockAudio } from "../(seller)/_components/useLiveLeads";
 
 const INITIAL = { ok: false, error: null };
 
@@ -51,6 +52,43 @@ export default function NotificationBell({
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
   const router = useRouter();
+
+  /* ── A push that lands while this page is open should be HEARD ──────────
+     The service worker shows the notification and then posts to every open
+     client (public/sw.js), because a worker cannot make a sound itself. This
+     is the other end of that message: the horn, and a refresh so the list
+     behind the bell holds the thing that just arrived.
+
+     It is deliberately separate from the realtime channel that already plays
+     the horn for a new lead. A push and a broadcast are two different
+     deliveries of the same news, and only one of them was audible — which is
+     why the sound appeared not to work at all when a test push was sent. */
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return undefined;
+
+    const onMessage = (event) => {
+      if (event.data?.type !== "push") return;
+      ting();
+      router.refresh();
+    };
+
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [router]);
+
+  /* Browsers refuse to build an AudioContext until the page has been touched,
+     so the horn is silent on a dashboard nobody has clicked. The shells arm
+     this too; doing it here as well costs one listener and means the bell can
+     make a noise on a page where the live hooks are not mounted. */
+  useEffect(() => {
+    const opts = { once: true, passive: true };
+    window.addEventListener("pointerdown", unlockAudio, opts);
+    window.addEventListener("keydown", unlockAudio, opts);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
 
   const [open, setOpen] = useState(false);
 

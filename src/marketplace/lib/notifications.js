@@ -94,6 +94,62 @@ const KINDS = {
         : 'This is a test. Real notifications will arrive the same way.',
   }),
 
+  /* ── For a BUYER ─────────────────────────────────────────────────────
+     The other half of the conversations above. A showroom was already told
+     when a request arrived and when a review was left; the person at the other
+     end was told nothing and had to keep opening the page to find out. */
+
+  // The receipt. It is not ceremony: a buyer who sends a request into silence
+  // rings the showroom an hour later to ask whether it arrived.
+  lead_sent: (d, { locale }) => ({
+    title: locale === 'ar' ? 'أُرسل طلبك' : 'Your request was sent',
+    body: [d.vendor, car(d, locale)].filter(Boolean).join(' · '),
+  }),
+
+  // A showroom moved it. `stage` is the word the pipeline uses; the sentence
+  // is written from the BUYER's side, because "quoted" is something that
+  // happened TO them.
+  lead_stage: (d, { locale }) => {
+    const ar = {
+      contacted: 'المعرض تواصل معك',
+      quoted: 'وصلك عرض سعر',
+      won: 'تم إتمام الطلب',
+      lost: 'أُغلق الطلب',
+    };
+    const en = {
+      contacted: 'The showroom has been in touch',
+      quoted: 'You have a price',
+      won: 'Your request is complete',
+      lost: 'Your request was closed',
+    };
+    const said = (locale === 'ar' ? ar : en)[d.stage];
+
+    return {
+      title: said ?? (locale === 'ar' ? 'تغيّرت حالة طلبك' : 'Your request changed'),
+      body: [d.vendor, car(d, locale)].filter(Boolean).join(' · '),
+    };
+  },
+
+  review_reply: (d, { locale }) => ({
+    title: locale === 'ar' ? 'رد المعرض على تقييمك' : 'The showroom replied to your review',
+    body: [d.vendor, d.reply].filter(Boolean).join(' · '),
+  }),
+
+  // A showroom this buyer has actually dealt with has listed something. See
+  // notifyShowroomFollowers for who counts as "dealt with", and why it is not
+  // everybody.
+  new_car: (d, { locale }) => ({
+    title: locale === 'ar' ? 'سيارة جديدة في معرض تتابعه' : 'A new car at a showroom you know',
+    body: [car(d, locale), d.vendor].filter(Boolean).join(' · '),
+  }),
+
+  /* ── For a showroom, about the buyer ─────────────────────────────────── */
+
+  lead_cancelled: (d, { locale }) => ({
+    title: locale === 'ar' ? 'سحب المشتري طلبه' : 'A buyer withdrew their request',
+    body: [d.buyer, car(d, locale), d.reason].filter(Boolean).join(' · '),
+  }),
+
   /* ── For the platform ────────────────────────────────────────────────── */
   boost_requested: (d, { locale }) => ({
     title: locale === 'ar' ? 'طلب ترويج جديد' : 'New promotion request',
@@ -108,6 +164,11 @@ const KINDS = {
   review_to_moderate: (d, { locale }) => ({
     title: locale === 'ar' ? 'تقييم بانتظار المراجعة' : 'Review awaiting moderation',
     body: [d.vendor, d.rating ? `${d.rating}★` : null].filter(Boolean).join(' · '),
+  }),
+
+  user_joined: (d, { locale }) => ({
+    title: locale === 'ar' ? 'مستخدم جديد' : 'New user',
+    body: [d.name, d.email].filter(Boolean).join(' · '),
   }),
 
   vendor_joined: (d, { locale }) => ({

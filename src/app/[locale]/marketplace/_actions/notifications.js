@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { adminForAction, vendorForAction } from '@/marketplace/auth/session';
+import { adminForAction, currentViewer, vendorForAction } from '@/marketplace/auth/session';
 import { markNotificationsRead } from '@/marketplace/db/queries/notifications';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { pushNotification } from '@/marketplace/lib/push';
@@ -28,30 +28,51 @@ const stamp = () => Date.now() + Math.random();
 const ok = (data = {}) => ({ ok: true, error: null, token: stamp(), ...data });
 const bad = (error) => ({ ok: false, error, token: stamp() });
 
-export async function markAllNotificationsRead(prevState, formData) {
-  const audience = formData.get('audience') === 'admin' ? 'admin' : 'vendor';
+/**
+ * Who this request is allowed to act as.
+ *
+ * `audience` arrives from the form and on its own is only a REQUEST. What it
+ * resolves to comes from the session every time: a showroom's id is never taken
+ * from the payload, and a buyer is always themselves. So no amount of editing
+ * the form reaches another person's bell or another showroom's devices.
+ */
+async function resolveAudience(formData) {
+  const asked = formData.get('audience');
 
-  if (audience === 'admin') {
-    const { viewer, error: denied } = await adminForAction();
-    if (denied) return bad(denied);
+  if (asked === 'admin') {
+    const { viewer, error } = await adminForAction();
+    return error ? { error } : { audience: 'admin', userId: viewer.userId, vendorId: null };
+  }
 
-    const done = await markNotificationsRead({ audience: 'admin', userId: viewer.userId });
-    if (!done.ok) return bad(done.error);
-
-    revalidatePath('/[locale]/marketplace/admin', 'layout');
-    return ok();
+  if (asked === 'buyer') {
+    // Any signed-in person is a buyer. There is no membership to check and
+    // nothing to be a member of — which is the whole difference between this
+    // audience and the other two.
+    const viewer = await currentViewer();
+    if (!viewer) return { error: 'NOT_SIGNED_IN' };
+    return { audience: 'buyer', userId: viewer.userId, vendorId: null };
   }
 
   const wanted = formData.get('vendorId');
-  const { viewer, vendorId, error: denied } = await vendorForAction(
+  const { viewer, vendorId, error } = await vendorForAction(
     typeof wanted === 'string' ? wanted : null
   );
-  if (denied) return bad(denied);
+  return error ? { error } : { audience: 'vendor', userId: viewer.userId, vendorId };
+}
 
-  const done = await markNotificationsRead({ audience: 'vendor', vendorId, userId: viewer.userId });
+export async function markAllNotificationsRead(prevState, formData) {
+  const who = await resolveAudience(formData);
+  if (who.error) return bad(who.error);
+
+  const done = await markNotificationsRead(who);
   if (!done.ok) return bad(done.error);
 
-  revalidatePath('/[locale]/marketplace/seller', 'layout');
+  /* Only the surface that owns this bell. A buyer clearing theirs must not
+     rebuild a dashboard they cannot see. */
+  if (who.audience === 'admin') revalidatePath('/[locale]/marketplace/admin', 'layout');
+  else if (who.audience === 'vendor') revalidatePath('/[locale]/marketplace/seller', 'layout');
+  else revalidatePath('/[locale]/marketplace', 'layout');
+
   return ok();
 }
 
@@ -72,7 +93,6 @@ export async function markAllNotificationsRead(prevState, formData) {
  * would add another copy of the same phone and it would buzz four times.
  */
 export async function subscribeToPush(prevState, formData) {
-  const audience = formData.get('audience') === 'admin' ? 'admin' : 'vendor';
 
   let sub;
   try {
@@ -88,19 +108,10 @@ export async function subscribeToPush(prevState, formData) {
 
   const userAgent = String(formData.get('userAgent') ?? '').slice(0, 300) || null;
 
-  let row;
-  if (audience === 'admin') {
-    const { viewer, error: denied } = await adminForAction();
-    if (denied) return bad(denied);
-    row = { audience: 'admin', vendor_id: null, user_id: viewer.userId };
-  } else {
-    const wanted = formData.get('vendorId');
-    const { viewer, vendorId, error: denied } = await vendorForAction(
-      typeof wanted === 'string' ? wanted : null
-    );
-    if (denied) return bad(denied);
-    row = { audience: 'vendor', vendor_id: vendorId, user_id: viewer.userId };
-  }
+  const who = await resolveAudience(formData);
+  if (who.error) return bad(who.error);
+
+  const row = { audience: who.audience, vendor_id: who.vendorId, user_id: who.userId };
 
   const { error } = await getMarketplaceDb()
     .from('push_subscriptions')
@@ -121,10 +132,8 @@ export async function unsubscribeFromPush(prevState, formData) {
 
   /* Only somebody who can already act here may unregister a device, but the
      endpoint is the browser's own — it cannot name another person's. */
-  const audience = formData.get('audience') === 'admin' ? 'admin' : 'vendor';
-  const denied =
-    audience === 'admin' ? (await adminForAction()).error : (await vendorForAction(null)).error;
-  if (denied) return bad(denied);
+  const who = await resolveAudience(formData);
+  if (who.error) return bad(who.error);
 
   const { error } = await getMarketplaceDb()
     .from('push_subscriptions')
@@ -162,18 +171,10 @@ export async function unsubscribeFromPush(prevState, formData) {
  * does. Nobody can make this ring somebody else's phone.
  */
 export async function sendTestPush(prevState, formData) {
-  const audience = formData.get('audience') === 'admin' ? 'admin' : 'vendor';
+  const who = await resolveAudience(formData);
+  if (who.error) return bad(who.error);
 
-  let vendorId = null;
-  if (audience === 'admin') {
-    const { error: denied } = await adminForAction();
-    if (denied) return bad(denied);
-  } else {
-    const wanted = formData.get('vendorId');
-    const resolved = await vendorForAction(typeof wanted === 'string' ? wanted : null);
-    if (resolved.error) return bad(resolved.error);
-    vendorId = resolved.vendorId;
-  }
+  const { audience, vendorId, userId } = who;
 
   /* Awaited, unlike every other push in the app. A test whose result nobody
      waits for cannot report how many devices it reached, which is the only
@@ -181,9 +182,15 @@ export async function sendTestPush(prevState, formData) {
   const sent = await pushNotification({
     audience,
     vendorId,
+    userId,
     kind: 'push_test',
     data: {},
-    href: audience === 'admin' ? '/marketplace/admin' : '/marketplace/seller',
+    href:
+      audience === 'admin'
+        ? '/marketplace/admin'
+        : audience === 'buyer'
+          ? '/marketplace/account/requests'
+          : '/marketplace/seller',
   });
 
   if (!sent.ok) {
