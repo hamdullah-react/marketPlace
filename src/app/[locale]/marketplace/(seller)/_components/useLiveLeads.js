@@ -126,13 +126,54 @@ function loadHorn(ctx) {
     });
 }
 
+/* Whether this context has ever played anything inside a gesture. See the
+   ritual below for why that is a different question from "is it running". */
+let primed = false;
+
 export function unlockAudio() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
 
     audioCtx ||= new Ctx();
+
+    /* ── 1. Tell iOS this is PLAYBACK, not ambient noise ────────────────
+       Safari treats Web Audio as "ambient" by default, and ambient audio obeys
+       the hardware ring/silent switch — so an iPhone with that switch flicked
+       is silent however loud the page plays, with no error and nothing to see.
+       It is the single commonest reason a sound works on a desktop and not on
+       a phone.
+
+       navigator.audioSession arrived in Safari 16.4. Everywhere else it is
+       undefined and this does nothing, which is why it is only guarded and not
+       feature-detected in some cleverer way. */
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+    } catch {
+      // Present but not writable on some versions. Not worth failing over.
+    }
+
     if (audioCtx.state === "suspended") audioCtx.resume();
+
+    /* ── 2. The iOS unlock ritual ───────────────────────────────────────
+       A context that has never PLAYED anything during a user gesture stays
+       effectively muted on iOS, whatever `state` claims. resume() alone is not
+       enough — something has to actually start.
+
+       So a one-frame silent buffer is started here, synchronously, inside the
+       gesture. It makes no sound, it costs nothing, and it is what makes the
+       first real horn audible rather than the second one.
+
+       Harmless on desktop and on Android: a silent buffer is a silent
+       buffer. */
+    if (!primed) {
+      primed = true;
+      const silence = audioCtx.createBuffer(1, 1, 22050);
+      const source = audioCtx.createBufferSource();
+      source.buffer = silence;
+      source.connect(audioCtx.destination);
+      source.start(0);
+    }
 
     // The gesture that unlocks the sound is also the moment to go and get it.
     loadHorn(audioCtx);
@@ -214,6 +255,21 @@ function synth(ctx) {
  * difference in timbre for the one failure this whole thing exists to avoid.
  */
 function honk(ctx) {
+  /* ── And a buzz ─────────────────────────────────────────────────────────
+     A phone whose MEDIA volume is down — which is separate from its ringer,
+     and is down far more often than people expect — makes no sound whatever
+     we play. Vibration is the one cue left, and it is the difference between
+     a notification that arrives and one that may as well not have.
+
+     Android only: navigator.vibrate does not exist on iOS at all, and does
+     nothing on a desktop. Optional-chained rather than feature-detected
+     because "not there" and "there but refused" want the same handling. */
+  try {
+    navigator.vibrate?.([120, 60, 120]);
+  } catch {
+    // Some browsers throw rather than return false when it is disallowed.
+  }
+
   if (!hornBuffer) {
     synth(ctx);
     return;
