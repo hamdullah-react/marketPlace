@@ -5939,3 +5939,366 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  THE BLOG
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  Articles the platform writes: buying guides, model comparisons, "what to
+--  check before you buy a used car". The reason it exists is not editorial
+--  vanity — it is the only content on this marketplace that can rank for a
+--  question rather than for a car, and a question is what somebody types months
+--  before they are ready to buy one.
+--
+--  ── The body is a DOCUMENT, never HTML ─────────────────────────────────────
+--
+--  Exactly the rule §28 sets for a showroom's About page, and for exactly the
+--  same reason. The editor's ProseMirror/TipTap JSON is what is stored, and the
+--  page renders it by walking the tree and emitting React elements for the node
+--  types it recognises. There is no path from stored data to raw markup, so
+--  there is nothing to sanitise and nothing for a sanitiser to miss.
+--
+--  That matters more here than it looks: a blog post is written in an admin
+--  panel, so the temptation is to say the author is trusted and store HTML.
+--  Trusted today. The rule survives the day an editor account is phished, and a
+--  stored-HTML design does not.
+--
+--  ── {ar, en} per article, not two articles ─────────────────────────────────
+--
+--  One row holds both languages, like every other translatable thing here. Two
+--  rows would mean two slugs, two sets of tags and two publish switches for one
+--  piece of writing — and the pair silently drifting apart is how a marketplace
+--  ends up with an English post nobody translated and no way to tell.
+--
+--  An article written in only one language is ordinary and supported: the list
+--  falls back to whichever side exists (site_settings.locale_fallback), which
+--  is better than hiding a good article from half the visitors.
+--
+--  ── published_at is stamped ONCE ───────────────────────────────────────────
+--
+--  The same rule as listings.published_at: the list is ordered by it, so
+--  un-publishing an old post to fix a typo and publishing it again must not
+--  jump it to the top as though it were new.
+
+create table if not exists blog_posts (
+  id          uuid primary key default gen_random_uuid(),
+
+  -- The URL. ASCII only, because it is a path segment — an Arabic title is
+  -- transliterated or falls back to a generated one in the action, never
+  -- percent-encoded into something nobody can read or share.
+  slug        text not null unique check (slug ~ '^[a-z0-9-]+$'),
+
+  title       jsonb not null default '{}'::jsonb,
+  -- The line under the title in the list and in a search result. Kept apart
+  -- from the body because a summary written by hand beats the first sixty
+  -- words of an article every time.
+  excerpt     jsonb,
+  body        jsonb not null default '{}'::jsonb,
+
+  cover_url   text,
+
+  -- The wide picture across the top of the article. cover_url is the small
+
+  -- one: the card in the list and the share card. They are separate because a
+
+  -- crop that reads at 400px wide is not the crop that reads at 1600, and each
+
+  -- falls back to the other so an admin only has to fill one of them in.
+
+  banner_url  text,
+  -- Snapshotted, not a foreign key to a user. An article outlives the account
+  -- that wrote it, and a byline that vanishes when somebody leaves the company
+  -- is worse than no byline.
+  author      text,
+  tags        text[] not null default '{}',
+
+  published    boolean not null default false,
+  published_at timestamptz,
+
+  /* ── SEO: columns, not a blob ──────────────────────────────────────────
+     The same argument §15 and §27 make. The sitemap filters on seo_index and
+     orders by date, and neither can use an index inside a jsonb. Blank means
+     "work it out from the article", so nothing here is a field anybody has to
+     fill in. */
+  meta_title       jsonb,
+  meta_description jsonb,
+  og_image_url     text,
+  seo_index        boolean not null default true,
+
+  views       integer not null default 0,
+
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+-- Re-running this file on a database that already has blog_posts does not add a
+-- column — `create table if not exists` does nothing at all once the table is
+-- there. Every column added after the first release needs its own alter.
+alter table blog_posts add column if not exists banner_url text;
+
+-- ── The FULL search surface, per article ─────────────────────────────────────
+--
+-- The create above carries four SEO columns, which is what a page needs to be
+-- indexable and no more. An article is the one thing on this marketplace that
+-- is written in order to be found, so it gets everything page_seo has — the
+-- same set, the same names, so one editor component and one resolver can serve
+-- both and neither can drift.
+--
+-- Added by ALTER rather than folded into the create above, on purpose: the
+-- first release of this table is already on a live database, and a column added
+-- inside `create table if not exists` would never appear there.
+--
+-- Every one is OPTIONAL and generated from the article when blank. A blog whose
+-- author never opens the SEO panel is exactly as indexable as it was before
+-- these existed.
+
+-- The phrases somebody would actually type. The list per language, plus the ONE
+-- phrase the article is meant to win, which is what an editor checks the copy
+-- against. {ar: [..], en: [..]} for the list — the shape listings and vendors
+-- already use, so the same keyword editor serves all three.
+alter table blog_posts add column if not exists meta_keywords jsonb;
+alter table blog_posts add column if not exists focus_keyword jsonb;
+
+-- The share card's words. Separate from the meta pair because a card is read in
+-- a chat window rather than a results page: shorter, warmer, often a different
+-- promise. Blank falls back to the meta pair, then to the article itself.
+alter table blog_posts add column if not exists og_title       jsonb;
+alter table blog_posts add column if not exists og_description jsonb;
+
+-- 'article' rather than the 'website' a page defaults to — and it is not
+-- decoration: og:type=article is what makes a share card carry a published
+-- date and a byline instead of rendering as a generic link.
+alter table blog_posts add column if not exists og_type text not null default 'article';
+
+alter table blog_posts drop constraint if exists blog_posts_og_type_check;
+alter table blog_posts add constraint blog_posts_og_type_check
+  check (og_type in ('website', 'article', 'profile'));
+
+-- X reads its own tags first and only falls back to OG for what it cannot
+-- find, so an author can write a shorter line for the platform that shows less
+-- of it.
+alter table blog_posts add column if not exists twitter_card text not null default 'summary_large_image';
+alter table blog_posts add column if not exists twitter_title       jsonb;
+alter table blog_posts add column if not exists twitter_description jsonb;
+alter table blog_posts add column if not exists twitter_image_url   text;
+
+alter table blog_posts drop constraint if exists blog_posts_twitter_card_check;
+alter table blog_posts add constraint blog_posts_twitter_card_check
+  check (twitter_card in ('summary', 'summary_large_image'));
+
+-- Blank points at the article's own URL, which is right almost always. It
+-- exists for the article that was first published elsewhere — a syndicated
+-- guest post — and wants that original to count.
+alter table blog_posts add column if not exists canonical_url text;
+
+-- Robots is TWO instructions. "noindex, follow" is real and common: do not list
+-- this article, but do follow its links to the cars, which should be listed.
+-- seo_index is on the create above; this is its other half.
+alter table blog_posts add column if not exists seo_follow boolean not null default true;
+
+-- Read by the sitemap, which is why they are columns: it filters on seo_index
+-- and sorts on priority, and neither can use an index inside a jsonb.
+--
+-- 'monthly' and 0.6 rather than a listing's 'weekly' and 0.5 — an article is
+-- rewritten far less often than a car changes, and is worth more than one
+-- listing because it is the page that brings somebody to the site at all.
+alter table blog_posts add column if not exists seo_changefreq text not null default 'monthly';
+alter table blog_posts add column if not exists seo_priority numeric(2,1) not null default 0.6;
+
+alter table blog_posts drop constraint if exists blog_posts_changefreq_check;
+alter table blog_posts add constraint blog_posts_changefreq_check
+  check (seo_changefreq in ('always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'));
+
+alter table blog_posts drop constraint if exists blog_posts_priority_check;
+alter table blog_posts add constraint blog_posts_priority_check
+  check (seo_priority between 0 and 1);
+
+-- Overrides merged over the generated BlogPosting node. Free jsonb because it
+-- IS arbitrary JSON-LD — the one case where a blob is the honest shape. An
+-- article is also the case where it earns its keep: FAQPage and HowTo are both
+-- things a buying guide legitimately is, and neither can be generated.
+alter table blog_posts add column if not exists structured_data jsonb;
+
+-- ── The banner across the top of /blog ──────────────────────────────────────
+--
+-- One row, like site_settings, and for the same reason: there is one blog index
+-- and it has one banner. A table with an id and a "which one is live" flag would
+-- be inviting a question nobody has.
+--
+-- It is a separate table rather than four more columns on site_settings because
+-- site_settings is read on EVERY page of the site — the header, the footer and
+-- every piece of metadata — and the blog banner is read on one. Widening the
+-- hottest row in the schema to carry it would make every request pay for it.
+--
+-- Everything here is optional. With no image and no heading the blog index
+-- falls back to the built-in wording, which is what a site that has not got
+-- round to designing a banner should look like: finished, not broken.
+
+create table if not exists blog_banner (
+  id          boolean primary key default true check (id),
+
+  heading     jsonb not null default '{}'::jsonb,   -- {ar, en}
+  subheading  jsonb not null default '{}'::jsonb,
+  image_url   text,
+  alt         jsonb not null default '{}'::jsonb,   -- what a screen reader says
+  cta_label   jsonb not null default '{}'::jsonb,
+  cta_href    text,
+  active      boolean not null default true,
+
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+insert into blog_banner (id) values (true) on conflict (id) do nothing;
+
+drop trigger if exists blog_banner_updated_at on blog_banner;
+create trigger blog_banner_updated_at before update on blog_banner
+  for each row execute function set_updated_at();
+
+alter table blog_banner enable row level security;
+
+-- Anyone may read it; only an admin may change it. The same shape as every
+-- other piece of site content.
+drop policy if exists blog_banner_public_read on blog_banner;
+create policy blog_banner_public_read on blog_banner for select using (true);
+
+drop policy if exists blog_banner_admin_write on blog_banner;
+create policy blog_banner_admin_write on blog_banner
+  for all using (is_admin()) with check (is_admin());
+
+-- The public list: published, newest first. Partial, so the scan never touches
+-- the drafts — which on a blog that is being worked on is most of the table.
+create index if not exists blog_posts_live_idx
+  on blog_posts (published_at desc) where published;
+
+-- The admin's list is everything, newest edit first.
+create index if not exists blog_posts_admin_idx on blog_posts (updated_at desc);
+
+-- "Everything tagged buying-guide", which is the one filter a blog needs.
+create index if not exists blog_posts_tags_idx on blog_posts using gin (tags);
+
+-- ── updated_at means "last EDITED", not "last read" ─────────────────────────
+--
+-- The admin list is ordered by updated_at, because the article somebody is
+-- working on is the one they came here to find. A view counter bumping the same
+-- column would have made that order meaningless — the most-read article would
+-- sit at the top of the drafts list, and it would move every time a stranger
+-- opened it.
+--
+-- So the trigger skips an update that only touches `views`. Nothing that edits
+-- an article writes that column (see saveBlogPost), and increment_blog_views
+-- writes nothing else, so the two cases never overlap.
+drop trigger if exists blog_posts_updated_at on blog_posts;
+create trigger blog_posts_updated_at before update on blog_posts
+  for each row when (new.views is not distinct from old.views)
+  execute function set_updated_at();
+
+alter table blog_posts enable row level security;
+
+-- Anyone may read a PUBLISHED article; an admin sees the drafts too. Writes are
+-- admin-only and go through the server on the service role, like every other
+-- piece of site content.
+drop policy if exists blog_posts_public_read on blog_posts;
+create policy blog_posts_public_read on blog_posts
+  for select using (published or is_admin());
+
+drop policy if exists blog_posts_admin_write on blog_posts;
+create policy blog_posts_admin_write on blog_posts
+  for all using (is_admin()) with check (is_admin());
+
+-- ── How many people read it ─────────────────────────────────────────────────
+--
+-- One statement, so two readers at the same moment count as two — the lesson
+-- increment_listing_views was written to fix. Only a PUBLISHED article counts:
+-- an admin previewing their own draft is not a reader.
+--
+-- security definer because the row it updates is one that RLS lets the public
+-- only SELECT, and execute is granted to the service role alone: this runs on
+-- the server, on the back of a page render, never from a browser. Otherwise the
+-- view count is a number anyone can type into.
+
+create or replace function increment_blog_views(target text)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update blog_posts set views = views + 1 where slug = target and published;
+$$;
+
+revoke all on function increment_blog_views(text) from public, anon, authenticated;
+grant execute on function increment_blog_views(text) to service_role;
+
+-- ── Three articles to start with ────────────────────────────────────────────
+--
+-- Real articles, not lorem ipsum, and complete in both languages: a blog whose
+-- first three posts are placeholders is a blog nobody writes the fourth one
+-- for, and an admin needs something correctly-shaped to edit before they can
+-- see what a good post looks like here.
+--
+-- They are also the three questions every car buyer actually asks, in the order
+-- they ask them — what to check, what it is worth, and new or used — so they
+-- earn search traffic rather than just filling the page.
+--
+-- `on conflict (slug) do nothing`, so re-running this file never overwrites an
+-- edited article. Delete one from the admin and it stays deleted... until the
+-- schema is re-run, which is the price of seeding from here; to retire one for
+-- good, unpublish it rather than deleting it.
+--
+-- No cover_url or banner_url: a picture cannot be seeded, because there is
+-- nothing in the bucket yet. The list and the article both handle an article
+-- with no picture, and the admin adds one when they have it.
+
+insert into blog_posts (
+  slug, title, excerpt, body, tags, author, meta_title, meta_description, published_at, published
+)
+select * from (
+  values
+  (
+    'what-to-check-before-buying-a-used-car',
+    '{"ar": "ما الذي تفحصه قبل شراء سيارة مستعملة", "en": "What to check before buying a used car"}'::jsonb,
+    '{"ar": "قائمة فحص عملية في عشرين دقيقة: الأوراق أولاً، ثم الهيكل والإطارات والتشغيل البارد وتجربة القيادة — وما تعنيه كل علامة.", "en": "A practical twenty-minute checklist: paperwork first, then the panels, the tyres, a cold start and a proper test drive — and what each thing actually means."}'::jsonb,
+    '{"ar": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "السيارة المستعملة تكشف عن نفسها في عشرين دقيقة، إن عرفت أين تنظر. معظم ما يظهر من مشاكل بعد الشراء كان ظاهراً قبله — لم يكن مخفياً، لكن لم يبحث عنه أحد. هذا هو الترتيب الذي تنظر به، وما تعنيه كل علامة فعلاً."}]}, {"type": "paragraph", "content": [{"type": "text", "text": "لا شيء هنا يحتاج ورشة أو رافعة. خُذ معك كشافاً، ومقياس هواء للإطارات، وقطعة قماش نظيفة، وشخصاً يقف خلف السيارة بينما تجرّب الأضواء."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "ابدأ بالأوراق، قبل السيارة"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "سيارة سليمة ميكانيكياً وغير سليمة على الورق ليست سيارة يمكن أن تملكها. اطلب هذه قبل أن تنظر إلى أي شيء آخر، وانصرف إن لم يستطع البائع إحضار أحدها:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "الاستمارة", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — الاسم فيها يجب أن يكون اسم من يبيعك السيارة، أو أن يحمل تفويضاً موقّعاً من صاحبها."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "هوية البائع", "marks": [{"type": "bold"}]}, {"type": "text", "text": "، مطابقة لذلك الاسم. لا صورة لها."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "شهادة الفحص الدوري", "marks": [{"type": "bold"}]}, {"type": "text", "text": " وتاريخها. المنتهية عمل ورثته أنت."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "المخالفات المرورية", "marks": [{"type": "bold"}]}, {"type": "text", "text": "، فهي تتبع اللوحة لا الشخص. تحقّق منها قبل تسليم المال لا بعده."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "التمويل أو الرهن", "marks": [{"type": "bold"}]}, {"type": "text", "text": "، إن كانت مشتراة بالتقسيط. السيارة المرهونة لدى جهة تمويل لا يمكن نقلها إليك."}]}]}]}, {"type": "blockquote", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "إن لم يكن البائع هو المالك المسجّل ولا يحمل تفويضاً، فالفحص لا معنى له. توقّف هنا."}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "ادر حولها في ضوء النهار"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "أوقفها في مكان مكشوف، وانظر بطول الهيكل من كل زاوية لا من أمامه مباشرة. الانعكاس يمتدّ على الصفيحة المستقيمة وينكسر على المُصلَحة."}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "فراغات الصفائح.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " يجب أن تكون متساوية، ومتماثلة على الجانبين. فراغ يضيق نحو طرف يعني أن الصفيحة فُكّت من السيارة."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ملمس الصبغ.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " أمرّ ظهر يدك على كل صفيحة. الخشونة أو آثار الرشّ على الحلقات المطاطية تعني صبغاً."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اللون.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " انظر إلى الصفيحة نفسها من زاويتين. الباب المصبوغ يتطابق من الأمام ويختلف قليلاً من الجانب."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "المسامير تحت الكبوت وفي الشنطة.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " مسامير المصنع مصبوغة بلون الهيكل وسليمة. آثار المفاتيح عليها تعني أن القطعة فُكّت."}]}]}]}, {"type": "paragraph", "content": [{"type": "text", "text": "الصفيحة المُصلَحة ليست سبباً للانصراف بذاتها — معظم السيارات فوق خمس سنوات جرى تعديل شيء فيها. المهم هل ذكرها البائع قبل أن تكتشفها."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "الإطارات تحدّثك عن المساعدات"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "الإطارات أرخص ما في السيارة وأصدقه. اقرأ الأربعة:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تآكل غير متساوٍ في الإطار الواحد", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — على الحرف الداخلي أو الخارجي فقط — يعني الترصيص، وترصيصاً بهذا القدر يعني عادةً ضربة."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "إطاران يتآكلان بشكل مختلف عن الآخرين", "marks": [{"type": "bold"}]}, {"type": "text", "text": " أمر طبيعي؛ أربعة مختلفة عن بعضها ليس كذلك."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تاريخ الصناعة.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " أربعة أرقام على الجانب: الأسبوع والسنة. الإطار فوق ست سنوات قاسٍ مهما كان عمق نقشته، وفي هذا الجو أقسى."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اختلاف الماركات على المحور نفسه", "marks": [{"type": "bold"}]}, {"type": "text", "text": " اختصار للتكاليف. اسأل عمّا اختُصر غيره."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "تشغيل بارد، وأنصت"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "أصرّ على تشغيل السيارة باردة. البائع الذي شغّلها قبل وصولك قد يكون فعلها مجاملةً وقد لا يكون. في الحالتين فقدتَ أهم ثلاثين ثانية في الفحص، فرتّب زيارة أخرى."}]}, {"type": "orderedList", "attrs": {"start": 1}, "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "أدر المفتاح دون تشغيل وراقب كل لمبة تحذير تُضيء ثم تنطفئ. اللمبة التي لم تُضِئ أصلاً أُزيلت من الطبلون."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "شغّلها وأنصت في أول خمس ثوان: الطقطقة التي تخفّ عادةً شدّاد جنزير التايمن، ولا يصبح أرخص بالانتظار."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اتركها على السكون وراقب العادم. الدخان الأزرق زيت، والأبيض الذي لا يزول ماء تبريد، والأسود بنزين. البخار في صباح بارد ماء ولا يعني شيئاً."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "شغّل المكيّف على أقصى درجة واتركه بقية الفحص. في هذا البلد مكيّف يعمل دقيقتين لم يُفحص."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "جرّبها كما ينبغي"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "عشر دقائق حول الحي لا تقول شيئاً. اطلب ثلاثين دقيقة، تشمل طريقاً تصل فيه إلى سرعة الخط السريع، وموقفاً تلفّ فيه المقود كاملاً في الاتجاهين."}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اضغط الفرامل بقوة مرة واحدة", "marks": [{"type": "bold"}]}, {"type": "text", "text": " في مكان آمن. يجب أن تتوقف السيارة مستقيمة، بلا انحراف ولا نبض في الدعسة."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ابحث عن سطح غير مستوٍ.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " الطقطقة على المطبّات مساعدات؛ إصلاحها رخيص وتجاهلها غالٍ."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "لفّ المقود كاملاً في الاتجاهين", "marks": [{"type": "bold"}]}, {"type": "text", "text": " ببطء في موقف. الطقطقة من الأمام عكس إحليل."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اترك الجير الأوتوماتيك ينتقل بين كل السرعات", "marks": [{"type": "bold"}]}, {"type": "text", "text": " بدعسة خفيفة ثم بقوية. النقلة المتردّدة أو الزاحفة أو المرتجّة أغلى بند في هذه القائمة."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ارفع يديك عن المقود", "marks": [{"type": "bold"}]}, {"type": "text", "text": " لحظة على طريق مستوٍ ومستقيم. السيارة التي تسحب فيها ترصيص أو فرامل."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "ماذا يقول العدّاد فعلاً"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "أقلّ مما تظنّ. سيارة قطعت ٢٠٠٠٠٠ كم على الخطوط السريعة بصيانتها في وقتها أفضل حالاً من أخرى قطعت ٨٠٠٠٠ في زحام المدينة بلا صيانة. اطلب سجلّ الصيانة، واقرأ الفترات بينها لا المجموع:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "فترات منتظمة، ولو كانت متباعدة، تعني أن أحداً كان يتابع."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "انقطاع ثلاث سنوات ثم دفعة أعمال تعني سيارة أُهملت ثم جُهّزت للبيع."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "غياب السجلّ كلياً ليس سيئاً بالضرورة، لكنه يحوّل كل بند آخر في هذه القائمة من فحص إلى شرط."}]}]}]}, {"type": "horizontalRule"}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "باختصار"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "الأوراق أولاً. انظر بطول الصفائح لا إليها. اقرأ الإطارات. شغّلها باردة. جرّبها ثلاثين دقيقة تشمل فرملة قوية ولفّ مقود كامل في الاتجاهين. وإن تردّد البائع في أي من ذلك، فقد عرفت ما هو أنفع من كل ما سبق."}]}]}, "en": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "A used car tells you almost everything about itself in twenty minutes, if you know where to look. Most of what goes wrong after a purchase was visible before it — not hidden, just unlooked-for. This is the order to look in, and what each thing actually means."}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Nothing here needs a workshop or a lift. Bring a torch, a tyre gauge, a clean rag and somebody to stand behind the car while you test the lights."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Start with the paperwork, before the car"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "A car that checks out mechanically and not on paper is not a car you can own. Ask for these before you look at anything else, and walk away if any of them cannot be produced:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The registration (istimara)", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — the name on it must match the person selling you the car, or they must hold a signed authorisation from whoever is named."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The seller’s ID", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", checked against that name. Not a photograph of one."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The inspection certificate", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", and its date. An expired one is a job you have inherited."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Any outstanding traffic fines", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", which follow the plate rather than the person. Check them before money changes hands, not after."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Finance or a lien", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", if the car was bought on instalments. A car that is still security against a loan cannot be transferred to you."}]}]}]}, {"type": "blockquote", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "If the seller is not the registered owner and has no authorisation, the inspection is beside the point. Stop there."}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Walk around it in daylight"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Park it outside, in the open, and look along the body from each corner rather than straight at it. Reflections travel down a straight panel and break over a repaired one."}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Panel gaps.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " They should be even, and the same on both sides. A gap that narrows towards one end means a panel has been off the car."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Paint texture.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Run the back of your hand along each panel. Grain, roughness or overspray on the rubber seals is a respray."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Colour.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Look at the same panel from two angles. A resprayed door will match head-on and shift slightly off-axis."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The gaps under the bonnet and boot.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Factory bolts are painted the body colour and untouched. Tool marks on them mean the panel came off."}]}]}]}, {"type": "paragraph", "content": [{"type": "text", "text": "A repaired panel is not by itself a reason to walk away — most cars over five years old have had something straightened. What matters is whether the seller mentioned it before you found it."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "The tyres tell you about the suspension"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Tyres are the cheapest part of the car and the most honest. Read all four:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Uneven wear across one tyre", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — worn on the inner or outer edge only — is alignment, and alignment that far out is usually a knock."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Two tyres worn differently from the other two", "marks": [{"type": "bold"}]}, {"type": "text", "text": " is normal; four worn differently from each other is not."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The date code.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Four digits on the sidewall: week and year. Tyres over six years old are hard whatever the tread depth, and in this climate they are harder still."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Mismatched brands across an axle", "marks": [{"type": "bold"}]}, {"type": "text", "text": " is a corner cut. Ask what else was."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Cold start, and listen"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Insist on starting the car cold. A seller who has warmed it up before you arrived may have done it out of courtesy, and may not have. Either way you have lost the most informative thirty seconds of the inspection, so arrange to come back."}]}, {"type": "orderedList", "attrs": {"start": 1}, "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Turn the key to accessory and watch every warning light come on, then go out. A light that never came on has been removed from the cluster."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Start it and listen for the first five seconds: a rattle that fades is usually the timing chain tensioner, and it does not get cheaper."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Let it idle and watch the exhaust. Blue smoke is oil, white that does not clear is coolant, black is fuel. Steam on a cold morning is water and means nothing."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Turn the air conditioning to maximum and leave it there for the rest of the inspection. In this country an air conditioner that works for two minutes has not been tested."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Drive it properly"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Ten minutes around the block tells you very little. Ask for thirty, with a stretch of road where you can reach highway speed and a car park where you can turn the wheel fully both ways."}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Brake hard once", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", somewhere safe. The car should stop straight, with no pull and no pulsing through the pedal."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Find a rough surface.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Knocks over bumps are suspension; they are cheap to fix and expensive to ignore."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Full lock both ways", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", slowly, in a car park. A clicking from the front is a CV joint."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Let the automatic shift through every gear", "marks": [{"type": "bold"}]}, {"type": "text", "text": " under light throttle and again under heavy. A shift that hunts, slips or thumps is the single most expensive thing on this list."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Take your hands off the wheel", "marks": [{"type": "bold"}]}, {"type": "text", "text": " briefly on a flat, straight road. A car that pulls has an alignment or a brake problem."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "What the mileage actually tells you"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Less than you would think. A car that has done 200,000 km on the highway with its services done is in better condition than one that has done 80,000 in city traffic with none. Ask for the service history, and read the intervals rather than the total:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Regular intervals, even long ones, mean somebody was paying attention."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "A gap of three years followed by a flurry of work means the car was neglected and then prepared for sale."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "No history at all is not automatically bad, but it moves every other thing on this list from a check to a requirement."}]}]}]}, {"type": "horizontalRule"}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "The short version"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Paperwork first. Look along the panels, not at them. Read the tyres. Start it cold. Drive it for thirty minutes including one hard brake and full lock both ways. And if the seller is reluctant about any of that, you have learned something more useful than any of it."}]}]}}'::jsonb,
+    array['buying-guide', 'used-cars', 'inspection']::text[],
+    'Sauda',
+    '{"ar": "ما الذي تفحصه قبل شراء سيارة مستعملة", "en": "What to check before buying a used car"}'::jsonb,
+    '{"ar": "دليل فحص السيارة المستعملة قبل الشراء: الاستمارة والمخالفات والرهن، وفحص الصفائح والإطارات والمحرّك وتجربة القيادة.", "en": "How to inspect a used car before you buy: registration, fines and liens, then panels, tyres, a cold start and what to do on the test drive."}'::jsonb,
+    now() - interval '21 days'
+  ),
+  (
+    'how-to-read-a-car-price',
+    '{"ar": "كيف تقرأ سعر السيارة في السوق", "en": "How to read a car’s price"}'::jsonb,
+    '{"ar": "ما يحرّك السعر فعلاً وما لا يحرّكه، ولماذا يكون الإعلان الرخيص رخيصاً، وكيف تفاوض برقم لا بإحساس.", "en": "What genuinely moves a price and what does not, why a cheap listing is cheap, and how to negotiate with a number instead of a feeling."}'::jsonb,
+    '{"ar": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "سيارتان متطابقتان، السنة نفسها والعدّاد نفسه والمدينة نفسها، قد يفصل بين سعريهما ثلاثون ألف ريال — ويكون السعران صادقين. السعر ليس معلومة عن السيارة، بل خلاصة ما يعرفه البائع عنها وما يحتاجه من البيع. قراءته مهارة، وهي معظم ما يفرّق بين شراء موفّق وآخر مكلف."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "اعرف الوسط قبل أن تنظر إلى سيارة بعينها"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "السعر لا يعني شيئاً إلا بجوار أسعار أخرى. قبل أن تتعلّق بسيارة معيّنة، ابنِ لنفسك نطاقاً:"}]}, {"type": "orderedList", "attrs": {"start": 1}, "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ابحث عن الموديل والسنة بالتحديد، ووسّع فلتر السعر إلى أقصاه."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تجاهل الأرخص اثنتين والأغلى اثنتين. هذه شواذّ، وهي شواذّ لأسباب لا تراها بعد."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "النطاق الذي تقع فيه بقية الإعلانات هو السوق. اكتب حدّه الأدنى والأعلى."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "الآن انظر إلى سيارتك. السؤال أين تقع في هذا النطاق، لا هل الرقم كبير."}]}]}]}, {"type": "paragraph", "content": [{"type": "text", "text": "افعل هذا مرة لكل موديل، ويأخذ عشر دقائق. وهي أنفع عشر دقائق في العملية كلها."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "ما يحرّك السعر فعلاً"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "مرتّبة تقريباً بحسب مقدار تأثيرها:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "سجلّ الصيانة.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " السجلّ الموثّق أثمن من عدّاد منخفض، لأنه دليل لا رقم."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تاريخ الحوادث.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " إصلاح في هيكل السيارة ينزل بالسعر كثيراً، ومن حقه. صدّام مستبدل لا يحرّكه تقريباً."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "فئة التجهيز.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " سيارتان من الموديل نفسه قد تكونان سيارتين مختلفتين فعلاً. اعرف ما تضمّنته الفئة الأعلى قبل أن تدفع ثمنها."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "مالك واحد مقابل أربعة.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " كل نقل ملكية فترة لا يستطيع أحد أن يحدّثك عنها."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اللون.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " لا ينبغي أن يهمّ، وهو يهمّ. الأبيض والفضي أسرع بيعاً هنا؛ واللون الغريب الذي يعجبك خصمٌ حين تشتري وخصمٌ مرة أخرى حين تبيع."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "الإطارات والبطارية والفرامل.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " ليست مالاً كثيراً، لكنها أول ما يلحظه المشتري وأول ما يتجاوزه البائع."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "وما لا يحرّكه بقدر ما يُظنّ"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "العدّاد وحده.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " انظر إلى نقطة سجلّ الصيانة أعلاه."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "الإضافات الخارجية.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " نظام الصوت أو طقم الهيكل يساوي شيئاً لمن اختاره ولا يساوي شيئاً تقريباً للمشتري التالي. ادفع ثمن السيارة، لا ثمن ذوق غيرك."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تنكة بنزين ممتلئة وغسلة حديثة.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " تكلّف البائع مئتي ريال، والمقصود منها أن تحرّك تقديرك آلافاً."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "لماذا يكون الإعلان الرخيص رخيصاً"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "السعر الأقلّ بكثير من النطاق معلومة لا حظّ. وهو غالباً أحد هذه، والأخيران وحدهما خبر سارّ:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "في السيارة عيب سيجده الفحص."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "في الأوراق عيب — رهن، أو اسم غير مطابق، أو مخالفات غير مسدّدة."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "الإعلان غير حقيقي، والسعر موجود ليبدأ محادثة تنتهي عند سيارة أخرى."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "البائع يريدها أن تُباع هذا الأسبوع", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — مسافر، أو منتقل، أو اشترى البديل فعلاً."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "لا يعرف قيمتها.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " أندر مما يفترض المشتري المتحمّس، ويحدث."}]}]}]}, {"type": "blockquote", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "السعر تحت السوق سؤال. لا تتعامل معه كجواب."}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "فاوض برقم لا بإحساس"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "طلب «خصم» يستدعي رفضاً. أما ذكر سبب ورقم فيستدعي عرضاً مقابلاً، وهناك تبدأ المحادثة التي تريدها فعلاً."}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "سعّر العمل المطلوب.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " أربعة إطارات، بطارية، الصيانة المستحقّة — سعّرها، واجمعها، واطلب هذا المبلغ. محدّد، ويمكن الدفاع عنه."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اعرف حدّك الأقصى قبل أن تتكلّم", "marks": [{"type": "bold"}]}, {"type": "text", "text": "، واعرف ما هو خيارك الثاني. المشتري الذي لا يملك إلا خياراً واحداً يفاوض بسوء، ويعرف ذلك كلا الطرفين."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "لا تبدأ بأقصى ما تدفع", "marks": [{"type": "bold"}]}, {"type": "text", "text": "، ولا تبدأ بإهانة كذلك. عرض أول أقلّ بكثير من النطاق ينهي المحادثة مع البائعين المعقولين ولا يبقي إلا المتعبين."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اسأل: بكم تبيعها اليوم؟", "marks": [{"type": "bold"}]}, {"type": "text", "text": " سؤال مختلف عن «كم آخر سعر»، وجوابه مختلف."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "فكّر في السعر الثاني"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "الرقم الذي تدفعه ليس تكلفة السيارة. قبل أن تقرّر، اجمع نقل الملكية، والتأمين لسنة، والإطارات، والصيانة المستحقّة خلال ثلاثة أشهر، وما أظهره الفحص. هذا المجموع، لا سعر الإعلان، هو ما تقارن به بين سيارتين — وهو يعيد ترتيبهما كثيراً."}]}, {"type": "horizontalRule"}, {"type": "paragraph", "content": [{"type": "text", "text": "كل ما سبق عادة واحدة: انظر إلى السوق قبل السيارة، وإلى المجموع قبل السعر. افعل ذلك ولن تحتاج أن تكون مفاوضاً بارعاً."}]}]}, "en": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Two identical cars, same year, same mileage, same city, can be listed thirty thousand riyals apart — and both prices can be honest. Price is not a fact about a car; it is a summary of everything the seller knows about it and everything they need from the sale. Reading it is a skill, and it is most of what separates a good purchase from an expensive one."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Find the middle before you look at any single car"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "A price only means something next to other prices. Before you fall for a particular car, build yourself a range:"}]}, {"type": "orderedList", "attrs": {"start": 1}, "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Search the exact model and year, and set the widest price filter."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Ignore the cheapest two and the most expensive two. Those are the outliers and they are outliers for reasons you cannot see yet."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The band the remaining listings sit in is the market. Write down its bottom and its top."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Now look at your car. Where it sits in that band is the question, not whether the number is large."}]}]}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Do this once per model and it takes ten minutes. It is the single highest return ten minutes in the whole process."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "What genuinely moves the price"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "In rough order of how much they move it:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Service history.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " A documented history is worth more than low mileage, because it is evidence rather than a number."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Accident history.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " A repaired structural repair moves a price a long way down and should. A replaced bumper barely moves it."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Trim level.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Two cars of the same model can be genuinely different cars. Check what the higher trim actually included before paying for it."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Single owner versus four.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Each transfer is a period nobody can account for."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Colour.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " It should not matter and it does. White and silver resell fastest here; the unusual colour you like is a discount when you buy and a discount again when you sell."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Tyres, battery and brakes.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Not big money, but they are the first thing a buyer notices and the first thing a seller skips."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "What does not move it as much as people think"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Mileage on its own.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " See the service history point above."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Aftermarket additions.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " A sound system or a body kit is worth something to the person who chose it and close to nothing to the next buyer. Pay for the car, not for somebody else’s taste."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "A recent full tank and a wash.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " They cost the seller two hundred riyals and are meant to move your estimate by thousands."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Why a cheap listing is cheap"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "A price well under the band is information, not luck. It is usually one of these, and only the last two are good news:"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Something is wrong with the car that an inspection will find."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Something is wrong with the paperwork — a lien, a name that does not match, unpaid fines."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "It is not a real listing, and the price exists to start a conversation that ends at a different car."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The seller needs it gone this week", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — travelling, moving, already bought the replacement."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "They do not know what it is worth.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Rarer than the optimistic buyer assumes, and it does happen."}]}]}]}, {"type": "blockquote", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "A price below the market is a question. Never treat it as an answer."}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Negotiating with a number instead of a feeling"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Asking for a discount invites a no. Naming a reason and a figure invites a counter-offer, which is where the conversation you want actually starts."}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Cost the work.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Four tyres, a battery, the service that is due — price them, add them up, and ask for that. It is specific and it is defensible."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Know your walk-away number before you speak", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", and know what your second choice is. A buyer with one option negotiates badly and both people in the room know it."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Never lead with your maximum", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", and never lead with an insult either. An opening well below the band ends the conversation with the reasonable sellers and only the difficult ones stay."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Ask what they would take today.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " It is a different question from “what is your best price”, and it gets a different answer."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Think about the second price"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "The number you pay is not the cost of the car. Before you commit, add up the transfer, the insurance for a year, the tyres and the service that is due within three months, and anything the inspection turned up. That total, not the listing price, is what you are comparing between two cars — and it routinely reorders them."}]}, {"type": "horizontalRule"}, {"type": "paragraph", "content": [{"type": "text", "text": "Everything above is one habit: look at the market before the car, and at the total before the price. Do that and you will not need to be a good negotiator."}]}]}}'::jsonb,
+    array['buying-guide', 'pricing', 'negotiation']::text[],
+    'Sauda',
+    '{"ar": "كيف تقرأ سعر السيارة في السوق", "en": "How to read a car’s price"}'::jsonb,
+    '{"ar": "طريقة تقدير سعر السيارة في السوق السعودي: بناء نطاق الأسعار، وما يؤثّر في القيمة، والتفاوض، وحساب التكلفة الكاملة.", "en": "How to work out what a car is worth: build a price band, learn what moves value, negotiate with specifics, and compare total cost rather than headline price."}'::jsonb,
+    now() - interval '12 days'
+  ),
+  (
+    'new-or-used-how-to-decide',
+    '{"ar": "جديدة أم مستعملة؟ كيف تقرّر", "en": "New or used? How to decide"}'::jsonb,
+    '{"ar": "انخفاض القيمة في أول ثلاث سنوات، ومتى تكون الجديدة هي الصحيحة، ومتى المستعملة، والخيار الأوسط الذي يتجاوزه الناس.", "en": "Depreciation in the first three years, when new is the right answer and when used is, and the middle option most people skip."}'::jsonb,
+    '{"ar": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "«جديدة أم مستعملة» يُطرح عادةً كسؤال عن المال، وهو ليس كذلك. كلتاهما قد تكون الخيار الصحيح؛ والفارق هو كم ستبقيها، وكم من المجهول تستطيع أن تتحمّل، وكيف تقود فعلاً. وهذه طريقة معرفة أيّهما أنت."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "أول ثلاث سنوات هي الأغلى، ولا تراها"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "أكبر تكلفة في امتلاك سيارة جديدة ليست البنزين ولا التأمين ولا الصيانة، بل انخفاض القيمة — ما تفقده السيارة وهي واقفة في موقفك — وهو مُركّز في البداية. السيارة الجديدة تفقد أحدّ جزء من قيمتها في أول سنتين أو ثلاث، أسرع مما تفقده في الخمس التي تليها."}]}, {"type": "paragraph", "content": [{"type": "text", "text": "هذه هي الحجّة الكاملة لشراء المستعمل: أحدٌ غيرك دفع الجزء الحادّ. وهي نفسها الحجّة الكاملة ضدّ البيع المبكر. سيارة جديدة تبقى عشر سنوات شراء معقول؛ والسيارة نفسها تُباع بعد سنتين طريقة مكلفة لاستئجار سيارة."}]}, {"type": "blockquote", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "اشترِ جديدة إن كنت تنوي الاحتفاظ بها. واشترِ مستعملة إن لم تكن متأكداً بعد."}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "اشترِ جديدة إذا"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "ستبقيها بعد انتهاء الضمان", "marks": [{"type": "bold"}]}, {"type": "text", "text": "، وبفارق طويل إن أمكن. كلما طالت المدة قلّ أثر هبوط السنوات الأولى."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تقود كثيراً.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " المسافات السنوية الكبيرة تجعل الاعتمادية والضمان مالاً حقيقياً، وهي الحالة التي يكلّف فيها تاريخ السيارة المجهول أكثر ما يكلّف."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "لا تستطيع تحمّل مفاجأة.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " تكاليف السيارة الجديدة متوقّعة ومجدولة في الغالب. هذا التوقّع منتج بذاته، ويستحقّ الدفع إن كان إصلاح مفاجئ سيكون مشكلة لا مجرّد إزعاج."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تريد تجهيزاً محدّداً.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " فئة بعينها، ولوناً بعينه، وإضافات بعينها. في سوق المستعمل تأخذ ما هو موجود."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "اشترِ مستعملة إذا"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تريد أكبر سيارة مقابل المال.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " سيارة عمرها ثلاث سنوات من الفئة الأعلى تكون عادةً سيارة أفضل بالمبلغ نفسه."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "قد تتغيّر احتياجاتك خلال سنتين", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — عمل جديد، أو مدينة جديدة، أو أسرة تكبر. الخطأ في سيارة مستعملة أرخص كثيراً."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "تشتري سيارة ثانية", "marks": [{"type": "bold"}]}, {"type": "text", "text": " للمشاوير القصيرة، حيث تقلّ أهمية الاعتمادية لأن هناك سيارة أخرى."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "أنت مستعدّ للعمل", "marks": [{"type": "bold"}]}, {"type": "text", "text": ": قراءة السوق، والفحص الجيّد، ومراجعة الأوراق. شراء المستعمل يكافئ الجهد. وشراء الجديد لا يطلب جهداً."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "الخيار الأوسط الذي يتجاوزه الناس"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "سيارة عمرها سنة إلى ثلاث، خرجت من منحدر انخفاض القيمة وما زالت في ضمان الوكيل غالباً، هي الجواب لعدد أكبر من الناس مما يُتوقّع. ليست مثيرة، ولهذا يُتجاوزها الناس، وهي كثيراً أفضل قيمة في السوق."}]}, {"type": "paragraph", "content": [{"type": "text", "text": "ابحث عن الخارجة من أول عقد تأجير أو من أسطول شركة: تاريخ معروف، وصيانة في وقتها لأن أحداً غيرك كان يشترط ذلك، وسعر مستعمل."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "احسب التكلفة الشهرية الحقيقية"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "قارن بين سيارتين محدّدتين، لا بين فئتين. لكلٍّ منهما، وعلى عدد السنوات التي تنوي فعلاً أن تبقيها، اجمع:"}]}, {"type": "orderedList", "attrs": {"start": 1}, "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "سعر الشراء، ناقص تقديراً واقعياً لما ستُباع به في النهاية. هذا هو انخفاض القيمة وهو أكبر رقم."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "التأمين لكل سنة — اطلب عرض سعر فعلياً لكل سيارة بعينها، فالفارق بينهما أكبر مما يُتوقّع."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "الصيانة لتلك السنوات، من جدول الصيانة."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "البنزين، على مسافتك السنوية الحقيقية لا على رقم مستدير."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "وللمستعملة، مبلغاً مخصّصاً للإصلاح. سيحدث شيء. وعدم رصد أي مبلغ هو ما يحوّل شراءً جيّداً إلى شهر سيّئ."}]}]}]}, {"type": "paragraph", "content": [{"type": "text", "text": "اقسم على عدد الأشهر. هذا الرقم، لكل سيارة، هو المقارنة الصادقة الوحيدة — وهو كثيراً ما لا يشبه ما يوحي به السعران."}]}, {"type": "horizontalRule"}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "باختصار"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "ستبقيها طويلاً، أو تقود كثيراً، أو لا تتحمّل مفاجأة: اشترِ جديدة. تريد أكبر سيارة مقابل المال، أو قد تغيّر رأيك، أو مستعدّ للفحص الجيّد: اشترِ مستعملة. غير متأكد: انظر جيّداً في سيارات عمرها سنتان، واحسب التكلفة الشهرية على سيارتين محدّدتين قبل أن تقرّر أي شيء."}]}]}, "en": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "“New or used” is usually argued as a question about money, and it is not. Both can be the sensible choice; which one depends on how long you will keep the car, how much uncertainty you can absorb, and how you actually drive. Here is how to work out which one you are."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "The first three years cost the most, and you cannot see it"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "The largest expense of owning a new car is not fuel, insurance or servicing. It is depreciation — the value the car loses while it sits in your car park — and it is front-loaded. A new car loses the steepest part of its value in its first two or three years, faster than in the five after that."}]}, {"type": "paragraph", "content": [{"type": "text", "text": "This is the entire case for buying used: somebody else has already paid the steep part. It is also the entire case against selling early. A new car kept for ten years is a reasonable purchase; the same car sold after two is an expensive way to have borrowed one."}]}, {"type": "blockquote", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Buy new if you intend to keep it. Buy used if you are not sure yet."}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Buy new when"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You will keep it past the warranty", "marks": [{"type": "bold"}]}, {"type": "text", "text": ", ideally well past. The longer you hold it, the less the first-years drop matters."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You drive a great deal.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " High annual mileage makes reliability and a warranty worth real money, and it is the case where a used car’s unknown history costs the most."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You cannot absorb a surprise.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " A new car’s costs are predictable and mostly scheduled. That predictability is a product, and it is worth paying for if an unexpected repair would be a problem rather than an inconvenience."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You want a specific configuration.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " Exact trim, exact colour, exact options. On the used market you take what exists."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Buy used when"}]}, {"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You want the most car for the money.", "marks": [{"type": "bold"}]}, {"type": "text", "text": " A three-year-old car of the class above is routinely the better vehicle for the same figure."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Your needs might change within two years", "marks": [{"type": "bold"}]}, {"type": "text", "text": " — a new job, a new city, a growing family. A used car costs far less to be wrong about."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You are buying a second car", "marks": [{"type": "bold"}]}, {"type": "text", "text": " for short trips, where reliability matters less because there is another car."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "You are willing to do the work", "marks": [{"type": "bold"}]}, {"type": "text", "text": ": read the market, inspect properly, check the paperwork. Buying used rewards effort. Buying new does not require any."}]}]}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "The middle option most people skip"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "A car one to three years old, out of the depreciation cliff and often still inside the manufacturer warranty, is the answer for a surprising number of people. It is not exciting, which is why it gets skipped, and it is frequently the best value on the market."}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Look for the ones coming off a first lease or a company fleet: a known history, serviced on schedule because somebody else insisted, and priced as used."}]}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "Work out the real monthly cost"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Compare two specific cars, not two categories. For each, over the number of years you actually intend to keep it, add:"}]}, {"type": "orderedList", "attrs": {"start": 1}, "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "The purchase price, minus a realistic estimate of what it will sell for at the end. This is depreciation and it is the biggest number."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Insurance for each year — get an actual quote for each specific car, because they differ more than people expect."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Servicing for those years, from the schedule."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Fuel, at your real annual distance rather than a round figure."}]}]}, {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "For the used car, a repair allowance. Something will happen. Budgeting nothing is how a good purchase becomes a bad month."}]}]}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Divide by the months. That figure, for each car, is the only honest comparison — and it is often nothing like what the two prices suggest."}]}, {"type": "horizontalRule"}, {"type": "heading", "attrs": {"level": 2, "textAlign": "start"}, "content": [{"type": "text", "text": "The short version"}]}, {"type": "paragraph", "content": [{"type": "text", "text": "Keeping it a long time, driving a lot, or unable to absorb a surprise: buy new. Want the most car for the money, might change your mind, or willing to inspect properly: buy used. Unsure: look hard at two-year-old cars, and do the monthly-cost arithmetic on two specific ones before you decide anything."}]}]}}'::jsonb,
+    array['buying-guide', 'new-cars', 'used-cars']::text[],
+    'Sauda',
+    '{"ar": "جديدة أم مستعملة؟ كيف تقرّر", "en": "New or used? How to decide"}'::jsonb,
+    '{"ar": "مقارنة عملية بين شراء سيارة جديدة ومستعملة: انخفاض القيمة، ومتى يناسب كلٌّ منهما، وكيف تحسب التكلفة الشهرية الحقيقية.", "en": "New versus used, decided properly: how depreciation works, which case each one suits, and how to compare the real monthly cost of two specific cars."}'::jsonb,
+    now() - interval '5 days'
+  )
+) as seed (slug, title, excerpt, body, tags, author, meta_title, meta_description, published_at)
+cross join (select true as published) p
+on conflict (slug) do nothing;
+
+do $$
+declare
+  total int;
+  live  int;
+begin
+  select count(*), count(*) filter (where published) into total, live from blog_posts;
+  raise notice 'Blog: % article(s), % published.', total, live;
+end $$;
+
+notify pgrst, 'reload schema';

@@ -297,6 +297,121 @@ export async function notifyShowroomFollowers({ vendorId, listing, vendorName, h
 }
 
 /**
+ * Tell every buyer that an article has been published.
+ *
+ * ── Everybody, unlike new_car ───────────────────────────────────────────────
+ *
+ * notifyShowroomFollowers is careful about WHO: only people who saved a car or
+ * sent a request to that showroom, because "a showroom you know has listed
+ * something" is a claim about a relationship, and sending it to strangers would
+ * be a lie as well as spam.
+ *
+ * An article is the opposite. It is written for buyers in general — what to
+ * check before buying, how to read a price — so there is no relationship to
+ * respect and no smaller group that is the right one. Every buyer account is
+ * told, and the wording claims nothing about them.
+ *
+ * ── Announced ONCE, ever ────────────────────────────────────────────────────
+ *
+ * Publishing, unpublishing to fix a typo, and publishing again is one article,
+ * not two, and a bell that goes off each time teaches people to ignore it. The
+ * guard is the same one notifyNewUser uses: ask what has already been said. If
+ * a blog_published row already names this slug, nothing is sent.
+ *
+ * That makes the call safe from anywhere, which matters because two different
+ * actions can put an article live — saving it with the switch on, and the
+ * publish item in the list's row menu.
+ *
+ * ── Capped, and the cap is a real limit ─────────────────────────────────────
+ *
+ * This is the one notification in the app addressed to everybody, so it is the
+ * one that grows with the marketplace. The rows are inserted in chunks so a
+ * single statement never carries thousands, and `limit` is a ceiling rather
+ * than a page: past it, nobody else is told. A platform that outgrows this
+ * wants a queue, not a bigger number here — said plainly so the day it matters
+ * is not a surprise.
+ */
+export async function notifyNewArticle({ post, href, limit = 2000 }) {
+  if (!post?.slug) return { ok: false, error: 'NO_POST' };
+
+  try {
+    const db = getMarketplaceDb();
+
+    /* Already announced — see the note above. head:true so this costs a count
+       and not the rows. */
+    const { count, error: seen } = await db
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('audience', 'buyer')
+      .eq('kind', 'blog_published')
+      .eq('data->>slug', post.slug);
+
+    // A failed CHECK must not become a second announcement.
+    if (seen) {
+      console.warn('[notifications] blog_published check failed:', seen.message);
+      return { ok: false, error: 'SAVE_FAILED' };
+    }
+    if ((count ?? 0) > 0) return { ok: true, sent: 0, already: true };
+
+    /* Buyers only. Staff and admins have the panel that published it, and
+       telling somebody about their own action is noise. */
+    const { data: people, error: read } = await db
+      .from('profiles')
+      .select('id')
+      .eq('role', 'buyer')
+      .limit(limit);
+
+    if (read) {
+      console.warn('[notifications] blog_published recipients failed:', read.message);
+      return { ok: false, error: 'SAVE_FAILED' };
+    }
+
+    const recipients = (people ?? []).map((row) => row.id).filter(Boolean);
+    if (!recipients.length) return { ok: true, sent: 0 };
+
+    /* The slug rides along so the guard above has something to match on, and
+       the title and excerpt are SNAPSHOTS — an article renamed next month must
+       not rewrite a notification somebody has already read. Both languages,
+       because the sentence is built in the reader's own. */
+    const data = {
+      slug: post.slug,
+      title: post.title ?? null,
+      excerpt: post.excerpt ?? null,
+    };
+
+    const CHUNK = 500;
+    for (let i = 0; i < recipients.length; i += CHUNK) {
+      const { error } = await db.from('notifications').insert(
+        recipients.slice(i, i + CHUNK).map((userId) => ({
+          audience: 'buyer',
+          user_id: userId,
+          kind: 'blog_published',
+          data,
+          href,
+        }))
+      );
+
+      if (error) {
+        console.warn('[notifications] blog_published not recorded:', error.message);
+        return { ok: false, error: 'SAVE_FAILED' };
+      }
+    }
+
+    // After the response, like every other push in the app.
+    later(async () => {
+      for (const userId of recipients) {
+        await pushNotification({ audience: 'buyer', userId, kind: 'blog_published', data, href });
+      }
+    });
+
+    return { ok: true, sent: recipients.length };
+  } catch (err) {
+    console.warn('[notifications] blog_published not recorded:', err?.message ?? err);
+    return { ok: false, error: 'SAVE_FAILED' };
+  }
+}
+
+/**
  * Tell the platform that somebody has joined — once, whichever door they used.
  *
  * ── Why this is idempotent rather than "called in the right place" ──────────

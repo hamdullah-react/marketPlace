@@ -14,7 +14,7 @@ import { useLiveBoosts } from "./useLiveBoosts";
 import {
   LayoutDashboardIcon, UsersIcon, ShieldCheckIcon, SparklesIcon, HomeIcon,
   StoreIcon, BadgeDollarSignIcon, ChevronsUpDownIcon, LogOutIcon, UserIcon,
-  LayoutTemplateIcon, ImagesIcon, FileTextIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
+  LayoutTemplateIcon, ImagesIcon, FileTextIcon, NewspaperIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
   StarIcon, WalletIcon, CalendarClockIcon,
 } from "lucide-react";
 import {
@@ -59,6 +59,7 @@ const NAV_CONTENT = {
   children: [
     { href: "/marketplace/admin/content/banners", icon: ImagesIcon, ar: "شرائح الصفحة الرئيسية", en: "Home carousel" },
     { href: "/marketplace/admin/content/pages", icon: FileTextIcon, ar: "صفحة من نحن", en: "About us" },
+    { href: "/marketplace/admin/content/blog", icon: NewspaperIcon, ar: "المدونة", en: "Blog" },
     { href: "/marketplace/admin/content/seo", icon: SearchCheckIcon, ar: "تحسين محركات البحث", en: "Pages SEO" },
   ],
 };

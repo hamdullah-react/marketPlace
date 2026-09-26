@@ -143,6 +143,15 @@ const KINDS = {
     body: [car(d, locale), d.vendor].filter(Boolean).join(' · '),
   }),
 
+  /* An article the platform has just published. Unlike new_car, this is not
+     about a showroom the reader has dealt with — it is written for buyers in
+     general, which is why the title does not claim a relationship the reader
+     does not have. */
+  blog_published: (d, { locale }) => ({
+    title: locale === 'ar' ? 'مقال جديد في المدونة' : 'A new article on the blog',
+    body: [d.title, d.excerpt].filter(Boolean).join(' · '),
+  }),
+
   /* ── For a showroom, about the buyer ─────────────────────────────────── */
 
   lead_cancelled: (d, { locale }) => ({

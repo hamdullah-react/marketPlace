@@ -19,6 +19,7 @@ export const SITE_TAGS = {
   hero: 'hero-slides',
   seo: 'page-seo',
   pages: 'site-pages',
+  blog: 'blog-posts',
 };
 
 /**
@@ -192,6 +193,18 @@ export const SEO_PAGES = [
     label: { ar: 'حماية المشتري', en: 'Buyer protection' },
     title: { ar: 'حماية المشتري', en: 'Buyer Protection' },
     description: { ar: 'كيف يحميك سوق الرميح عند شراء سيارة.', en: 'How Sauda protects you when you buy a car.' },
+  },
+  {
+    // The one page here that earns traffic before anybody is shopping for a
+    // car, which is why it is set to index by default while the catalogue is
+    // still noindex: an article is ours to publish and true whenever it is read.
+    key: 'blog', path: '/blog', group: 'info', index: true, changefreq: 'weekly', priority: 0.6,
+    label: { ar: 'المدونة', en: 'Blog' },
+    title: { ar: 'المدونة', en: 'Blog' },
+    description: {
+      ar: 'أدلة ومقارنات ونصائح لشراء وبيع السيارات في السعودية، من فريق سوق الرميح.',
+      en: 'Guides, comparisons and advice on buying and selling cars in Saudi Arabia, from the Sauda team.',
+    },
   },
   {
     key: 'login', path: '/login', group: 'auth', index: false, changefreq: 'yearly', priority: 0.1,

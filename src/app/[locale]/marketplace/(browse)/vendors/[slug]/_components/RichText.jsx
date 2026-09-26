@@ -29,6 +29,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Heading2, Heading3,
   List, ListOrdered, Quote, Minus, ImagePlus, Link2, Unlink,
+  Code, SquareCode, RemoveFormatting,
   AlignLeft, AlignCenter, AlignRight, Undo2, Redo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,10 @@ export default function RichText({
      file with it instead of opening a showroom's MediaGallery — the site's own
      pages (About us) have no showroom library to pick from. */
   uploadImage = null,
+  /* How tall the writing area may grow before it scrolls inside itself. Any CSS
+     length; null lets the box grow without limit, and the toolbar then scrolls
+     away with the page. See the note on the toolbar below. */
+  maxHeight = "70vh",
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -101,7 +106,7 @@ export default function RichText({
       attributes: {
         dir: dir ?? (isAr ? "rtl" : "ltr"),
         class:
-          "prose-sm min-h-56 max-w-none px-3 py-2 outline-hidden [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:mb-1.5 [&_h3]:mt-3 [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:ps-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_blockquote]:border-s-2 [&_blockquote]:border-brand-primary [&_blockquote]:ps-3 [&_blockquote]:italic [&_img]:my-3 [&_img]:h-auto [&_img]:max-h-80 [&_img]:w-auto [&_img]:max-w-full [&_img]:rounded-lg [&_a]:text-brand-primary [&_a]:underline",
+          "prose-sm min-h-56 max-w-none px-3 py-2 outline-hidden [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:mb-1.5 [&_h3]:mt-3 [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:ps-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_blockquote]:border-s-2 [&_blockquote]:border-brand-primary [&_blockquote]:ps-3 [&_blockquote]:italic [&_img]:my-3 [&_img]:h-auto [&_img]:max-h-80 [&_img]:w-auto [&_img]:max-w-full [&_img]:rounded-lg [&_a]:text-brand-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_pre]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs [&_pre_code]:bg-transparent [&_pre_code]:p-0",
       },
     },
     onUpdate: ({ editor: e }) => setDoc(e.getJSON()),
@@ -132,13 +137,26 @@ export default function RichText({
       {/* What actually gets submitted. */}
       <input type="hidden" name={name} value={doc ? JSON.stringify(doc) : ""} />
 
-      {/* No overflow-hidden: it would make this box the scroll container
-          the toolbar sticks to, and this box never scrolls. Corners are
-          rounded on the halves instead. */}
-      <div className="rounded-lg border">
-        {/* Follows you down a long page. Opaque, or the text scrolls
-            through it. */}
-        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 rounded-t-lg border-b bg-muted p-1">
+      {/* ── The toolbar cannot be allowed to scroll away ──────────────────
+          It used to be `sticky top-0` inside a box that grew with the article,
+          which is the obvious approach and does not survive this stylesheet:
+          globals.css sets `overflow-x` on html and body to stop decorative
+          elements causing sideways scroll, and an ancestor with a non-visible
+          overflow is exactly what breaks position:sticky. Writing a long
+          article meant losing Bold and Heading at the top of the screen.
+
+          So the SCROLLING moved inside. This box is a fixed-height column; the
+          toolbar is the first row of it and never moves, and the writing area
+          below scrolls within itself. The toolbar is pinned by layout rather
+          than by a sticky rule that a parent can quietly disable.
+
+          overflow-hidden on the box is now correct rather than forbidden: the
+          thing that scrolls is the row underneath, not the box. */}
+      <div
+        className="flex flex-col overflow-hidden rounded-lg border"
+        style={maxHeight ? { maxHeight } : undefined}
+      >
+        <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b bg-muted p-1">
           <Tool title={t("عريض", "Bold")} on={editor?.isActive("bold")} onClick={() => chain()?.toggleBold().run()}>
             <Bold className="h-4 w-4" />
           </Tool>
@@ -150,6 +168,13 @@ export default function RichText({
           </Tool>
           <Tool title={t("مشطوب", "Strikethrough")} on={editor?.isActive("strike")} onClick={() => chain()?.toggleStrike().run()}>
             <Strikethrough className="h-4 w-4" />
+          </Tool>
+          {/* Both of these render already (RichTextRender handles the `code`
+              mark and the codeBlock node) — the toolbar simply had no way to
+              reach them, so a document containing either could only be pasted
+              in. A blog post quoting a VIN pattern or a spec line needs them. */}
+          <Tool title={t("شيفرة", "Inline code")} on={editor?.isActive("code")} onClick={() => chain()?.toggleCode().run()}>
+            <Code className="h-4 w-4" />
           </Tool>
 
           <Separator orientation="vertical" className="mx-1 h-6" />
@@ -168,6 +193,9 @@ export default function RichText({
           </Tool>
           <Tool title={t("اقتباس", "Quote")} on={editor?.isActive("blockquote")} onClick={() => chain()?.toggleBlockquote().run()}>
             <Quote className="h-4 w-4" />
+          </Tool>
+          <Tool title={t("كتلة شيفرة", "Code block")} on={editor?.isActive("codeBlock")} onClick={() => chain()?.toggleCodeBlock().run()}>
+            <SquareCode className="h-4 w-4" />
           </Tool>
           <Tool title={t("فاصل", "Divider")} onClick={() => chain()?.setHorizontalRule().run()}>
             <Minus className="h-4 w-4" />
@@ -216,6 +244,19 @@ export default function RichText({
 
           <Separator orientation="vertical" className="mx-1 h-6" />
 
+          {/* Text pasted from Word or from another site arrives carrying marks
+              somebody then has to remove one button at a time. This strips the
+              marks AND lifts the block back to a paragraph, which is what
+              "clear formatting" is expected to do. */}
+          <Tool
+            title={t("إزالة التنسيق", "Clear formatting")}
+            onClick={() => chain()?.unsetAllMarks().clearNodes().run()}
+          >
+            <RemoveFormatting className="h-4 w-4" />
+          </Tool>
+
+          <Separator orientation="vertical" className="mx-1 h-6" />
+
           <Tool title={t("تراجع", "Undo")} disabled={!editor?.can().undo()} onClick={() => chain()?.undo().run()}>
             <Undo2 className="h-4 w-4 rtl:-scale-x-100" />
           </Tool>
@@ -224,7 +265,13 @@ export default function RichText({
           </Tool>
         </div>
 
-        <EditorContent editor={editor} className="rounded-b-lg" />
+        {/* min-h-0 is what lets a flex child shrink below its content height —
+            without it the writing area refuses to scroll and pushes the box
+            taller than its own maxHeight instead. */}
+        <EditorContent
+          editor={editor}
+          className={maxHeight ? "min-h-0 flex-1 overflow-y-auto" : ""}
+        />
       </div>
 
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}

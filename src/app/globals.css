@@ -1962,3 +1962,107 @@ input[cmdk-input]:focus-visible {
     border: 1px solid #e5e7eb !important;
   }
 }
+
+
+/* ── An article's body ───────────────────────────────────────────────────────
+ *
+ * RichTextRender is shared with the showroom About card, where the document sits
+ * inside a panel and is sized to match it: text-sm, a heading one step up from
+ * the body, pictures capped at 20rem so they cannot push the words off screen.
+ *
+ * An article is the opposite situation — the document IS the page — so the same
+ * renderer needs bigger type, real space between sections, and pictures that may
+ * use the full column. Rather than parameterising the renderer (a `size` prop
+ * threaded through every node) this restyles the output where it is used, which
+ * keeps the security-critical file unchanged.
+ *
+ * Written unlayered and on purpose: these have to beat the utility classes the
+ * renderer sets on each element, and unlayered CSS outranks anything inside a
+ * cascade layer regardless of order. Single-class selectors with `>` keep the
+ * specificity low enough that a utility added to a specific element still wins.
+ */
+.blog-body {
+  /* clamp() rather than a breakpoint, because prose is the one thing on the
+     page that should grow CONTINUOUSLY with the column it sits in: 16px on a
+     phone, 17px on a desktop, and every size between without a step somebody
+     can catch mid-resize. The middle term is the only one that varies — the
+     outer two are the floor and the ceiling. */
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  line-height: 1.75;
+}
+
+@media (min-width: 640px) {
+  .blog-body {
+    line-height: 1.85;
+  }
+}
+
+.blog-body > p {
+  margin-bottom: 1.15em;
+}
+
+/* A heading inside an article is sized against the BODY, not against the page,
+   so the two move together. The margins are in `em`, which means they already
+   scale with the font size above and need no breakpoint of their own. */
+.blog-body > h2 {
+  font-size: clamp(1.25rem, 1.12rem + 0.65vw, 1.5rem);
+  line-height: 1.3;
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+}
+
+.blog-body > h3 {
+  font-size: clamp(1.0625rem, 1rem + 0.31vw, 1.1875rem);
+  line-height: 1.4;
+  margin-top: 1.75em;
+  margin-bottom: 0.5em;
+}
+
+.blog-body > ul,
+.blog-body > ol {
+  margin-bottom: 1.15em;
+  /* 1.5rem of indent is a twentieth of a phone's width gone before the first
+     word of every bullet. Enough to hang the marker on, and no more. */
+  padding-inline-start: 1.15rem;
+}
+
+@media (min-width: 640px) {
+  .blog-body > ul,
+  .blog-body > ol {
+    padding-inline-start: 1.5rem;
+  }
+}
+
+.blog-body > ul > li,
+.blog-body > ol > li {
+  margin-bottom: 0.4em;
+}
+
+.blog-body > blockquote {
+  margin: 1.6em 0;
+  padding-inline-start: 1.1rem;
+  border-inline-start-width: 3px;
+  /* One notch above the body, whatever the body currently is. A fixed 1.125rem
+     made a pull quote LARGER than the surrounding text on a desktop and almost
+     the same size on a phone. */
+  font-size: 1.08em;
+}
+
+.blog-body > hr {
+  margin: 2.5em 0;
+}
+
+/* A picture in an article is content, not an inline illustration. Capped by the
+   column rather than by a height, and centred so a portrait shot does not sit
+   against one margin. */
+.blog-body img {
+  max-height: none;
+  width: 100%;
+  margin: 1.75em auto;
+  border-radius: 0.75rem;
+}
+
+.blog-body > pre {
+  margin-bottom: 1.5em;
+  font-size: 0.8125rem;
+}

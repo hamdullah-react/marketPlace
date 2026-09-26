@@ -262,6 +262,22 @@ export const ERRORS = {
   SEO_JSON_INVALID: { ar: 'البيانات المنظمة ليست JSON صحيحاً', en: 'The structured data is not valid JSON' },
   SEO_PRIORITY_INVALID: { ar: 'اختر أولوية بين ٠ و١', en: 'Choose a priority between 0 and 1' },
   PAGE_UNKNOWN: { ar: 'هذه الصفحة غير موجودة', en: 'That page does not exist' },
+
+  // ── the blog ──
+  BLOG_TITLE_REQUIRED: {
+    ar: 'اكتب عنوان المقال بلغة واحدة على الأقل',
+    en: 'Give the article a title in at least one language',
+  },
+  // The slug is a URL, so two articles cannot share one. Said plainly, because
+  // the fix is to change one word rather than to try again.
+  BLOG_SLUG_TAKEN: {
+    ar: 'هذا الرابط مستخدم في مقال آخر. اختر رابطاً غيره.',
+    en: 'Another article already uses that link. Pick a different one.',
+  },
+  BLOG_NOT_MIGRATED: {
+    ar: 'المدونة غير مفعّلة بعد. شغّل قسم THE BLOG في schema.sql.',
+    en: 'The blog is not set up yet. Run the THE BLOG section of schema.sql.',
+  },
   CONTENT_INVALID: { ar: 'تعذّر قراءة المحتوى. أعد المحاولة.', en: 'Could not read the content. Please try again.' },
 
   // ── reviews ──

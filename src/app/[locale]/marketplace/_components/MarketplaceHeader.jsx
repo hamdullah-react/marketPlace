@@ -117,6 +117,7 @@ const NAV = [
   // Beside Sell, because it answers the next question somebody asks after it.
   { key: "pricing", ar: "الأسعار", en: "Pricing", href: "/marketplace/pricing" },
   { key: "how", ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
+  { key: "blog", ar: "المدونة", en: "Blog", href: "/marketplace/blog" },
   { key: "about", ar: "من نحن", en: "About Us", href: "/marketplace/about" },
 ];
 
@@ -472,7 +473,12 @@ export default function MarketplaceHeader({
               </div>
 
               {/* ── Desktop nav ───────────────────────────────────────── */}
-              <nav className="ms-2 hidden min-w-0 flex-1 flex-nowrap items-center justify-center gap-0.5 lg:flex xl:ms-8 xl:gap-1">
+              {/* Tight on purpose. The row holds eight links plus the icon cluster, and
+   `flex-nowrap` means anything that does not fit does not wrap — it runs
+   under the icons. Every unit of gap here is multiplied by eight, so the
+   spacing lives on the links' own padding below rather than between
+   them, where it can be relaxed a step at a time as the screen widens. */}
+              <nav className="ms-1 hidden min-w-0 flex-1 flex-nowrap items-center justify-center lg:flex xl:ms-4 xl:gap-0.5">
                 {NAV.map((item) => {
                   const active = isActive(item.href);
                   const subs = menuFor(item);
@@ -490,7 +496,7 @@ export default function MarketplaceHeader({
                     so the row reads as one active item rather than five
                     competing buttons.
                   */
-                  const triggerClass = `relative flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-bold transition-all xl:px-4 xl:text-sm ${
+                  const triggerClass = `relative flex items-center gap-1 whitespace-nowrap rounded-lg px-1.5 py-2 text-[13px] font-bold transition-all xl:px-2.5 xl:text-sm ${
                     active
                       ? "raised"
                       : "raised-hover text-gray-700 dark:text-gray-300"
@@ -622,6 +628,8 @@ export default function MarketplaceHeader({
                   <NotificationBell
                     locale={locale}
                     audience="buyer"
+                    /* The public header's icons are 40px raised circles. */
+                    variant="header"
                     items={notifications?.items ?? []}
                     unread={notifications?.unread ?? 0}
                     currency={currency}

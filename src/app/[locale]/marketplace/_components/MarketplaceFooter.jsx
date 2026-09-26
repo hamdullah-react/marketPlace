@@ -55,6 +55,7 @@ const COLUMNS = [
     links: [
       { ar: "من نحن", en: "About Us", href: "/marketplace/about" },
       { ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
+      { ar: "المدونة", en: "Blog", href: "/marketplace/blog" },
       { ar: "مركز المساعدة", en: "Help Centre", href: "/marketplace/help" },
       { ar: "حماية المشتري", en: "Buyer Protection", href: "/marketplace/buyer-protection" },
       { ar: "شروط البائع", en: "Seller Terms", href: "/marketplace/seller-terms" },

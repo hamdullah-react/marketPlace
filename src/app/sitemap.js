@@ -1,6 +1,7 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { getAllPageSeo, getSiteLanguages } from '@/marketplace/db/queries/site';
+import { listBlogSlugs } from '@/marketplace/db/queries/blog';
 import { SEO_PAGES, SITE_TAGS, SITE_URL, pagePath } from '@/marketplace/lib/sitePages';
 
 /**
@@ -9,7 +10,8 @@ import { SEO_PAGES, SITE_TAGS, SITE_URL, pagePath } from '@/marketplace/lib/site
  *  - the public pages an admin has set to "Show in search results" on
  *    Admin → Website content → Pages SEO, with their change frequency and
  *    priority, once per language the site offers;
- *  - every live car whose own SEO tab has not switched indexing off.
+ *  - every live car whose own SEO tab has not switched indexing off;
+ *  - every published article an admin has left indexable.
  *
  * Hidden pages are left out on purpose — a sitemap that lists a noindex page
  * is a contradiction search consoles report as an error.
@@ -60,5 +62,23 @@ export default async function sitemap() {
           }))
         );
 
-  return [...pages, ...cars];
+  /* ── The articles ────────────────────────────────────────────────────────
+     listBlogSlugs already filters to published AND indexable, and never throws:
+     a database without the BLOG section returns nothing and the sitemap is the
+     pages and the cars, exactly as it was before.
+
+     lastModified is updated_at rather than published_at — a corrected article
+     is worth re-crawling, and the trigger no longer lets a page VIEW touch that
+     column (see schema.sql, THE BLOG). */
+  const posts = (await listBlogSlugs()).flatMap((post) =>
+    langs.enabled.map((code) => ({
+      url: `${SITE_URL}/${code}/marketplace/blog/${post.slug}`,
+      lastModified: post.updated_at ? new Date(post.updated_at) : undefined,
+      changeFrequency: post.seo_changefreq ?? 'monthly',
+      priority: Number(post.seo_priority ?? 0.6),
+      alternates: alternatesFor((c) => `/${c}/marketplace/blog/${post.slug}`),
+    }))
+  );
+
+  return [...pages, ...cars, ...posts];
 }
