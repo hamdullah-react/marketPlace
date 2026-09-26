@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
-import { ArrowLeft, ArrowRight, Calendar, Clock, PenLine, User } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, Clock, User } from 'lucide-react';
 import RichTextRender, { hasRichText } from '@/app/[locale]/marketplace/(browse)/vendors/[slug]/_components/RichTextRender';
 import { getBlogPost, listBlogSlugs, listRelatedPosts } from '@/marketplace/db/queries/blog';
 import { getSiteLanguages, getSiteSettings } from '@/marketplace/db/queries/site';

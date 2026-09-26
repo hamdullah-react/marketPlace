@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
-import { ArrowLeft, ArrowRight, Calendar, PenLine, Tag } from 'lucide-react';
+import { ArrowLeft, ArrowRight, PenLine, Tag } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import BlogCard from './_components/BlogCard';
 import JsonLd from './_components/JsonLd';
