@@ -155,18 +155,47 @@ function blast(ctx, at, length) {
   }
 }
 
+/** The two taps, scheduled from wherever the clock is NOW. */
+function honk(ctx) {
+  const now = ctx.currentTime;
+  blast(ctx, now, 0.16);
+  blast(ctx, now + 0.24, 0.26);
+}
+
 export function ting() {
   try {
     // Not created here on purpose: a context first built at chime time starts
     // suspended and stays that way. See unlockAudio.
     const ctx = audioCtx;
     if (!ctx) return;
-    if (ctx.state === "suspended") ctx.resume();
 
-    const now = ctx.currentTime;
+    /* ── WAIT for the context to start ────────────────────────────────────
+       This was `if (suspended) ctx.resume();` followed immediately by
+       scheduling, and that is why nothing could be heard.
 
-    blast(ctx, now, 0.16);
-    blast(ctx, now + 0.24, 0.26);
+       resume() is ASYNCHRONOUS, and a suspended context's `currentTime` does
+       not advance — it is frozen at whatever it was. So both notes were
+       scheduled at a timestamp that had already gone by the moment the clock
+       actually started, and the browser dropped them. No error, no warning,
+       no sound.
+
+       It bit hardest exactly where it was most visible: the "send a test"
+       button calls unlockAudio() and ting() one after the other, so the
+       context was always still starting up when the notes were booked.
+
+       Scheduling from INSIDE the resolve means currentTime is real by then. */
+    if (ctx.state === "suspended") {
+      ctx.resume().then(
+        () => honk(ctx),
+        () => {
+          // Refused — no gesture, or an autoplay policy. Silence is the only
+          // option and the notification itself has still arrived.
+        }
+      );
+      return;
+    }
+
+    honk(ctx);
   } catch {
     // A blocked or unavailable AudioContext is not a reason to lose the badge.
   }

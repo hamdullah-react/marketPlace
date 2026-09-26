@@ -173,7 +173,8 @@ const KINDS = {
 
   vendor_joined: (d, { locale }) => ({
     title: locale === 'ar' ? 'معرض جديد' : 'New showroom',
-    body: d.vendor ?? '',
+    // The city is what tells staff whether this is a market they already cover.
+    body: [d.vendor, d.city].filter(Boolean).join(' · '),
   }),
 };
 

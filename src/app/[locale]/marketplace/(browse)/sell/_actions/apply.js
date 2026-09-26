@@ -39,6 +39,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { getViewer } from '@/marketplace/auth/session';
 import { slugify } from '@/marketplace/lib/slug';
 import { ensureVendorBucket } from '@/marketplace/media/bucket';
@@ -148,6 +149,24 @@ export async function applyToSell(prevState, formData) {
     .insert({ vendor_id: vendor.id, user_id: viewer.userId, role: 'owner' });
 
   if (memberError) return bad('APPLY_FAILED', {});
+
+  /* ── The platform is told a showroom has joined ────────────────────────
+     `vendor_joined` has had wording in the KINDS table since the bell was
+     built and nothing ever recorded it, so a new showroom appeared on the
+     marketplace and the only way to find out was to notice the count on a
+     page. It matters more here than most: a showroom is APPROVED by this
+     action (see the note at the top of the file), so nobody reviews it — the
+     notification is the whole of the platform's awareness that it exists.
+
+     After the membership, not before: a vendor row with nobody attached to it
+     is a half-made showroom, and announcing that would send staff to look at
+     something still being built. */
+  await recordNotification({
+    audience: 'admin',
+    kind: 'vendor_joined',
+    data: { vendor: nameEn || nameAr, city: city || null },
+    href: '/marketplace/admin/subscriptions',
+  });
 
   /**
    * The showroom's storage, made with the showroom.
