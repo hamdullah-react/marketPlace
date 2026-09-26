@@ -130,6 +130,34 @@ function loadHorn(ctx) {
    ritual below for why that is a different question from "is it running". */
 let primed = false;
 
+/**
+ * ── Bringing the audio back with the page ───────────────────────────────────
+ *
+ * A phone suspends an AudioContext when its page goes to the background, and a
+ * notification that arrives afterwards finds it suspended. resume() then needs
+ * activation — and a push arriving is not activation, so the horn is refused
+ * and nothing is heard. That is the gap between the test button, which carries
+ * its own press, and a real event, which carries none.
+ *
+ * Chrome keeps STICKY activation for the life of a page: once somebody has
+ * interacted with it at all, resume() is allowed again. So the context is woken
+ * the moment the page comes back to the front, rather than at the moment a
+ * notification needs it — by which time the chance has usually passed.
+ *
+ * Registered once, at module scope, because this is a property of the page and
+ * not of any component that happens to be mounted on it.
+ */
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (!audioCtx || audioCtx.state !== "suspended") return;
+
+    audioCtx.resume().catch(() => {
+      // Still refused. The buzz in ting() is what is left.
+    });
+  });
+}
+
 export function unlockAudio() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -255,21 +283,6 @@ function synth(ctx) {
  * difference in timbre for the one failure this whole thing exists to avoid.
  */
 function honk(ctx) {
-  /* ── And a buzz ─────────────────────────────────────────────────────────
-     A phone whose MEDIA volume is down — which is separate from its ringer,
-     and is down far more often than people expect — makes no sound whatever
-     we play. Vibration is the one cue left, and it is the difference between
-     a notification that arrives and one that may as well not have.
-
-     Android only: navigator.vibrate does not exist on iOS at all, and does
-     nothing on a desktop. Optional-chained rather than feature-detected
-     because "not there" and "there but refused" want the same handling. */
-  try {
-    navigator.vibrate?.([120, 60, 120]);
-  } catch {
-    // Some browsers throw rather than return false when it is disallowed.
-  }
-
   if (!hornBuffer) {
     synth(ctx);
     return;
@@ -287,7 +300,44 @@ function honk(ctx) {
   source.start(0, HORN_START, HORN_LENGTH);
 }
 
+/* When the last horn sounded, so one event cannot produce two. */
+let lastHonk = 0;
+
 export function ting() {
+  /* ── One event, one horn ───────────────────────────────────────────────
+     A single thing happening now announces itself twice: the action that
+     caused it broadcasts on the showroom's own topic, and recordNotification
+     broadcasts again so that EVERY notification chimes rather than only the
+     handful that were wired for it one at a time. Both arrive within a few
+     milliseconds and both are correct; two horns for one lead is not.
+
+     It also covers the case that has nothing to do with wiring: four requests
+     landing together should be one noise, not four overlapping ones. */
+  const now = Date.now();
+  if (now - lastHonk < 700) return;
+  lastHonk = now;
+
+  /* ── The buzz comes first, and outside everything ──────────────────────
+     It used to live inside honk(), which meant it only happened when a sound
+     was ALREADY about to play — so in every case where audio was impossible
+     there was no cue at all. That is backwards: the moment audio cannot play
+     is exactly the moment a buzz is the only thing left.
+
+     Two of those cases are ordinary on a phone:
+
+       · the page has never been touched this visit, so there is no audio
+         context to play through
+       · the browser suspended the context while the page was in the
+         background, and resume() is refused without a gesture
+
+     Both end in silence, and both are a real notification arriving. Android
+     only — iOS has no vibrate API at all, and a desktop ignores it. */
+  try {
+    navigator.vibrate?.([120, 60, 120]);
+  } catch {
+    // Some browsers throw rather than return false when it is disallowed.
+  }
+
   try {
     // Not created here on purpose: a context first built at chime time starts
     // suspended and stays that way. See unlockAudio.
@@ -524,6 +574,17 @@ export function useLiveLeads(vendorId, { initial = 0, onLead } = {}) {
          * been deleted. A seller looking straight at a lead is exactly the
          * person who most needs it to be current.
          */
+        /* ── Anything at all that was recorded for this showroom ─────────
+           The specific events above exist for their side effects — a badge to
+           increment, a page to leave. This one exists for the NOISE, and it
+           fires for every notification the showroom is given, so a kind added
+           next year is audible without anybody remembering to come back here.
+           ting() coalesces, so this never doubles up with the events above. */
+        .on("broadcast", { event: "vendor_alert" }, (m) => {
+          ting();
+          handler.current?.(m?.payload);
+          soon();
+        })
         .on("broadcast", { event: "lead_changed" }, (m) => {
           handler.current?.(m?.payload);
           soon();

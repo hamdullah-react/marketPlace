@@ -2,6 +2,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { after } from 'next/server';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
 import { pushNotification } from '@/marketplace/lib/push';
+import { notifyAdmins, notifyVendorLeads } from '@/marketplace/lib/realtime';
 
 /** Runs work after the response; inline when there is no request scope — a
  *  script, a test, a cron. The same shape lib/realtime.ts uses. */
@@ -140,6 +141,22 @@ export async function recordNotification({
        however many devices, and the buyer who just pressed Send is not waiting
        for that. later() runs it once the response has gone, and
        pushNotification swallows its own failures. */
+    /* ── And a chime on any dashboard that is already open ─────────────
+       Push reaches a CLOSED app; this reaches an open one, instantly, without
+       waiting on Google and without needing notification permission at all.
+
+       Broadcast from here rather than from each action because that is what
+       stopped working: promotions and renewals each had a hand-wired event and
+       chimed, a new user had none and was silent. One place, every kind, so
+       the next event added is audible without anybody remembering this file.
+
+       The dashboards coalesce (see ting), so an action that also broadcasts
+       its own event still only makes one noise. */
+    later(() => {
+      if (audience === 'admin') notifyAdmins('admin_alert', { kind });
+      else if (audience === 'vendor') notifyVendorLeads(vendorId, 'vendor_alert', { kind });
+    });
+
     later(() => pushNotification({ audience, vendorId, userId, kind, data, href }));
 
     return { ok: true };

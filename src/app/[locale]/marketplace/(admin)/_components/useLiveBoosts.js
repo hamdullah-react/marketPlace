@@ -141,6 +141,20 @@ export function useLiveBoosts(userId, { initial = 0, onBoost, onRevoked } = {}) 
           handler.current?.();
           recount();
         })
+        /* ── Anything recorded for the platform ──────────────────────────
+           This is the one the panel was missing. A promotion request and a
+           renewal request each had their own event and so each chimed; a new
+           USER had neither, so the only way an admin heard about one was if
+           the push happened to arrive and the service worker messaged the page.
+
+           Rather than adding a third named event — and a fourth next time —
+           every admin notification now announces itself here. ting() coalesces,
+           so the two events below keep their own handling without doubling the
+           horn. */
+        .on("broadcast", { event: "admin_alert" }, () => {
+          ting();
+          handler.current?.();
+        })
         .on("broadcast", { event: "boost_changed" }, () => {
           handler.current?.();
           recount();
