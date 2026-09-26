@@ -148,8 +148,13 @@ const KINDS = {
      general, which is why the title does not claim a relationship the reader
      does not have. */
   blog_published: (d, { locale }) => ({
-    title: locale === 'ar' ? 'مقال جديد في المدونة' : 'A new article on the blog',
-    body: [d.title, d.excerpt].filter(Boolean).join(' · '),
+    title: locale === 'ar' ? 'مقال جديد في الأخبار' : 'A new article in the news',
+    /* say(), NOT the raw value. These two are {ar, en} snapshots — the article
+       is stored in both languages and the sentence is built in the reader's own
+       — so printing them straight gives "[object Object] · [object Object]".
+       Every other kind here goes through car() or amount() for exactly this
+       reason; this one was the odd one out. */
+    body: [say(d.title, locale), say(d.excerpt, locale)].filter(Boolean).join(' · '),
   }),
 
   /* ── For a showroom, about the buyer ─────────────────────────────────── */
@@ -190,6 +195,19 @@ const KINDS = {
 /* The car's title came across as {ar, en} or as a plain string, depending on
    which action recorded it. Both are handled rather than one being declared
    correct, because a notification is not worth a crash. */
+/**
+ * A stored value as a string, in the reader's language.
+ *
+ * `data` holds SNAPSHOTS (see the NOTIFICATIONS section of schema.sql), and a
+ * translatable one is snapshotted as {ar, en} — so anything a sentence prints
+ * has to come through here or through car(). A plain string passes untouched,
+ * because older rows and non-translatable values are stored that way.
+ */
+const say = (value, locale) => {
+  if (!value) return '';
+  return typeof value === 'string' ? value : localized(value, locale);
+};
+
 const car = (d, locale) => {
   const value = d?.car ?? d?.listing ?? null;
   if (!value) return '';

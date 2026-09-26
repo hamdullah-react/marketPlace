@@ -259,7 +259,7 @@ export default async function BlogArticlePage({ params }) {
                 className="inline-flex items-center gap-1.5 text-sm text-white/80 transition-colors hover:text-white"
               >
                 <Back className="h-4 w-4" />
-                {t('المدونة', 'Blog')}
+                {t('الأخبار', 'News')}
               </Link>
 
               {post.tags?.length ? (
@@ -305,7 +305,7 @@ export default async function BlogArticlePage({ params }) {
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-brand-primary"
           >
             <Back className="h-4 w-4" />
-            {t('المدونة', 'Blog')}
+            {t('الأخبار', 'News')}
           </Link>
 
           <header className="mt-4">

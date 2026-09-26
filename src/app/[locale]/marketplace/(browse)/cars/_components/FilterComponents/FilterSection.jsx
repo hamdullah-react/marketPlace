@@ -40,6 +40,17 @@ export default function FilterSection({
       <div className="raised-card overflow-hidden rounded-xl">
         <CollapsibleTrigger className="flex w-full items-center justify-between px-2.5 py-2 transition-colors sm:px-3 sm:py-2.5 hover:bg-gray-50 dark:hover:bg-white/5">
           <div className="flex min-w-0 items-center gap-2.5">
+            {/* ── Neither prop is a legitimate state ──────────────────────
+                This rendered `<Icon />` whenever iconSrc was falsy, so a caller
+                that passed only an iconSrc — and computed it to undefined —
+                crashed the whole filter sidebar with "Element type is invalid".
+                PriceFilter did exactly that on a platform billing in anything
+                but riyals.
+
+                A missing decoration must never be able to take a page down, so
+                the square is simply left empty. The `??` chain is not enough on
+                its own, because `Icon` is a COMPONENT and the crash is at the
+                point of rendering it, not at the point of reading it. */}
             <div className="shrink-0 rounded-[5px] bg-brand-primary/10 p-1.5">
               {iconSrc ? (
                 /* An uploaded catalog icon, not a lucide mark — kept as a plain
@@ -47,8 +58,12 @@ export default function FilterSection({
                    16px decoration. */
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={iconSrc} alt="" width={14} height={14} className="h-3.5 w-3.5" />
-              ) : (
+              ) : Icon ? (
                 <Icon className="h-3.5 w-3.5 text-brand-primary" />
+              ) : (
+                /* Keeps the square the same size, so a section with no icon
+                   does not sit a few pixels narrower than the seven beside it. */
+                <span className="block h-3.5 w-3.5" />
               )}
             </div>
 

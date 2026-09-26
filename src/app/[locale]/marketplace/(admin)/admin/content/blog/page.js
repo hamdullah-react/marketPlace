@@ -13,7 +13,7 @@ import BlogPostsTable from '../../../_components/BlogPostsTable';
 export const instant = false;
 
 export const metadata = {
-  title: 'Blog',
+  title: 'News',
   robots: { index: false, follow: false },
 };
 
@@ -38,11 +38,11 @@ export default async function AdminBlogPage({ params }) {
             <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">
               {t('محتوى الموقع', 'Website content')}
             </p>
-            <h1 className="text-2xl font-bold text-brand-primary">{t('المدونة', 'Blog')}</h1>
+            <h1 className="text-2xl font-bold text-brand-primary">{t('الأخبار', 'News')}</h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               {t(
-                'مقالات تجيب على أسئلة المشترين — أدلة الشراء والمقارنات. هي المحتوى الوحيد هنا الذي يظهر في البحث قبل أن يبحث أحد عن سيارة بعينها. لكل مقال إعدادات SEO كاملة داخل صفحة تحريره.',
-                'Articles that answer a buyer’s questions — guides and comparisons. They are the only content here that can be found months before somebody searches for a particular car. Each article carries its own full SEO settings, on its edit page.'
+                'مقالات وأخبار تجيب على أسئلة المشترين — أدلة الشراء والمقارنات. هي المحتوى الوحيد هنا الذي يظهر في البحث قبل أن يبحث أحد عن سيارة بعينها. لكل مقال إعدادات SEO كاملة داخل صفحة تحريره.',
+                'News and articles that answer a buyer’s questions — guides and comparisons. They are the only content here that can be found months before somebody searches for a particular car. Each article carries its own full SEO settings, on its edit page.'
               )}
             </p>
           </div>
@@ -55,7 +55,7 @@ export default async function AdminBlogPage({ params }) {
               className="raised-hover inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-primary"
             >
               <ExternalLink className="h-4 w-4" />
-              {t('عرض المدونة', 'View blog')}
+              {t('عرض الأخبار', 'View news')}
             </a>
 
             <Link
@@ -114,7 +114,7 @@ async function Body({ locale, t }) {
     return (
       <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-6 text-sm dark:border-amber-900 dark:bg-amber-950/20">
         <p className="font-semibold text-amber-800 dark:text-amber-300">
-          {t('المدونة غير مفعّلة بعد', 'The blog is not set up yet')}
+          {t('الأخبار غير مفعّلة بعد', 'News is not set up yet')}
         </p>
         <p className="mt-1 text-amber-800/80 dark:text-amber-300/80">
           {t(

@@ -356,8 +356,8 @@ export default function BlogPostForm({ locale = "ar", post = null, mode = "both"
           icon={ImageIcon}
           title={t("الصور والوسوم", "Pictures and tags")}
           hint={t(
-            "لكلٍّ منهما مكانه: الغلاف في بطاقة المقال داخل قائمة المدونة وفي «اقرأ أيضاً» وفي بطاقة المشاركة، والبانر بعرض الصفحة أعلى المقال نفسه. إن ملأت واحدة فقط استُخدمت في المكانين؛ وإن ملأت الاثنين فلن يظهر الغلاف داخل صفحة المقال.",
-            "Each has its own place: the cover is the article’s card — in the blog list, in “Read next” and on the share card — and the banner runs the full width of the page across the top of the article itself. Fill in one and it is used in both places; fill in both and the cover does not appear inside the article page."
+            "لكلٍّ منهما مكانه: الغلاف في بطاقة المقال داخل قائمة الأخبار وفي «اقرأ أيضاً» وفي بطاقة المشاركة، والبانر بعرض الصفحة أعلى المقال نفسه. إن ملأت واحدة فقط استُخدمت في المكانين؛ وإن ملأت الاثنين فلن يظهر الغلاف داخل صفحة المقال.",
+            "Each has its own place: the cover is the article’s card — in the news list, in “Read next” and on the share card — and the banner runs the full width of the page across the top of the article itself. Fill in one and it is used in both places; fill in both and the cover does not appear inside the article page."
           )}
         >
           <div className="grid gap-5 sm:grid-cols-2">
@@ -370,8 +370,8 @@ export default function BlogPostForm({ locale = "ar", post = null, mode = "both"
               cover
               label={t("صورة الغلاف", "Cover image")}
               hint={t(
-                "بطاقة المقال في قائمة المدونة، وبطاقة المشاركة. ٨٠٠ بكسل عرضاً تكفي.",
-                "The article’s card in the blog list, and its share card. 800px wide is enough."
+                "بطاقة المقال في قائمة الأخبار، وبطاقة المشاركة. ٨٠٠ بكسل عرضاً تكفي.",
+                "The article’s card in the news list, and its share card. 800px wide is enough."
               )}
             />
 

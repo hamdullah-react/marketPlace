@@ -16,6 +16,7 @@
  * slider and nothing else to enter a bound with.)
  */
 
+import { Banknote } from "lucide-react";
 import FilterSection from "./FilterSection";
 import RangeSlider from "./RangeSlider";
 
@@ -46,7 +47,10 @@ export default function PriceFilter({
     <FilterSection
       /* The riyal mark is the RIYAL's. On a platform billing in rupees it
          would be a Saudi symbol labelling a rupee range, so it is shown only
-         when it is true and the section falls back to its word otherwise. */
+         when it is true — and a neutral banknote stands in otherwise. Passing
+         iconSrc ALONE was the bug: it left the section with no icon at all on
+         every non-SAR platform, and FilterSection rendered the missing one. */
+      icon={Banknote}
       iconSrc={isSar ? "/icons/Currency.svg" : undefined}
       title={isAr ? "نطاق السعر" : "Price Range"}
       selectedCount={(minValue ? 1 : 0) + (maxValue ? 1 : 0)}

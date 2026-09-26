@@ -117,7 +117,7 @@ const NAV = [
   // Beside Sell, because it answers the next question somebody asks after it.
   { key: "pricing", ar: "الأسعار", en: "Pricing", href: "/marketplace/pricing" },
   { key: "how", ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
-  { key: "blog", ar: "المدونة", en: "Blog", href: "/marketplace/blog" },
+  { key: "blog", ar: "الأخبار", en: "News", href: "/marketplace/blog" },
   { key: "about", ar: "من نحن", en: "About Us", href: "/marketplace/about" },
 ];
 

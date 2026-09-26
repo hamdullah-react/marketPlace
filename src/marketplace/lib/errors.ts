@@ -275,7 +275,7 @@ export const ERRORS = {
     en: 'Another article already uses that link. Pick a different one.',
   },
   BLOG_NOT_MIGRATED: {
-    ar: 'المدونة غير مفعّلة بعد. شغّل قسم THE BLOG في schema.sql.',
+    ar: 'الأخبار غير مفعّلة بعد. شغّل قسم THE BLOG في schema.sql.',
     en: 'The blog is not set up yet. Run the THE BLOG section of schema.sql.',
   },
   CONTENT_INVALID: { ar: 'تعذّر قراءة المحتوى. أعد المحاولة.', en: 'Could not read the content. Please try again.' },

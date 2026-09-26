@@ -198,12 +198,16 @@ export const SEO_PAGES = [
     // The one page here that earns traffic before anybody is shopping for a
     // car, which is why it is set to index by default while the catalogue is
     // still noindex: an article is ours to publish and true whenever it is read.
+    //
+    // The PATH stays /blog though the section is called News. Renaming a live
+    // URL breaks every link to it and forfeits whatever ranking it has earned,
+    // and the slug is not what a reader sees — the label above is.
     key: 'blog', path: '/blog', group: 'info', index: true, changefreq: 'weekly', priority: 0.6,
-    label: { ar: 'المدونة', en: 'Blog' },
-    title: { ar: 'المدونة', en: 'Blog' },
+    label: { ar: 'الأخبار', en: 'News' },
+    title: { ar: 'الأخبار', en: 'News' },
     description: {
-      ar: 'أدلة ومقارنات ونصائح لشراء وبيع السيارات في السعودية، من فريق سوق الرميح.',
-      en: 'Guides, comparisons and advice on buying and selling cars in Saudi Arabia, from the Sauda team.',
+      ar: 'أخبار وأدلة ومقارنات ونصائح لشراء وبيع السيارات في السعودية، من فريق سوق الرميح.',
+      en: 'News, guides, comparisons and advice on buying and selling cars in Saudi Arabia, from the Sauda team.',
     },
   },
   {

@@ -76,7 +76,7 @@ async function Banner({ locale, t, isAr }) {
 
   const heading =
     text(banner.heading) ||
-    t('نصائح وأدلة لشراء وبيع السيارات', 'Guides and advice on buying and selling cars');
+    t('أخبار ونصائح وأدلة للسيارات', 'Car news, advice and guides');
   const subheading = text(banner.subheading);
   const ctaLabel = text(banner.cta_label);
   const href = banner.cta_href;
@@ -154,7 +154,7 @@ async function Banner({ locale, t, isAr }) {
         <div className="max-w-3xl">
           <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
             <PenLine className="h-3.5 w-3.5" />
-            {t('المدونة', 'Blog')}
+            {t('الأخبار', 'News')}
           </p>
           {/* Four steps rather than a jump from 30px straight to 48px: on a
               phone a long Arabic heading at text-3xl runs to four lines and
@@ -199,7 +199,7 @@ function Eyebrow({ t }) {
   return (
     <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 px-3 py-1 text-xs font-medium text-brand-primary">
       <PenLine className="h-3.5 w-3.5" />
-      {t('المدونة', 'Blog')}
+      {t('الأخبار', 'News')}
     </p>
   );
 }
@@ -222,7 +222,7 @@ function DefaultHeader({ t }) {
     <HeaderShell>
       <Eyebrow t={t} />
       <h1 className="mt-3 text-3xl font-bold text-brand-primary sm:text-4xl">
-        {t('نصائح وأدلة لشراء وبيع السيارات', 'Guides and advice on buying and selling cars')}
+        {t('أخبار ونصائح وأدلة للسيارات', 'Car news, advice and guides')}
       </h1>
       <p className="mt-3 text-base text-muted-foreground">
         {t(

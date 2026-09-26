@@ -19,7 +19,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Check, Image as ImageIcon, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +47,17 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
   const [active, setActive] = useState(row ? row.active !== false : true);
   const [open, setOpen] = useState(false);
 
+  /* Watched only so the form can TELL somebody their button will not appear.
+     Nothing is blocked and nothing is corrected — both halves are saved as
+     typed (see saveBlogBanner); this is the sentence that used to be missing
+     while the action quietly threw one of them away. */
+  const [ctaLabel, setCtaLabel] = useState(bi(row?.cta_label));
+  const [ctaHref, setCtaHref] = useState(row?.cta_href ?? "");
+
+  const hasLabel = Boolean(ctaLabel.ar || ctaLabel.en);
+  const hasHref = Boolean(ctaHref.trim());
+  const halfButton = hasLabel !== hasHref;
+
   const error = save.result?.error
     ? errorText(save.result.error, locale, save.result.params)
     : null;
@@ -60,7 +71,7 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
       <summary className="flex cursor-pointer flex-wrap items-center gap-2">
         <ImageIcon className="h-4 w-4 text-brand-gold" />
         <span className="font-semibold text-brand-primary">
-          {t("بانر المدونة", "Blog banner")}
+          {t("بانر الأخبار", "News banner")}
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -72,7 +83,7 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
           {active ? t("ظاهر", "Showing") : t("مخفي", "Hidden")}
         </span>
         <span className="ms-auto text-xs text-muted-foreground">
-          {t("يظهر أعلى صفحة المدونة", "Sits at the top of the blog page")}
+          {t("يظهر أعلى صفحة الأخبار", "Sits at the top of the news page")}
         </span>
       </summary>
 
@@ -90,8 +101,8 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 {t(
-                  "إيقافه يُرجع صفحة المدونة إلى عنوانها الافتراضي بدون صورة.",
-                  "Off returns the blog page to its own built-in heading, with no picture."
+                  "إيقافه يُرجع صفحة الأخبار إلى عنوانها الافتراضي بدون صورة.",
+                  "Off returns the news page to its own built-in heading, with no picture."
                 )}
               </span>
             </span>
@@ -160,6 +171,7 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
               locale={locale}
               phAr="تصفّح السيارات"
               phEn="Browse cars"
+              onChange={setCtaLabel}
             />
 
             <div>
@@ -168,7 +180,8 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
                 id="ctaHref"
                 name="ctaHref"
                 dir="ltr"
-                defaultValue={row?.cta_href ?? ""}
+                value={ctaHref}
+                onChange={(e) => setCtaHref(e.target.value)}
                 placeholder="/cars"
                 className="mt-1"
               />
@@ -180,6 +193,24 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
               </p>
             </div>
           </div>
+
+          {/* Said out loud rather than fixed behind their back. Both halves are
+              saved either way — this only explains why the banner will not draw
+              the button yet. */}
+          {halfButton ? (
+            <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {hasLabel
+                ? t(
+                    "نصّ الزر محفوظ، لكن لا رابط له — فلن يظهر الزر في الصفحة حتى تضيف رابطاً.",
+                    "The button text is saved, but it has no link — so the button will not appear on the page until you add one."
+                  )
+                : t(
+                    "الرابط محفوظ، لكن لا نصّ للزر — فلن يظهر الزر في الصفحة حتى تكتب نصّاً.",
+                    "The link is saved, but the button has no text — so the button will not appear on the page until you write some."
+                  )}
+            </p>
+          ) : null}
 
           {error ? (
             <p className="rounded-lg bg-red-50 p-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">

@@ -34,7 +34,7 @@ export default async function AdminBlogEditPage({ params }) {
               href={`/${locale}/marketplace/admin/content/blog`}
               className="hover:text-brand-primary"
             >
-              {t('المدونة', 'Blog')}
+              {t('الأخبار', 'News')}
             </Link>
             <span>›</span>
             <span className="text-gray-700 dark:text-gray-300">

@@ -438,16 +438,30 @@ export async function saveBlogBanner(prevState, formData) {
 
   const label = bilingual(formData, 'ctaLabel', 60);
 
+  /* ── What is typed is what is stored ────────────────────────────────────
+     This used to drop the PAIR whenever only one half was filled:
+
+       cta_label: href ? label : {},
+       cta_href:  label.ar || label.en ? href : null,
+
+     The reasoning was that half a button is not a button — which is true of
+     RENDERING it, and is no reason to throw away what somebody typed. An admin
+     who wrote "Browse cars" and had not yet chosen a link pressed Save, was
+     told "Saved", and came back to an empty box: their work deleted by a rule
+     nobody told them about.
+
+     So both are stored as entered. The PAGE already refuses to draw a button
+     without both (`target && ctaLabel`), so a half-filled pair is invisible
+     rather than broken — and the form now says so instead of silently
+     correcting it. */
   const row = {
     id: true,
     heading: bilingual(formData, 'heading', 120),
     subheading: bilingual(formData, 'subheading', 300),
     image_url: image.url,
     alt: bilingual(formData, 'alt', 160),
-    // Dropped together: a label with no link, or a link with no label, is a
-    // half-built button rather than a smaller one.
-    cta_label: href ? label : {},
-    cta_href: label.ar || label.en ? href : null,
+    cta_label: label,
+    cta_href: href,
     active: flag(formData, 'active'),
   };
 
