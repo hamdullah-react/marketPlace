@@ -27,6 +27,7 @@ import { CheckCircle2, Clock, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useActionResult } from "@/marketplace/ui/useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
+import PlanCard from "../../_components/PlanCard";
 import { localized, formatPrice } from "@/marketplace/lib/listing";
 import { requestRenewal, cancelRenewal } from "../_actions/subscription";
 
@@ -170,39 +171,22 @@ export default function RenewalPanel({
   return (
     <div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {plans.map((plan) => {
-          const on = picked === plan.id;
-          const perDay = Number(plan.days) > 0 ? Number(plan.price) / Number(plan.days) : null;
-
-          return (
-            <button
-              key={plan.id}
-              type="button"
-              onClick={() => setPicked(plan.id)}
-              aria-pressed={on}
-              className={`raised-card rounded-xl p-4 text-start transition-colors ${
-                on ? "ring-2 ring-brand-primary" : ""
-              }`}
-            >
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-brand-primary">
-                {on ? <CheckCircle2 className="h-4 w-4" /> : null}
-                {localized(plan.name, locale) || t(`${plan.days} يوم`, `${plan.days} days`)}
-              </p>
-              <p className="text-[11px] text-muted-foreground tabular-nums">
-                {t(`${plan.days} يوم`, `${plan.days} days`)}
-              </p>
-              <p className="mt-2 text-xl font-bold tabular-nums text-brand-primary">{money(plan.price)}</p>
-
-              {/* The comparable number. Three plans priced per period are three
-                  numbers a seller has to divide in their head. */}
-              {perDay != null ? (
-                <p className="text-[11px] text-muted-foreground tabular-nums">
-                  {money(perDay)} {t("/ يوم", "/ day")}
-                </p>
-              ) : null}
-            </button>
-          );
-        })}
+        {plans.map((plan) => (
+          /* The same card again, as the control itself. A seller choosing what
+             to pay for should be reading the SAME words the pricing page sold
+             them — the old picker showed a name, a length and a price, which is
+             the one moment a description is most worth having. */
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            locale={locale}
+            currency={currency}
+            compact
+            selectable
+            selected={picked === plan.id}
+            onSelect={() => setPicked(plan.id)}
+          />
+        ))}
       </div>
 
       {error ? (

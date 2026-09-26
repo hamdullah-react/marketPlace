@@ -31,6 +31,7 @@ import { useActionResult } from "@/marketplace/ui/useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
 import { localized, formatPrice } from "@/marketplace/lib/listing";
 import BilingualField from "../../(seller)/_components/BilingualField";
+import PlanCard from "../../_components/PlanCard";
 import { saveTrialDays, saveVendorPlan, deleteVendorPlan } from "../admin/_actions/access";
 
 const INITIAL = { ok: false, error: null };
@@ -206,32 +207,21 @@ export default function SubscriptionSettings({
       ) : (
         <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {plans.map((p) => (
-            <li key={p.id} className="raised-card rounded-xl p-3">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-brand-primary">
-                    {localized(p.name, locale) || t(`${p.days} يوم`, `${p.days} days`)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground tabular-nums">
-                    {t(`${p.days} يوم`, `${p.days} days`)}
-                    {p.active === false ? ` · ${t("غير مفعّلة", "inactive")}` : ""}
-                    {p.features?.length
-                      ? ` · ${t(`${p.features.length} ميزة`, `${p.features.length} feature${p.features.length === 1 ? "" : "s"}`)}`
-                      : ""}
-                  </p>
-
-                  {/* Which card the pricing page lifts. Shown here so the
-                      highlight is visible from the list rather than only from
-                      inside the dialog that sets it. */}
-                  {p.popular ? (
-                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-brand-gold/20 px-1.5 py-0.5 text-[10px] font-semibold text-brand-primary">
-                      <Sparkles className="h-3 w-3" />
-                      {t("الأكثر اختياراً", "Most popular")}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1">
+            <li key={p.id}>
+              {/* ── The same card the public page draws ──────────────────
+                  An admin deciding whether a plan needs its own words is
+                  exactly the person who should see what it says WITHOUT them.
+                  The old tile showed a name, a day count and a price, so the
+                  description and the features an admin had just written were
+                  visible on the one screen they were not looking at. */}
+              <PlanCard
+                plan={p}
+                locale={locale}
+                currency={currency}
+                compact
+                muted={p.active === false}
+              >
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     aria-label={t("تعديل", "Edit")}
@@ -258,6 +248,7 @@ export default function SubscriptionSettings({
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
+
                   <button
                     type="button"
                     aria-label={t("حذف", "Remove")}
@@ -266,31 +257,35 @@ export default function SubscriptionSettings({
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              </div>
 
-              <p className="mt-1 text-lg font-bold tabular-nums text-brand-primary">
-                {formatPrice(p.price, locale, currency)}
-              </p>
-
-              {confirmId === p.id ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2 border-t pt-2 dark:border-white/10">
-                  <span className="text-xs text-muted-foreground">{t("حذف الخطة؟", "Remove it?")}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() => send(remove, { planId: p.id })}
-                  >
-                    {remove.pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                    {t("نعم", "Yes")}
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmId(null)}>
-                    {t("تراجع", "Keep it")}
-                  </Button>
+                  {confirmId === p.id ? (
+                    <span className="ms-auto flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">
+                        {t("حذف؟", "Remove?")}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={busy}
+                        onClick={() => send(remove, { planId: p.id })}
+                      >
+                        {remove.pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                        {t("نعم", "Yes")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => setConfirmId(null)}
+                      >
+                        {t("تراجع", "Keep")}
+                      </Button>
+                    </span>
+                  ) : null}
                 </div>
-              ) : null}
+              </PlanCard>
             </li>
           ))}
         </ul>
@@ -430,8 +425,8 @@ export default function SubscriptionSettings({
               phAr="لمن هذه الخطة؟"
               phEn="Who is it for?"
               hint={t(
-                "سطر واحد تحت الاسم في صفحة الأسعار.",
-                "One line under the name on the pricing page."
+                "سطر واحد تحت الاسم. اتركه فارغاً وسيُكتب تلقائياً حسب مدة الخطة.",
+                "One line under the name. Leave it empty and one is written for you, based on the plan’s length."
               )}
               onChange={({ ar, en }) =>
                 setForm((f) => ({ ...f, descriptionAr: ar, descriptionEn: en }))
@@ -461,8 +456,8 @@ export default function SubscriptionSettings({
 
               <p className="mt-1 text-[11px] text-muted-foreground">
                 {t(
-                  "سطر واحد لكل ميزة، بالترتيب الذي تظهر به في صفحة الأسعار. لغة واحدة تكفي.",
-                  "One line per feature, in the order they appear on the pricing page. One language is enough."
+                  "سطر واحد لكل ميزة، بالترتيب الذي تظهر به في صفحة الأسعار. لغة واحدة تكفي. ما تكتبه هنا يحل محل القائمة الافتراضية ولا يُضاف إليها.",
+                  "One line per feature, in the order they appear on the pricing page. One language is enough. What you write REPLACES the built-in list rather than adding to it."
                 )}
               </p>
 
@@ -542,9 +537,14 @@ export default function SubscriptionSettings({
                 </ul>
               ) : (
                 <p className="mt-3 rounded-lg border border-dashed p-3 text-[11px] text-muted-foreground dark:border-white/10">
+                  {/* This used to say the card would show "the name and the
+                      price alone", which stopped being true once the pricing
+                      page gained a built-in list. An admin deciding whether to
+                      write anything needs to know what happens if they do not,
+                      and the answer is no longer "nothing". */}
                   {t(
-                    "لا مزايا بعد. البطاقة ستظهر بالاسم والسعر فقط.",
-                    "No features yet. The card will show the name and the price alone."
+                    "اتركها فارغة وستعرض البطاقة القائمة الافتراضية (صفحة المعرض، سيارات بلا حد، صندوق الطلبات…). أول سطر تكتبه هنا يحل محلها بالكامل.",
+                    "Leave it empty and the card shows the built-in list — showroom page, unlimited cars, the request inbox and the rest. The first line you write here replaces all of it."
                   )}
                 </p>
               )}

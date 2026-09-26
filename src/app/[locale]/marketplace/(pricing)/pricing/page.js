@@ -12,6 +12,9 @@ import { formatPrice, localized } from '@/marketplace/lib/listing';
 import { pageMetadata } from '@/marketplace/seo/pageMetadata';
 import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
 import PlanCta from '../_components/PlanCta';
+import TiltCard from '../_components/TiltCard';
+import PlanCard from '@/app/[locale]/marketplace/_components/PlanCard';
+import { freeTrialPlan } from '@/marketplace/lib/planCopy';
 
 /** Managed on Admin → Website content → Pages SEO (defaults in lib/sitePages.js). */
 export async function generateMetadata({ params }) {
@@ -118,6 +121,17 @@ async function Plans({ locale, t }) {
     ? `/${locale}/marketplace/seller/billing`
     : `/${locale}/marketplace/subscription`;
 
+  /* ── Free first ────────────────────────────────────────────────────────
+     The trial is what a showroom actually starts on, so it is the first card
+     rather than a sentence above the grid. Reading left to right then becomes
+     the order somebody moves through: free, then a month, then a year.
+
+     Synthesised rather than stored — see freeTrialPlan() for why a trial must
+     not be a row in vendor_plans. Null when an admin has set the trial to zero
+     days, in which case the grid simply starts at the first paid plan. */
+  const trial = freeTrialPlan(trialDays, locale, { t });
+  const cards = trial ? [trial, ...plans] : plans;
+
   if (!plans.length) {
     return (
       <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-dashed p-8 text-center dark:border-white/10">
@@ -187,98 +201,42 @@ async function Plans({ locale, t }) {
 
       <div
         className={`mt-8 grid gap-5 ${
-          plans.length === 1
+          cards.length === 1
             ? 'mx-auto max-w-sm'
-            : plans.length === 2
+            : cards.length === 2
               ? 'mx-auto max-w-3xl sm:grid-cols-2'
               : 'sm:grid-cols-2 lg:grid-cols-3'
         }`}
       >
-        {plans.map((plan) => {
-          const name = localized(plan.name, locale) || t(`${plan.days} يوم`, `${plan.days} days`);
-          const description = localized(plan.description, locale);
-          const free = Number(plan.price) === 0;
-
-          return (
-            <article
-              key={plan.id}
-              /* The lifted card. `relative` for the ribbon, and the ring rather
-                 than a heavier border so the two sit at the same size and the
-                 grid does not jump between them. */
-              className={`relative flex flex-col rounded-2xl bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:bg-[#161616] ${
-                plan.popular
-                  ? 'ring-2 ring-brand-primary lg:-mt-2 lg:mb-2'
-                  : 'ring-1 ring-black/5 dark:ring-white/10'
-              }`}
-            >
-              {plan.popular ? (
-                <p className="absolute -top-3 start-6 inline-flex items-center gap-1 rounded-full bg-brand-primary px-2.5 py-1 text-[11px] font-bold text-white">
-                  <Sparkles className="h-3 w-3" />
-                  {t('الأكثر اختياراً', 'Most popular')}
-                </p>
-              ) : null}
-
-              <h2 className="text-lg font-bold text-brand-primary">{name}</h2>
-
-              {description ? (
-                <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-              ) : null}
-
-              <p className="mt-4 flex flex-wrap items-baseline gap-1.5">
-                <span className="text-3xl font-bold tabular-nums text-brand-primary">
-                  {free ? t('مجاناً', 'Free') : money(plan.price)}
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {t(`/ ${plan.days} يوم`, `/ ${plan.days} days`)}
-                </span>
-              </p>
-
-              {/* What one day costs, on a plan long enough for the comparison to
-                  mean something. It is how a reader tells a 90-day plan from
-                  three months of a 30-day one without doing arithmetic. */}
-              {!free && plan.days >= 30 ? (
-                <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-                  {t(
-                    `${money(Number(plan.price) / plan.days)} في اليوم`,
-                    `${money(Number(plan.price) / plan.days)} a day`
-                  )}
-                </p>
-              ) : null}
-
-              {plan.features.length ? (
-                <ul className="mt-5 space-y-2.5 text-sm">
-                  {plan.features.map((feature, i) => {
-                    const line = localized(feature, locale);
-                    if (!line) return null;
-                    return (
-                      // Index as the key: a feature list is a fixed, ordered
-                      // set of strings with no identity of its own.
-                      <li key={i} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
-                        <span className="text-gray-700 dark:text-gray-300">{line}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-
-              {/* mt-auto pins every button to the bottom, so cards with
-                  different numbers of ticks still line their buttons up. */}
-              <div className="mt-auto pt-6">
-                <PlanCta
-                  locale={locale}
-                  planId={plan.id}
-                  audience={openRenewal ? 'waiting' : audience}
-                  vendorId={vendor?.id ?? null}
-                  featured={plan.popular}
-                  loginHref={loginHref}
-                  applyHref={applyHref}
-                  billingHref={billingHref}
-                />
-              </div>
-            </article>
-          );
-        })}
+        {cards.map((plan) => (
+          /* ── The card turns towards the pointer ──────────────────────
+             The tilt wraps the card rather than being part of it, so the card
+             stays the same component the dashboard draws — a screen reader, a
+             crawler and a printer all see identical markup, and the 3D is
+             something only a mouse gets.
+             TiltCard switches itself off for a touch screen and for anybody
+             who has asked their system for reduced motion. */
+          <TiltCard key={plan.id} className={plan.popular ? 'lg:-mt-2 lg:mb-2' : ''}>
+            <PlanCard plan={plan} locale={locale} currency={currency}>
+              <PlanCta
+                locale={locale}
+                planId={plan.id}
+                /* The trial is not bought. Pressing it can only mean "start" —
+                   join, or open a showroom — so the button is told which card
+                   it is on rather than inferring it from a price of zero, which
+                   an admin could also set on a real plan they are giving
+                   away. */
+                trial={plan.synthetic === true}
+                audience={openRenewal ? 'waiting' : audience}
+                vendorId={vendor?.id ?? null}
+                featured={plan.popular}
+                loginHref={loginHref}
+                applyHref={applyHref}
+                billingHref={billingHref}
+              />
+            </PlanCard>
+          </TiltCard>
+        ))}
       </div>
 
       {/* Said once, under the grid, rather than on every card. */}

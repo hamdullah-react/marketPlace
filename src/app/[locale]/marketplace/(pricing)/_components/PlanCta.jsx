@@ -49,6 +49,8 @@ export default function PlanCta({
   locale = "ar",
   planId,
   audience = "guest", // guest | buyer | seller | waiting
+  /** The synthesised free-trial card. It is started, never bought. */
+  trial = false,
   vendorId = null,
   featured = false,
   loginHref = "",
@@ -66,6 +68,36 @@ export default function PlanCta({
   /* The highlighted card gets the solid button; the rest get outlines. One
      primary action per screen is what makes a choice feel made for you. */
   const look = featured ? "" : "outline";
+
+  /* ── The free card ─────────────────────────────────────────────────────
+     Nothing here raises a charge, because the trial is not a purchase: it
+     starts by itself when a showroom is created (the trigger in the VENDOR
+     ACCESS section of schema.sql). So every branch is a LINK to the step that
+     actually begins it, and a showroom that is already inside is told the
+     truth rather than being sold something it has had since day one. */
+  if (trial) {
+    if (audience === "seller" || audience === "waiting") {
+      return (
+        <p className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary/5 px-4 py-2.5 text-center text-sm font-medium text-muted-foreground">
+          <Check className="h-4 w-4 shrink-0 text-brand-primary" />
+          {t("بدأت مع فتح معرضك", "Started when you opened your showroom")}
+        </p>
+      );
+    }
+
+    return (
+      <Link
+        href={audience === "buyer" ? applyHref : loginHref}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:opacity-90"
+      >
+        {audience === "buyer" ? <Store className="h-4 w-4" /> : null}
+        {t("ابدأ مجاناً", "Start free")}
+        {audience === "buyer" ? null : (
+          <ArrowRight className={`h-4 w-4 ${isAr ? "rotate-180" : ""}`} />
+        )}
+      </Link>
+    );
+  }
 
   if (audience === "waiting") {
     return (
