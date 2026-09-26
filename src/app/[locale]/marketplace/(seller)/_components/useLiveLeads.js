@@ -86,6 +86,46 @@ import { useOnChange } from "@/hooks/use-on-change";
  */
 let audioCtx = null;
 
+/* ── The real horn ─────────────────────────────────────────────────────────
+   A recording, with the synthesised pair below it as the fallback. Both are
+   kept on purpose: the file is the better sound and the synth is the one that
+   cannot fail, and a notification that makes no noise because a 51 KB asset
+   404'd on a bad connection would be the same complaint all over again.
+
+   ── Why it is played from 0.45s ────────────────────────────────────────────
+
+   Measured, not guessed: the file is 2.57s long and the first 0.451s of it are
+   SILENCE. Played from the start, pressing the button would do nothing for
+   almost half a second — which is exactly how a working sound gets reported as
+   broken. The horn itself runs 0.45s → 1.50s and the rest is silence again, so
+   only that slice is played.
+
+   Trimmed at playback rather than by re-encoding the file: no build step, and
+   the numbers sit next to the reason for them. */
+const HORN_URL = "/sounds/horn.mp3";
+const HORN_START = 0.45;
+const HORN_LENGTH = 1.1;
+
+let hornBuffer = null;
+let hornAsked = false;
+
+/** Fetched once, on the first gesture — never on page load. */
+function loadHorn(ctx) {
+  if (hornAsked || !ctx) return;
+  hornAsked = true;
+
+  fetch(HORN_URL)
+    .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(String(res.status)))))
+    .then((bytes) => ctx.decodeAudioData(bytes))
+    .then((buf) => {
+      hornBuffer = buf;
+    })
+    .catch(() => {
+      // Offline, blocked, missing, or a browser that cannot decode it. The
+      // synthesised horn below carries on as though the file never existed.
+    });
+}
+
 export function unlockAudio() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -93,6 +133,9 @@ export function unlockAudio() {
 
     audioCtx ||= new Ctx();
     if (audioCtx.state === "suspended") audioCtx.resume();
+
+    // The gesture that unlocks the sound is also the moment to go and get it.
+    loadHorn(audioCtx);
   } catch {
     // No Web Audio, or a policy that refuses outright. The badge still counts.
   }
@@ -155,11 +198,37 @@ function blast(ctx, at, length) {
   }
 }
 
-/** The two taps, scheduled from wherever the clock is NOW. */
-function honk(ctx) {
+/** The two synthesised taps, scheduled from wherever the clock is NOW. */
+function synth(ctx) {
   const now = ctx.currentTime;
   blast(ctx, now, 0.16);
   blast(ctx, now + 0.24, 0.26);
+}
+
+/**
+ * The recording if it has arrived, the synthesised pair if it has not.
+ *
+ * The first press of all is the one that STARTS the download, so it plays the
+ * synth — everything after it plays the file. Two horns rather than a wait:
+ * making the first notification silent while 51 KB loads would trade a small
+ * difference in timbre for the one failure this whole thing exists to avoid.
+ */
+function honk(ctx) {
+  if (!hornBuffer) {
+    synth(ctx);
+    return;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = hornBuffer;
+
+  // The file peaks at 0.327, so a little gain brings it up to roughly where
+  // the synthesised version sits rather than being noticeably quieter.
+  const vol = ctx.createGain();
+  vol.gain.value = 1.6;
+
+  source.connect(vol).connect(ctx.destination);
+  source.start(0, HORN_START, HORN_LENGTH);
 }
 
 export function ting() {
