@@ -77,6 +77,14 @@ const KINDS = {
     body: d.until ? until(d.until, locale) : '',
   }),
 
+  /* The reason comes FIRST. A showroom reading "your subscription was
+     shortened" wants to know why before it wants to know until when, and the
+     admin was made to type a sentence precisely so this line is not blank. */
+  access_reduced: (d, { locale }) => ({
+    title: locale === 'ar' ? 'تم تقليص مدة اشتراكك' : 'Your subscription was shortened',
+    body: [d.reason, d.until ? until(d.until, locale) : null].filter(Boolean).join(' · '),
+  }),
+
   review_new: (d, { locale }) => ({
     title: locale === 'ar' ? 'تقييم جديد' : 'New review',
     body: [d.buyer, d.rating ? `${d.rating}★` : null].filter(Boolean).join(' · '),

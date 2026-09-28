@@ -142,3 +142,37 @@ export function extendedTo(vendor, days, now = Date.now()) {
   const from = Number.isFinite(until) && until > now ? until : now;
   return new Date(from + days * DAY).toISOString();
 }
+
+/**
+ * The new end date when `days` are TAKEN AWAY.
+ *
+ * ── Not the mirror image of extendedTo, and that is deliberate ────────────
+ *
+ * Extending measures from today when the date has passed, so nobody pays for
+ * time they spent locked out. Reducing must never do that: measuring from today
+ * would let an admin "reduce" an expired showroom and hand it a date further in
+ * the past every press, or worse, silently move a lapsed date FORWARD. So this
+ * measures from the stored date and only from there.
+ *
+ * ── A past result is an answer, not an error ──────────────────────────
+ *
+ * Taking 30 days off a showroom with 18 left ends their access now, and that is
+ * a thing an admin may legitimately mean. It is NOT clamped to today, because
+ * the honest date and today read identically to accessState() — both expired —
+ * while the honest one keeps the audit log truthful about what was taken. The
+ * caller's job is to SHOW the admin it will expire them before they press.
+ *
+ * Returns null when there is no date to reduce: `access_until` null means the
+ * VENDOR ACCESS section has not run or the row predates its trigger, and
+ * inventing an end date for a showroom that has never had one would be closing
+ * a dashboard over a deployment gap. See accessState for the same reasoning.
+ *
+ * It takes no `now`, unlike its neighbours — today is not part of the sum.
+ */
+export function reducedTo(vendor, days) {
+  const raw = vendor?.access_until ?? null;
+  const until = raw ? Date.parse(raw) : NaN;
+  if (!Number.isFinite(until)) return null;
+
+  return new Date(until - days * DAY).toISOString();
+}

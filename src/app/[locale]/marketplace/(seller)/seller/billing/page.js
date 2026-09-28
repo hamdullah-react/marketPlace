@@ -189,8 +189,19 @@ async function Body({ searchParams, locale, t }) {
         })
       : '—';
 
-  if (!list.items.length) {
-    return (
+  /* ── Nothing billed yet is not nothing to DO ──────────────────────
+     This used to return the empty state and stop, which quietly broke the one
+     journey the page exists for. A showroom in its last week has no charges
+     yet, follows "Renew" from the dashboard banner, and landed on a screen
+     saying "you owe nothing" with no way to renew — because the renewal card
+     is rendered BELOW a return that never ran.
+
+     So an empty statement is now only an empty STATEMENT: it takes the place of
+     the ledger sections further down, and everything a seller came here to
+     press still renders above it. */
+  const empty = !list.items.length;
+
+  const emptyStatement = (
       <div className="px-4 lg:px-6">
         <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center dark:border-gray-700">
           <Wallet className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
@@ -211,14 +222,17 @@ async function Body({ searchParams, locale, t }) {
           </Link>
         </div>
       </div>
-    );
-  }
+  );
 
   return (
     <>
       {/* ── The tab bar ──────────────────────────────────────────────────
           Each ledger carries what it is owed, so choosing one is not a guess.
+
+          Not offered while there is nothing billed: four tabs onto the same
+          empty list are four ways to learn one thing.
           --------------------------------------------------------------- */}
+      {empty ? null : (
       <div className="px-4 lg:px-6">
         <nav className="flex flex-wrap gap-2">
           {TABS.map((x) => {
@@ -248,11 +262,12 @@ async function Body({ searchParams, locale, t }) {
           })}
         </nav>
       </div>
+      )}
 
       {/* The headline figures are the WHOLE position, so they belong to
           Overview. Inside a ledger the tab's own badge already says what that
           one is owed. */}
-      {tab === 'all' ? (
+      {tab === 'all' && !empty ? (
       <div className="grid grid-cols-2 gap-3 px-4 lg:grid-cols-3 lg:px-6">
         <Card className="p-4">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -441,6 +456,8 @@ async function Body({ searchParams, locale, t }) {
           A GRID inside each: every charge is the same handful of facts, so they
           read as a comparable set instead of a column that wastes the width.
           --------------------------------------------------------------- */}
+      {empty && tab !== 'pay' ? emptyStatement : null}
+
       {SECTIONS.map((group) => {
         const rows = list.items.filter((charge) => charge.kind === group.key);
         if (!rows.length) return null;
@@ -592,7 +609,7 @@ async function Body({ searchParams, locale, t }) {
         );
       })}
 
-      {tab !== 'pay' ? (
+      {tab !== 'pay' && !empty ? (
         <p className="px-4 text-xs text-muted-foreground lg:px-6">
           {t(
             'تُسجَّل الدفعات من قِبل فريق المنصة بعد استلامها. إن حوّلت مبلغاً ولم يظهر هنا، تواصل معنا.',

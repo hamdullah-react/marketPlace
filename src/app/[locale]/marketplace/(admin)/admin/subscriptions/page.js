@@ -347,6 +347,7 @@ async function Body({ searchParams, locale, t }) {
                     vendorId={vendor.id}
                     vendorName={localized(vendor.name, locale)}
                     blocked={vendor.access.state === 'blocked'}
+                    accessUntil={vendor.access.until}
                     plans={activePlans}
                   />
                 </div>

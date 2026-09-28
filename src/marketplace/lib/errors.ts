@@ -380,6 +380,14 @@ export const ERRORS = {
     en: 'Your showroom’s subscription has ended. Contact the platform team to switch it back on.',
   },
   ACCESS_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
+  ACCESS_REDUCE_REASON_REQUIRED: {
+    ar: 'اكتب سبب تقليص المدة — يظهر لصاحب المعرض.',
+    en: 'Give a reason for taking the time back — the showroom is shown it.',
+  },
+  ACCESS_NO_DATE: {
+    ar: 'لا توجد مدة مسجلة لهذا المعرض لتقليصها. استخدم التمديد لتحديد تاريخ أولاً.',
+    en: 'This showroom has no end date to reduce. Use Give more time to set one first.',
+  },
   ACCESS_REASON_REQUIRED: {
     ar: 'اكتب سبب الإيقاف — يظهر لصاحب المعرض.',
     en: 'Give a reason — the showroom is shown it.',

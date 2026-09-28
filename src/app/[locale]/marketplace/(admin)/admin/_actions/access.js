@@ -26,7 +26,7 @@ import { writeAudit } from '@/marketplace/db/queries/admin';
 import { getVendorAccess } from '@/marketplace/db/queries/access';
 import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { notifyVendorLeads } from '@/marketplace/lib/realtime';
-import { extendedTo } from '@/marketplace/lib/access';
+import { extendedTo, reducedTo, accessState } from '@/marketplace/lib/access';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -121,6 +121,89 @@ export async function extendAccess(prevState, formData) {
   refresh();
 
   return ok({ vendorId, until });
+}
+
+/**
+ * Take time back off a showroom.
+ *
+ * ── The counterpart to Extend, and it needed to exist ───────────────────
+ *
+ * Extend is one press and cannot be undone: a mistyped 365 used to be permanent,
+ * and the only tool for it was Block — which is a different thing entirely. It
+ * shuts the dashboard NOW and tells the showroom they have been switched off,
+ * when all the admin wanted was to correct a number. This is the correction.
+ *
+ * It is also the honest way to handle a reversal: a transfer that bounces, a
+ * refund, a plan granted against a payment that never arrived.
+ *
+ * ── A REASON is required, unlike the note on Extend ────────────────────
+ *
+ * Same rule as blockVendor, for the same reason: this takes something away, the
+ * showroom is told, and "your subscription was shortened" with no sentence after
+ * it is how a seller becomes an ex-seller. Giving time needs no defence; taking
+ * it does.
+ *
+ * ── It does NOT touch the block switch ─────────────────────────────
+ *
+ * Extending lifts a block because "+30 days" means "they are back in". Reducing
+ * has no such intent in either direction — it is about the date alone — so a
+ * blocked showroom stays blocked and an open one stays open. If the new date has
+ * passed they lose the dashboard through the ordinary expiry path, which is the
+ * same door they would have walked out of on the original date.
+ */
+export async function reduceAccess(prevState, formData) {
+  const { viewer, error: denied } = await adminForAction();
+  if (denied) return bad(denied);
+
+  const vendorId = str(formData, 'vendorId');
+  const days = num(formData, 'days');
+  const reason = str(formData, 'reason').slice(0, 300);
+
+  if (!UUID.test(vendorId)) return bad('NOT_FOUND');
+  if (!Number.isFinite(days) || days < 1 || days > 3650) return bad('ACCESS_DAYS_INVALID');
+  if (!reason) return bad('ACCESS_REDUCE_REASON_REQUIRED');
+
+  const db = getMarketplaceDb();
+  const vendor = await getVendorAccess(vendorId);
+  if (!vendor) return bad('NOT_FOUND');
+
+  /* Null means no date has ever been set on this row. Subtracting from nothing
+     would be inventing an expiry, so the admin is told to set one with Extend
+     first rather than having one guessed for them. */
+  const until = reducedTo(vendor, days);
+  if (!until) return bad('ACCESS_NO_DATE');
+
+  const { error } = await db.from('vendors').update({ access_until: until }).eq('id', vendorId);
+
+  if (error) return bad(notMigrated(error) ? 'ACCESS_NOT_MIGRATED' : 'SAVE_FAILED', { detail: error.message });
+
+  await writeAudit(
+    viewer,
+    'access.reduce',
+    'vendor',
+    vendorId,
+    { access_until: vendor.access_until, was_blocked: vendor.access_blocked },
+    { access_until: until, days: -days, reason }
+  );
+
+  /* Whether they can still get in is ASKED rather than assumed: the new date may
+     be in the future (the common case — a correction) or in the past (the
+     reversal), and a blocked showroom is out either way. accessState is the one
+     judge of that everywhere else, so it is the judge here too — the alternative
+     is this action and the seller's guard disagreeing about who is in. */
+  const state = accessState({ ...vendor, access_until: until });
+  notifyVendorLeads(vendorId, 'access_changed', { allowed: state.allowed, until });
+
+  await recordNotification({
+    audience: 'vendor',
+    vendorId,
+    kind: 'access_reduced',
+    data: { until, days, reason },
+    href: '/marketplace/seller/billing',
+  });
+  refresh();
+
+  return ok({ vendorId, until, allowed: state.allowed });
 }
 
 /** Switch a showroom off now, whatever its date says. */
