@@ -6493,3 +6493,232 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  MESSAGES — the showroom and the platform, talking
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  Everything else in this schema is the platform TELLING a showroom something:
+--  a notification, a charge, a block reason, a rejected receipt. Every one of
+--  those is one-way, and every one of them ends the same way in practice — the
+--  showroom rings somebody, because there is nowhere to reply. This is the
+--  reply.
+--
+--  ── One thread per showroom, for ever ──────────────────────────────────────
+--
+--  `vendor_id` is UNIQUE. Not one thread per subject, per charge or per staff
+--  member: a showroom has one relationship with the platform and one place to
+--  discuss it, the way a support desk works. Threads per topic sound tidier and
+--  produce the failure they are meant to prevent — a question asked in the
+--  wrong one, answered nowhere, with nobody sure which thread is live.
+--
+--  ── Read state belongs to a SIDE, not a person ─────────────────────────────
+--
+--  Exactly the argument §21.3 makes about the lead inbox, and for the same
+--  reason: a showroom is three salespeople sharing one desk and the platform is
+--  a team of admins. Per-person read state would show each of them the same
+--  four unread messages and make each clear them separately, while hiding the
+--  useful fact that a colleague has already picked it up.
+--
+--  So there are two timestamps on the conversation, one per side, and "unread"
+--  is "sent by the other side, after my side last looked". That also makes
+--  marking as read a single UPDATE of one column rather than a row per message
+--  per reader.
+--
+--  ── The preview is DENORMALISED, deliberately ──────────────────────────────
+--
+--  `last_message_at` and `last_message_preview` duplicate what is in `messages`.
+--  The admin's list is "every showroom, newest conversation first, with a line
+--  of the last thing said" — which without these is a sort over a join and a
+--  lateral limit-1 per row, on a screen that opens constantly. They are written
+--  by the same action that inserts the message, so they cannot drift without
+--  the insert itself failing.
+
+create table if not exists conversations (
+  id         uuid primary key default gen_random_uuid(),
+
+  -- One per showroom. The unique constraint IS the design; see above.
+  vendor_id  uuid not null unique references vendors (id) on delete cascade,
+
+  -- Written with every message, read by the list.
+  last_message_at      timestamptz,
+  last_message_preview text,
+  last_sender          text check (last_sender in ('admin', 'vendor')),
+
+  -- When each side last looked. Null means never, which is the honest state for
+  -- a conversation nobody has opened and correctly makes everything in it
+  -- unread.
+  admin_read_at  timestamptz,
+  vendor_read_at timestamptz,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists conversations_recent_idx
+  on conversations (last_message_at desc nulls last);
+
+create table if not exists messages (
+  id              uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references conversations (id) on delete cascade,
+
+  -- Denormalised from the conversation so the RLS policy and the showroom's own
+  -- reads are one lookup rather than a join. A conversation cannot change
+  -- showrooms, so the two can never disagree.
+  vendor_id uuid not null references vendors (id) on delete cascade,
+
+  -- Which SIDE said it. Not derived from the sender's role at read time: an
+  -- admin who later stops being an admin must not retroactively turn every
+  -- message they ever sent into the showroom's.
+  sender text not null check (sender in ('admin', 'vendor')),
+
+  -- Who, for the record. SET NULL rather than cascade, with the NAME snapshotted
+  -- beside it — the same rule as leads.contact_name. A message outlives the
+  -- account that sent it, and a thread where half the lines lose their author
+  -- when somebody leaves the company is a thread nobody can follow.
+  sender_user_id uuid references auth.users (id) on delete set null,
+  sender_name    text,
+
+  body        text,
+  -- [{ path, name, mime, size }] — the object key inside marketplace-chat, not
+  -- a URL. The bucket is private, so there is no permanent address to store and
+  -- the link is signed at the moment somebody clicks it.
+  attachments jsonb not null default '[]'::jsonb,
+
+  created_at timestamptz not null default now(),
+
+  -- A message with neither words nor a file is a press of Send that should
+  -- never have been allowed. Enforced here as well as in the action, because
+  -- this is the one that cannot be skipped.
+  constraint messages_not_empty check (
+    coalesce(btrim(body), '') <> '' or jsonb_array_length(attachments) > 0
+  )
+);
+
+-- The thread itself: one conversation, oldest first, which is how it is read.
+create index if not exists messages_thread_idx on messages (conversation_id, created_at);
+
+-- The unread count per side: a filter on sender and a date.
+create index if not exists messages_unread_idx on messages (conversation_id, sender, created_at);
+
+-- Searching inside a conversation. Trigram, for the same reason as leads
+-- (§21.5): `ilike '%term%'` is unanchored and a btree cannot help it. Where the
+-- extension cannot be installed the search still works and simply scans, which
+-- for one showroom's thread is a small table and not worth failing a run over.
+do $$
+begin
+  create extension if not exists pg_trgm;
+  execute 'create index if not exists messages_body_idx on messages using gin (body gin_trgm_ops)';
+exception when others then
+  raise notice 'Message search index not created (%). Search still works, unindexed.', sqlerrm;
+end $$;
+
+drop trigger if exists conversations_updated_at on conversations;
+create trigger conversations_updated_at before update on conversations
+  for each row execute function set_updated_at();
+
+alter table conversations enable row level security;
+alter table messages enable row level security;
+
+-- A showroom reads its own thread; staff read every thread. Nobody WRITES
+-- through this connection: every send goes through a server action on the
+-- service role, which is what lets one call insert the message, stamp the
+-- conversation's preview and snapshot the sender's name without any of the
+-- three being able to happen without the others.
+drop policy if exists conversations_member_read on conversations;
+create policy conversations_member_read on conversations
+  for select using (is_vendor_member(vendor_id) or is_staff());
+
+drop policy if exists messages_member_read on messages;
+create policy messages_member_read on messages
+  for select using (is_vendor_member(vendor_id) or is_staff());
+
+-- ── How many are unread, per conversation ───────────────────────────────────
+--
+-- A function rather than a query, because "messages from the other side, newer
+-- than the moment my side last looked" compares a row against a column on its
+-- PARENT — which PostgREST cannot express, and whose alternatives are both
+-- worse: a read-receipt row per message per reader, or the count recomputed in
+-- JS from every message ever sent.
+--
+-- `side` is 'admin' or 'vendor' and decides both which timestamp to measure
+-- from and whose messages to ignore. `target` narrows it to one showroom, which
+-- is what a seller's own dashboard asks for; null is the admin's whole list.
+--
+-- SECURITY DEFINER and granted to the service role alone: it runs on the server
+-- behind a session that has already been checked, never from a browser.
+create or replace function conversation_unread(side text, target uuid default null)
+returns table (conversation_id uuid, vendor_id uuid, unread bigint)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    c.id,
+    c.vendor_id,
+    count(m.id) filter (
+      where m.sender is distinct from side
+        and m.created_at > coalesce(
+          case when side = 'admin' then c.admin_read_at else c.vendor_read_at end,
+          '-infinity'::timestamptz
+        )
+    )
+  from conversations c
+  left join messages m on m.conversation_id = c.id
+  where target is null or c.vendor_id = target
+  group by c.id, c.vendor_id;
+$$;
+
+revoke all on function conversation_unread(text, uuid) from public, anon, authenticated;
+grant execute on function conversation_unread(text, uuid) to service_role;
+
+-- ── Where the files go ──────────────────────────────────────────────────────
+--
+-- PRIVATE, like marketplace-payments and for the same reason: what people
+-- attach to a conversation with the platform is a bank letter, a commercial
+-- registration, a photograph of a damaged car. None of that belongs at a URL
+-- anybody holding it can read.
+--
+-- Wider than the payments bucket on types, because a conversation is not a
+-- receipt: a showroom sending its CR as a PDF and an admin sending back a
+-- spreadsheet are both ordinary. Still an allowlist rather than "anything" — an
+-- endpoint that accepts arbitrary bytes on our own domain is a file host.
+do $$
+begin
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values (
+    'marketplace-chat', 'marketplace-chat', false,
+    10 * 1024 * 1024,
+    array[
+      'image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain', 'text/csv'
+    ]
+  )
+  on conflict (id) do update set
+    public             = excluded.public,
+    file_size_limit    = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+  raise notice 'Storage: marketplace-chat (PRIVATE, images + documents, 10MB) is ready.';
+exception when others then
+  raise warning
+    'Could not create the marketplace-chat bucket (%). Create it by hand in Storage: PRIVATE, 10MB. Messages still send; attachments do not.', sqlerrm;
+end $$;
+
+do $$
+declare
+  threads int;
+  msgs    int;
+begin
+  select count(*) into threads from conversations;
+  select count(*) into msgs from messages;
+  raise notice 'Messages: % conversation(s), % message(s).', threads, msgs;
+end $$;
+
+notify pgrst, 'reload schema';

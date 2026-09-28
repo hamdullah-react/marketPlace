@@ -2,6 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { requireVendor } from '@/marketplace/auth/session';
 import { getShellVendor } from './_apicalls/shellApi';
 import { getNotifications } from '@/marketplace/db/queries/notifications';
+import { unreadCounts } from '@/marketplace/db/queries/messages';
 import SellerShell from './_components/SellerShell';
 
 /**
@@ -53,6 +54,15 @@ export default async function SellerLayout({ children, params }) {
   // dashboard to someone who is about to be sent elsewhere.
   const { vendor } = await requireVendor();
 
+  /* Awaited, unlike the bell's notifications, and the difference is worth
+     stating: the bell resolves inside its own Suspense boundary because it is a
+     list, while this is one number on a button that is painted immediately. A
+     badge that appears a moment after the button is a badge that flickers on
+     every navigation. One RPC over a handful of rows — see conversation_unread
+     — and it never throws, so a database without the MESSAGES section shows a
+     drawer with nothing in it rather than failing the dashboard. */
+  const messages = await unreadCounts('vendor', vendor.id).catch(() => ({ total: 0 }));
+
   return (
     <SellerShell
       locale={locale}
@@ -68,6 +78,7 @@ export default async function SellerLayout({ children, params }) {
          countdown and the page it opens cannot tell a seller two things — which
          is the rule the blocked screen was rewritten to obey. */
       access={vendor.access}
+      messages={{ total: messages.total ?? 0 }}
     >
       {/* ── The banners are GONE from here, on purpose ───────────────
           Two of them used to sit at the top of every page in the dashboard —

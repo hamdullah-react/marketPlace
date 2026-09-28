@@ -22,7 +22,7 @@ import 'server-only';
 
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { isMissingSchema } from './engagement';
-import { totals, DUE_DAYS } from '@/marketplace/lib/billing';
+import { totals, DUE_DAYS, billingDetails } from '@/marketplace/lib/billing';
 
 const BASE = `
   id, ref, vendor_id, kind, boost_id, listing_id, description, amount, state,
@@ -246,6 +246,53 @@ export async function countAwaitingPayments() {
 
   try {
     const db = getMarketplaceDb();
+
+    /* ── The receipt rule reaches the BADGE too ────────────────────
+       A number on the sidebar is a queue, and a queue containing things nobody
+       here can act on is a queue that stops being worked. With the rule on, a
+       charge counts once a receipt is with us — the same test the lists and the
+       notification use (isPresented), applied to a count.
+
+       It is one extra read, and only when the rule is on. Both of them fail
+       open: a settings row that cannot be read counts everything, which is what
+       this function did before the setting existed. */
+    let open = null;
+    try {
+      const { data: row } = await db.from('site_settings').select('billing').eq('id', true).maybeSingle();
+      if (billingDetails(row?.billing).requireProof) {
+        const { data: proofs } = await db
+          .from('charge_payment_proofs')
+          .select('charge_id')
+          .eq('state', 'submitted');
+
+        open = new Set((proofs ?? []).map((r) => r.charge_id));
+      }
+    } catch {
+      open = null;
+    }
+
+    /* Without the rule, a head-only count is all this needs and is what it has
+       always done. With it, the ids have to come back so they can be tested
+       against the receipts — a count cannot be filtered by a set. */
+    if (open) {
+      const { data: rows, error } = await db
+        .from('vendor_charges')
+        .select('id, kind')
+        .eq('state', 'due');
+
+      if (error) return empty;
+
+      const presented = (rows ?? []).filter((c) => open.has(c.id));
+      const subs = presented.filter((c) => c.kind === 'subscription').length;
+      const boosts = presented.filter((c) => c.kind === 'boost').length;
+
+      return {
+        total: presented.length,
+        subscription: subs,
+        boost: boosts,
+        other: Math.max(0, presented.length - subs - boosts),
+      };
+    }
 
     const due = (kind) => {
       const q = db.from('vendor_charges').select('id', { count: 'exact', head: true }).eq('state', 'due');

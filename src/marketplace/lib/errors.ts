@@ -380,6 +380,31 @@ export const ERRORS = {
     en: 'Your showroom’s subscription has ended. Contact the platform team to switch it back on.',
   },
   ACCESS_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
+  // ── messages ──
+  MESSAGES_NOT_MIGRATED: {
+    ar: 'المحادثات غير متاحة على هذه النسخة بعد.',
+    en: 'Messaging is not available on this installation yet.',
+  },
+  MESSAGE_EMPTY: {
+    ar: 'اكتب شيئاً أو أرفق ملفاً.',
+    en: 'Write something, or attach a file.',
+  },
+  MESSAGE_TOO_MANY_FILES: {
+    ar: 'خمسة ملفات كحد أقصى في الرسالة الواحدة.',
+    en: 'Five files at most in one message.',
+  },
+  MESSAGE_FILE_TOO_BIG: {
+    ar: 'الملف أكبر من ١٠ ميجابايت.',
+    en: 'That file is over 10MB.',
+  },
+  MESSAGE_FILES_TOO_BIG: {
+    ar: 'مجموع الملفات أكبر من ٢٠ ميجابايت. أرسلها على رسائل متفرقة.',
+    en: 'Those files come to over 20MB together. Send them in separate messages.',
+  },
+  MESSAGE_FILE_TYPE: {
+    ar: 'نوع الملف غير مدعوم. الصور وملفات PDF ومستندات أوفيس فقط.',
+    en: 'That kind of file is not supported — images, PDFs and Office documents only.',
+  },
   PROOF_ALREADY_REVIEWED: {
     ar: 'تمت مراجعة هذا الإيصال ولم يعد بالإمكان سحبه. تواصل معنا إن كان هناك خطأ.',
     en: 'This receipt has already been reviewed, so it can no longer be withdrawn. Get in touch if something is wrong with it.',

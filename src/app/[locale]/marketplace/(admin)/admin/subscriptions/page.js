@@ -10,6 +10,7 @@ import { openProofsByCharge } from '@/marketplace/db/queries/proofs';
 import { billingDetails, isPresented } from '@/marketplace/lib/billing';
 import { WARN_DAYS } from '@/marketplace/lib/access';
 import { localized, formatPrice } from '@/marketplace/lib/listing';
+import PaymentProofPolicySwitch from '../../_components/PaymentProofPolicySwitch';
 import SubscriptionsTable from '../../_components/SubscriptionsTable';
 import SubscriptionSettings from '../../_components/SubscriptionSettings';
 import DeleteChargeButton from '../../_components/DeleteChargeButton';
@@ -271,6 +272,16 @@ async function Body({ searchParams, locale, t }) {
               Falls back to the DASHBOARD language, not to Arabic, so an English
               admin on a database where the setting was never saved gets English
               boxes rather than being asked to write Arabic. */}
+          {/* ── How a renewal reaches you ─────────────────────────
+              The same switch as Finance → Payment methods, which is where it is
+              filed by subject and is not where anybody looks for it: somebody
+              deciding how renewals should work opens THIS page. One setting,
+              one action, one stored value — shown in both places rather than
+              hidden in the one that reads more tidily. */}
+          <div className="mb-4">
+            <PaymentProofPolicySwitch locale={locale} requireProof={requireProof} />
+          </div>
+
           <SubscriptionSettings
             locale={locale}
             trialDays={trialDays}

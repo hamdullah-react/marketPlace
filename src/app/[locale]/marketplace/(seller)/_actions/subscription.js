@@ -30,7 +30,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { vendorForRenewal } from '@/marketplace/auth/session';
 import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { notifyAdmins } from '@/marketplace/lib/realtime';
-import { DUE_DAYS } from '@/marketplace/lib/billing';
+import { DUE_DAYS, billingDetails } from '@/marketplace/lib/billing';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -107,20 +107,43 @@ export async function requestRenewal(prevState, formData) {
     return bad('SAVE_FAILED', { detail: error.message });
   }
 
-  /* Every admin's panel, so somebody picks it up. This is the most
-     time-critical notification in the app: at the other end of it is a seller
-     sitting in front of a locked dashboard. */
-  notifyAdmins('renewal_requested', { id: created?.id ?? null, vendor: vendorId, ref: created?.ref ?? null });
+  /* ── Whether this reaches an admin AT ALL ───────────────────────
+     With the receipt rule on, asking to renew is half a request: the charge
+     exists so the showroom has a reference to quote on the transfer, and the
+     platform hears nothing until the receipt arrives. Filtering the LISTS was
+     not enough — the bell and the chime are how an admin actually finds out
+     something happened, so a request that is not theirs to act on yet must not
+     ring either. submitPaymentProof is what tells them, and it carries the
+     receipt with it.
 
-  await recordNotification({
-    audience: 'admin',
-    kind: 'renewal_requested',
-    /* The showroom's name is not in scope here; the admin bell links to the
-       Subscriptions queue, which names every one of them on its rows. The
-       amount and the reference are what make this actionable. */
-    data: { amount: created?.amount ?? null, ref: created?.ref ?? null },
-    href: '/marketplace/admin/subscriptions',
-  });
+     Read here rather than passed in: this is a rule about the platform, and a
+     seller's form has no business carrying it. It never throws — a settings row
+     that cannot be read means the notification goes out, which is the
+     behaviour before this setting existed and the safe direction to fail in. */
+  let requireProof = false;
+  try {
+    const { data: row } = await db.from('site_settings').select('billing').eq('id', true).maybeSingle();
+    requireProof = billingDetails(row?.billing).requireProof;
+  } catch {
+    requireProof = false;
+  }
+
+  if (!requireProof) {
+    /* Every admin's panel, so somebody picks it up. This is the most
+       time-critical notification in the app: at the other end of it is a seller
+       sitting in front of a locked dashboard. */
+    notifyAdmins('renewal_requested', { id: created?.id ?? null, vendor: vendorId, ref: created?.ref ?? null });
+
+    await recordNotification({
+      audience: 'admin',
+      kind: 'renewal_requested',
+      /* The showroom's name is not in scope here; the admin bell links to the
+         Subscriptions queue, which names every one of them on its rows. The
+         amount and the reference are what make this actionable. */
+      data: { amount: created?.amount ?? null, ref: created?.ref ?? null },
+      href: '/marketplace/admin/subscriptions',
+    });
+  }
 
   refresh(locale);
   return ok({ ref: created?.ref ?? null, days, chargeId: created?.id ?? null });

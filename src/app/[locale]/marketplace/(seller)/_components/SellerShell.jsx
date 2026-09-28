@@ -48,6 +48,7 @@ import {
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
 import NotificationBell from "../../_components/NotificationBell";
 import AccessCountdown from "./AccessCountdown";
+import MessagesDrawer from "@/marketplace/ui/MessagesDrawer";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { useLiveLeads } from "./useLiveLeads";
 
@@ -309,6 +310,10 @@ export default function SellerShell({
      its own arithmetic would be a second opinion able to disagree with the
      guard that actually holds the door. */
   access = null,
+  /* { total } — how many messages from the platform this showroom has not read.
+     Computed by the layout so the badge is right on the first paint rather
+     than arriving a moment later. */
+  messages = null,
 }) {
   /* No vendorId prop: the shell already resolves one below for the live-leads
      channel and the vendor picker, and a second copy could disagree with it. */
@@ -501,6 +506,16 @@ export default function SellerShell({
                   href={`/${locale}/marketplace/seller/subscription`}
                 />
               ) : null}
+
+              {/* Opens from the same edge as its own button, beside the
+                  bell and the countdown — a panel that arrived from the far
+                  side would cross the screen to reach what was just pressed. */}
+              <MessagesDrawer
+                locale={locale}
+                side="vendor"
+                vendorId={vendorId}
+                unreadTotal={messages?.total ?? 0}
+              />
 
               {/* Its own boundary: the bell is two reads the header should not
                   wait for, and a quiet bell is the right fallback. */}

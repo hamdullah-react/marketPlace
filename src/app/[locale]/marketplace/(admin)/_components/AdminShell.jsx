@@ -33,6 +33,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
 import NotificationBell from "../../_components/NotificationBell";
+import MessagesDrawer from "@/marketplace/ui/MessagesDrawer";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { signOut } from "../../(auth)/_actions/auth";
 
@@ -77,6 +78,10 @@ export default function AdminShell({
   brand = null,
   notifications = null,
   currency = null,
+  /* { conversations, vendors, unreadPairs, total } — everything the messages
+     drawer needs, read by the layout so the badge is right on the first paint.
+     See the seller shell for why this is awaited rather than streamed. */
+  messages = null,
   children,
 }) {
   const isAr = locale === "ar";
@@ -239,6 +244,19 @@ export default function AdminShell({
               className={`h-2 w-2 shrink-0 rounded-full ${live ? "bg-green-500" : "bg-amber-500"}`}
             />
             <div className="ms-auto flex shrink-0 items-center gap-1">
+              {/* Same component as the seller's — the only difference is that
+                  an admin picks a showroom first. It opens from this same edge,
+                  which is where its button is. */}
+              <MessagesDrawer
+                locale={locale}
+                side="admin"
+                userId={viewer?.userId ?? null}
+                conversations={messages?.conversations ?? []}
+                vendors={messages?.vendors ?? []}
+                unreadPairs={messages?.unreadPairs ?? []}
+                unreadTotal={messages?.total ?? 0}
+              />
+
               <NotificationBell
                 locale={locale}
                 audience="admin"

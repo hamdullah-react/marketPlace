@@ -17,6 +17,27 @@ const nextConfig = {
   //
   cacheComponents: true,
 
+  // ── How large a server action's body may be ────────────────────
+  //
+  // The default is 1 MB, and leaving it there quietly broke every upload that
+  // goes through an action rather than a route handler: a chat attachment and a
+  // payment receipt are both FormData on a server action, and both declare
+  // their own size limits — 10 MB and 8 MB — that could never be reached. The
+  // framework rejected the request before the action ran, so the careful
+  // "that file is over 8MB" message was unreachable and what a seller actually
+  // saw was an opaque failure.
+  //
+  // 24 MB covers the largest legitimate body: one chat message carrying several
+  // attachments, capped in the action at MAX_TOTAL_BYTES, plus multipart
+  // overhead. It is a CEILING, not a target — the real limits are the ones in
+  // the actions, which produce a sentence somebody can act on.
+  //
+  // Route handlers (listing photos, /api/marketplace/upload) are unaffected;
+  // this governs server actions only.
+  serverActions: {
+    bodySizeLimit: '24mb',
+  },
+
   // ── React Compiler, ON ─────────────────────────────────────────────────
   //
   // This was false, with a note saying that flipping it on is a real change

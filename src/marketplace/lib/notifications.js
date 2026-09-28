@@ -155,6 +155,17 @@ const KINDS = {
      about a showroom the reader has dealt with — it is written for buyers in
      general, which is why the title does not claim a relationship the reader
      does not have. */
+  /* The PREVIEW is the body, not a generic line. "You have a new message" is a
+     notification that makes somebody open a tab to find out whether it mattered;
+     the first line of what was actually said usually answers that on the lock
+     screen, which is the whole point of sending it there. */
+  message_new: (d, { locale }) => ({
+    title: d.from
+      ? (locale === 'ar' ? `رسالة من ${d.from}` : `Message from ${d.from}`)
+      : (locale === 'ar' ? 'رسالة جديدة' : 'New message'),
+    body: say(d.preview, locale),
+  }),
+
   blog_published: (d, { locale }) => ({
     title: locale === 'ar' ? 'مقال جديد في الأخبار' : 'A new article in the news',
     /* say(), NOT the raw value. These two are {ar, en} snapshots — the article
@@ -169,9 +180,26 @@ const KINDS = {
 
   // To the PLATFORM. The amount is the seller's claim, which is the number an
   // admin is about to check against a bank statement.
+  /* ── The whole request in one line ────────────────────────────
+     With the receipt rule on, the renewal or promotion request itself never
+     rang — this is the first an admin hears of any of it. So it says WHO and
+     WHAT FOR, not just a reference: "a payment receipt to review" beside a
+     charge number is a message that sends somebody hunting through Finance to
+     find out whether it matters. */
   payment_proof_submitted: (d, ctx) => ({
-    title: ctx.locale === 'ar' ? 'إيصال دفع جديد' : 'A payment receipt to review',
-    body: [d.ref, amount(d, ctx)].filter(Boolean).join(' · '),
+    title:
+      ctx.locale === 'ar'
+        ? (d.kind === 'subscription'
+            ? 'طلب تجديد مع إيصال الدفع'
+            : d.kind === 'boost'
+              ? 'دفعة ترويج مع إيصال'
+              : 'إيصال دفع جديد')
+        : (d.kind === 'subscription'
+            ? 'Renewal request — receipt attached'
+            : d.kind === 'boost'
+              ? 'Promotion payment — receipt attached'
+              : 'A payment receipt to review'),
+    body: [say(d.vendor, ctx.locale), d.ref, amount(d, ctx)].filter(Boolean).join(' · '),
   }),
 
   // To the SHOWROOM. No note on an acceptance: the charge itself now reads as

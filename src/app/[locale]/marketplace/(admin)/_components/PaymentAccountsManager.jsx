@@ -26,9 +26,9 @@
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Banknote, Building2, CreditCard, Landmark, Loader2, Pencil, Plus, Receipt, Trash2, Wallet,
+  Banknote, Building2, CreditCard, Landmark, Loader2, Pencil, Plus, Trash2, Wallet,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import PaymentProofPolicySwitch from "./PaymentProofPolicySwitch";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -40,7 +40,6 @@ import {
 } from "@/marketplace/lib/billing";
 import {
   savePaymentAccount, deletePaymentAccount, saveBillingTerms,
-  savePaymentProofPolicy,
 } from "../admin/_actions/billing";
 
 const INITIAL = { ok: false, error: null };
@@ -98,14 +97,6 @@ export default function PaymentAccountsManager({ locale = "ar", details }) {
     },
   });
 
-  /* autoClearMs 0: a refused policy change has to stay on screen. The switch
-     springs back to its stored position on the refresh, so without the sentence
-     the only feedback is a toggle that moved and moved back. */
-  const policy = useActionResult(savePaymentProofPolicy, INITIAL, {
-    autoClearMs: 0,
-    onSuccess: () => router.refresh(),
-  });
-
   const busy = save.pending || remove.pending;
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -152,7 +143,7 @@ export default function PaymentAccountsManager({ locale = "ar", details }) {
   /* Whichever of the three failed. Flattened to a .find rather than a third
      level of ternary, which is where that shape stops being readable. */
   const error =
-    [save, remove, policy]
+    [save, remove]
       .map((r) => (r.result?.error ? errorText(r.result.error, locale, r.result.params) : null))
       .find(Boolean) ?? null;
 
@@ -165,61 +156,12 @@ export default function PaymentAccountsManager({ locale = "ar", details }) {
 
   return (
     <>
-      {/* ── Must a receipt come with the request? ───────────────────
-          Above the accounts, because it is a rule about ALL of them rather than
-          a property of any one. It governs promotions and subscriptions alike —
-          see isPresented() for why that is one switch and not two.
+      {/* Above the accounts, because it is a rule about ALL of them rather
+          than a property of any one. The same switch is on Subscriptions, which
+          is where somebody deciding how renewals work actually looks — one
+          setting, two places it can be reached. */}
+      <PaymentProofPolicySwitch locale={locale} requireProof={requireProof} />
 
-          The consequence is spelled out under each state rather than left to a
-          label, because "required" and "optional" do not say what actually
-          changes, and what changes is whether an admin's queue fills with
-          intentions. */}
-      <div className="mb-4 rounded-xl border p-3 dark:border-white/10">
-        <div className="flex flex-wrap items-center gap-3">
-          <Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">
-              {t("اشتراط إيصال التحويل مع الطلب", "Require a transfer receipt with every request")}
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {requireProof
-                ? t(
-                    "لا يصلك طلب التجديد أو الترويج إلا بعد أن يرفق المعرض صورة التحويل. يبقى المستحق في السجل، تحت تبويب «بانتظار الإيصال».",
-                    "A renewal or promotion request does not reach you until the showroom attaches the transfer. The charge stays in the ledger, under the “Awaiting receipt” tab."
-                  )
-                : t(
-                    "يصلك الطلب فور إرساله، ويُرسل الإيصال متى ناسب المعرض.",
-                    "A request reaches you as soon as it is made, and the receipt follows whenever the showroom sends it."
-                  )}
-            </p>
-          </div>
-
-          <Switch
-            checked={requireProof}
-            disabled={policy.pending}
-            aria-label={t("اشتراط الإيصال", "Require a receipt")}
-            onCheckedChange={(next) => {
-              const fd = new FormData();
-              fd.set("requireProof", String(Boolean(next)));
-              policy.dismiss();
-              startTransition(() => policy.formAction(fd));
-            }}
-          />
-
-          {policy.pending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
-        </div>
-
-        {/* Switching it ON un-queues requests that are already open and have no
-            receipt. Said before the press, not discovered after it. */}
-        {!requireProof ? (
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            {t(
-              "عند التفعيل، تخرج الطلبات المفتوحة بلا إيصال من قائمة انتظارك — وتعود إن أوقفته. لا يُعدّل أي مستحق.",
-              "Turning this on takes open requests with no receipt out of your queue — and turning it off brings them straight back. No charge is altered either way."
-            )}
-          </p>
-        ) : null}
-      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" onClick={add} className="gap-1.5">

@@ -127,7 +127,11 @@ export async function submitPaymentProof(prevState, formData) {
   /* ── The charge has to be theirs, and still owed ───────────────────────── */
   const { data: charge, error: readError } = await db
     .from('vendor_charges')
-    .select('id, ref, state, amount, kind, vendor_id')
+    /* The showroom's NAME travels with it. With the receipt rule on this
+       notification is the first an admin hears of the request at all — the
+       renewal itself stayed silent — so "a receipt to review" with a reference
+       and nothing else is a message that sends somebody hunting. */
+    .select('id, ref, state, amount, kind, vendor_id, vendors ( name )')
     .eq('id', chargeId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -195,7 +199,14 @@ export async function submitPaymentProof(prevState, formData) {
     await recordNotification({
       audience: 'admin',
       kind: 'payment_proof_submitted',
-      data: { ref: charge.ref, amount: amount ?? charge.amount, kind: charge.kind },
+      data: {
+        ref: charge.ref,
+        amount: amount ?? charge.amount,
+        kind: charge.kind,
+        // A snapshot, like every other name in a notification: the sentence has
+        // to still read if the showroom is renamed or removed.
+        vendor: charge.vendors?.name ?? null,
+      },
       href: '/marketplace/admin/finance',
     });
     await notifyAdmins('admin_alert', { kind: 'payment_proof_submitted' });

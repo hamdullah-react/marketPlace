@@ -6,6 +6,9 @@ import { countAwaitingPayments } from '@/marketplace/db/queries/billing';
 import { countPendingProofs } from '@/marketplace/db/queries/proofs';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import AdminShell from './_components/AdminShell';
+import {
+  listConversations, listMessageableVendors, unreadCounts,
+} from '@/marketplace/db/queries/messages';
 
 /**
  * (admin) — platform admins only. Never indexed.
@@ -23,7 +26,10 @@ export default async function AdminLayout({ children, params }) {
   setRequestLocale(locale);
 
   const viewer = await requireAdmin();
-  const [pendingBoosts, awaitingPayments, pendingProofs, site, notifications] = await Promise.all([
+  const [
+    pendingBoosts, awaitingPayments, pendingProofs, site, notifications,
+    conversations, messageableVendors, messageUnread,
+  ] = await Promise.all([
     countPendingBoosts(),
     /* The number on Finance and on Subscriptions. Two head-only counts, read
        here with the rest rather than inside the pages, because a badge has to be
@@ -42,6 +48,20 @@ export default async function AdminLayout({ children, params }) {
        two indexed reads and it lives in the header — a bell that pops in a
        moment after the page is a bell somebody has already looked past. */
     getNotifications({ audience: 'admin' }).catch(() => ({ items: [], unread: 0 })),
+    /* ── The messages drawer ──────────────────────────────────
+       Three reads: the threads that exist, every showroom one could be started
+       with, and the unread count per thread. Read in the LAYOUT because the
+       badge belongs on the header whichever page of the panel somebody is
+       standing on — the same argument as the two counts above.
+
+       Not the message BODIES: the drawer fetches those when it opens, so a
+       panel nobody opens the drawer on pays for three small reads rather than
+       every conversation on the platform. Each catches its own failure, so a
+       database without the MESSAGES section shows an empty drawer instead of
+       failing the whole panel. */
+    listConversations().catch(() => ({ items: [] })),
+    listMessageableVendors().catch(() => ({ items: [] })),
+    unreadCounts('admin').catch(() => ({ byVendor: new Map(), total: 0 })),
   ]);
 
   return (
@@ -51,6 +71,14 @@ export default async function AdminLayout({ children, params }) {
       awaitingPayments={awaitingPayments}
       pendingProofs={pendingProofs}
       notifications={notifications}
+      messages={{
+        conversations: conversations.items ?? [],
+        vendors: messageableVendors.items ?? [],
+        /* Pairs, not a Map: a Map does not survive the boundary to a client
+           component, and the drawer rebuilds it in one pass. */
+        unreadPairs: [...(messageUnread.byVendor ?? new Map()).entries()],
+        total: messageUnread.total ?? 0,
+      }}
       currency={site.currency}
       brand={{
         name: locale === 'en' ? site.name.en : site.name.ar,
