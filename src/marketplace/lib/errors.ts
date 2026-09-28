@@ -303,6 +303,48 @@ export const ERRORS = {
   METHOD_REQUIRED: { ar: 'اختر طريقة الدفع', en: 'Pick a payment method' },
   DATE_INVALID: { ar: 'تاريخ غير صالح', en: 'That is not a valid date' },
   DATE_FUTURE: { ar: 'لا يمكن تسجيل دفعة بتاريخ مستقبلي', en: 'A payment cannot be dated in the future' },
+  /* ── A showroom sending the receipt for a charge ─────────────────────── */
+  PROOF_FILE_REQUIRED: {
+    ar: 'أرفق صورة الإيصال أو الحوالة.',
+    en: 'Attach a screenshot or a receipt of the transfer.',
+  },
+  PROOF_FILE_TOO_BIG: {
+    ar: 'الملف أكبر من ٨ ميجابايت. أرسل لقطة شاشة بدل الصورة الكاملة.',
+    en: 'That file is over 8MB. A screenshot is usually far smaller than a photo.',
+  },
+  PROOF_FILE_TYPE: {
+    ar: 'أرسل صورة (JPG أو PNG أو WebP) أو ملف PDF.',
+    en: 'Send an image (JPG, PNG or WebP) or a PDF.',
+  },
+  PROOF_ALREADY_SENT: {
+    ar: 'أرسلت إيصالاً لهذه الفاتورة وهو قيد المراجعة. انتظر ردّ الإدارة قبل إرسال آخر.',
+    en: 'You have already sent a receipt for this charge and it is being reviewed. Wait for an answer before sending another.',
+  },
+  PROOF_NOT_DUE: {
+    ar: 'هذه الفاتورة ليست مستحقّة، فلا إيصال يُرسل لها.',
+    en: 'This charge is not outstanding, so there is nothing to send a receipt for.',
+  },
+  PROOF_REVIEWED: {
+    ar: 'رُوجع هذا الإيصال بالفعل — ربما من زميل قبل لحظات.',
+    en: 'This receipt has already been reviewed — possibly by a colleague a moment ago.',
+  },
+  PROOF_REASON_REQUIRED: {
+    ar: 'اكتب سبب الرفض. يُعرض للمعرض ليعرف ما يرسله بدلاً منه.',
+    en: 'Write why it was refused. The showroom is shown this, so they know what to send instead.',
+  },
+  PROOF_NOT_MIGRATED: {
+    ar: 'إرسال الإيصالات غير مفعّل بعد. شغّل قسم PAYMENT PROOFS في schema.sql.',
+    en: 'Sending receipts is not set up yet. Run the PAYMENT PROOFS section of schema.sql.',
+  },
+  AMOUNT_INVALID: {
+    ar: 'أدخل مبلغاً صحيحاً.',
+    en: 'Enter a valid amount.',
+  },
+  NOT_ALLOWED: {
+    ar: 'لا صلاحية لك على هذا الإجراء.',
+    en: 'You do not have permission to do that.',
+  },
+
   ALREADY_PAID: { ar: 'هذا المستحق مدفوع بالفعل.', en: 'That charge is already marked paid.' },
   NOT_PAID: { ar: 'هذا المستحق غير مسجّل كمدفوع.', en: 'That charge is not marked paid.' },
   CHARGE_VOID: { ar: 'هذا المستحق ملغى، ولا يمكن تسجيل دفعة عليه.', en: 'That charge is cancelled, so no payment can be recorded against it.' },

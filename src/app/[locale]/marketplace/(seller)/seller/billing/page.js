@@ -14,6 +14,8 @@ import { formatPrice, localized } from '@/marketplace/lib/listing';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import RenewalPanel from '../../_components/RenewalPanel';
+import PaymentProofDialog from '../../_components/PaymentProofDialog';
+import { latestProofsByCharge } from '@/marketplace/db/queries/proofs';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -103,6 +105,15 @@ async function Body({ searchParams, locale, t }) {
       </div>
     );
   }
+
+  /* The latest receipt per charge, in ONE read rather than one per row: the
+     list needs to know, for every line, whether something is already with us.
+     It runs after the charges because it is keyed on their ids, and it never
+     throws — a database without the PAYMENT PROOFS section simply shows no
+     receipt state and the rest of the page is unaffected. */
+  const { byCharge: proofs } = await latestProofsByCharge(
+    (list.items ?? []).filter((c) => c.state === 'due').map((c) => c.id)
+  );
 
   const money = (n) => formatPrice(n, locale, site?.currency);
   const details = billingDetails(site?.billing);
@@ -532,6 +543,22 @@ async function Body({ searchParams, locale, t }) {
                         </>
                       ) : null}
                     </div>
+
+                    {/* ── Saying you have paid ─────────────────────────────
+                        Only while something is actually owed. On a paid charge
+                        there is nothing to claim, and on a void one there is
+                        nothing to pay — offering the button there would be
+                        inviting somebody to send a receipt nobody can accept. */}
+                    {charge.state === 'due' ? (
+                      <div className="mb-3">
+                        <PaymentProofDialog
+                          locale={locale}
+                          vendorId={vendorId}
+                          charge={charge}
+                          proof={proofs.get(charge.id) ?? null}
+                        />
+                      </div>
+                    ) : null}
 
                     {/* The document, for every charge — a receipt once it is paid, a
                         statement of what is owed before that. Both are things a

@@ -6302,3 +6302,167 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  PAYMENT PROOFS — the seller's side of "I have paid"
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  VENDOR BILLING records what a showroom OWES and what an admin has CONFIRMED.
+--  Between those two there was nothing at all: a showroom transferred the money
+--  at their bank, and then had no way to say so. The seller's billing page said
+--  outright that it was read-only, and an admin marked charges paid from
+--  memory, a WhatsApp message, or a bank statement they were reading in another
+--  window.
+--
+--  This is the missing step. The showroom submits a claim — a screenshot of the
+--  transfer, the method, the reference and the date — and an admin accepts or
+--  rejects it. Accepting is what calls the payment in, so the promotion starts
+--  and the subscription extends exactly as before.
+--
+--  ── A CLAIM is not a RECORD, and they are kept apart ───────────────────────
+--
+--  The columns here look like vendor_charges.paid_at / payment_method /
+--  payment_ref, and they mean something different: these are what the SELLER
+--  says, and those are what the PLATFORM has confirmed. Putting the seller's
+--  numbers straight onto the charge would make "collected this month" a total
+--  of what people told us, and there would be no way afterwards to tell an
+--  admin's confirmation from a claim nobody checked.
+--
+--  So a proof is its own row, and recording the payment stays the admin's act.
+--  The accept path copies the claim onto the charge — once an admin has looked
+--  at the screenshot and agreed with it.
+--
+--  ── A TABLE, not columns on vendor_charges ─────────────────────────────────
+--
+--  A first attempt gets rejected — wrong amount, unreadable screenshot, the
+--  reference of a different transfer — and the showroom sends another. Columns
+--  would overwrite the first attempt, losing both the fact that it happened and
+--  the reason it was refused, which is exactly the history a disputed payment
+--  turns on three months later.
+--
+--  ── The screenshot goes in a PRIVATE bucket ────────────────────────────────
+--
+--  Every other upload on this platform is public, because a car photo has to
+--  render for a logged-out buyer and for Google. A transfer receipt is the
+--  opposite: it carries an account number, a holder's name and often a balance.
+--  In a public bucket, anyone holding the URL could read a showroom's banking
+--  details with no login.
+--
+--  Same rule, and the same reasoning, as marketplace-backups in §24 — private,
+--  and served through short-lived signed URLs minted at click time.
+
+do $$
+begin
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values (
+    'marketplace-payments', 'marketplace-payments', false,
+    8 * 1024 * 1024,
+    -- Images and PDFs: a bank app gives a screenshot, a desktop banking site
+    -- gives a PDF receipt, and refusing the second would send somebody to a
+    -- screenshot tool to photograph a document they already had.
+    array['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'application/pdf']
+  )
+  on conflict (id) do update set
+    public             = excluded.public,
+    file_size_limit    = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+  raise notice 'Storage: marketplace-payments (PRIVATE, images + pdf, 8MB) is ready.';
+exception when others then
+  raise warning
+    'Could not create the marketplace-payments bucket (%). Create it by hand in Storage: PRIVATE, 8MB, image/* and application/pdf. Sellers cannot send a receipt until it exists.', sqlerrm;
+end $$;
+
+do $$ begin
+  create type payment_proof_state as enum ('submitted', 'accepted', 'rejected');
+exception when duplicate_object then null; end $$;
+
+create table if not exists charge_payment_proofs (
+  id          uuid primary key default gen_random_uuid(),
+
+  -- CASCADE, unlike most of this schema. A proof is evidence FOR one charge and
+  -- means nothing without it — there is no reading of "the receipt for a charge
+  -- that no longer exists" worth keeping, and vendor_charges is itself
+  -- restricted from deletion while it matters.
+  charge_id   uuid not null references vendor_charges (id) on delete cascade,
+
+  -- Denormalised from the charge so the seller's own list and the RLS policy
+  -- are one lookup. A charge cannot move between showrooms, so the two can
+  -- never disagree.
+  vendor_id   uuid not null references vendors (id) on delete cascade,
+
+  -- The object key inside marketplace-payments. NOT a URL: the bucket is
+  -- private, so there is no permanent address to store — the link is signed at
+  -- the moment somebody clicks it.
+  storage_path text not null,
+  mime_type    text,
+
+  /* ── What the SELLER says ────────────────────────────────────────────────
+     Every one of these is a claim awaiting a human. `amount` is nullable and
+     deliberately NOT checked against the charge: a showroom that transferred
+     the wrong figure needs to be able to say so, and an admin comparing the two
+     is the entire point of the review. */
+  method      text,
+  reference   text,
+  amount      numeric(12,2) check (amount is null or amount >= 0),
+  paid_at     timestamptz,
+  note        text,
+
+  state       payment_proof_state not null default 'submitted',
+
+  -- The admin's answer. review_note is shown to the SHOWROOM, so a rejection is
+  -- never just "no" — it is what to send instead.
+  review_note text,
+  reviewed_by text,
+  reviewed_at timestamptz,
+
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+
+  -- A reviewed proof has a moment; an unreviewed one does not. Without this the
+  -- two drift and "how long are we taking to answer" stops being answerable.
+  constraint charge_payment_proofs_review_shape
+    check ((state = 'submitted') = (reviewed_at is null))
+);
+
+-- One OPEN claim per charge. A seller pressing Send twice — or refreshing the
+-- confirmation — must not queue two identical receipts for an admin to work
+-- through. Partial, so a REJECTED attempt frees the slot and they can send a
+-- corrected one, which is the whole reason rejection carries a note.
+create unique index if not exists charge_payment_proofs_one_open
+  on charge_payment_proofs (charge_id) where state = 'submitted';
+
+-- The admin's queue: everything waiting, oldest first, because a showroom that
+-- paid this morning is locked out right now.
+create index if not exists charge_payment_proofs_pending_idx
+  on charge_payment_proofs (created_at) where state = 'submitted';
+
+-- The showroom's own history, and one charge's attempts.
+create index if not exists charge_payment_proofs_vendor_idx
+  on charge_payment_proofs (vendor_id, created_at desc);
+create index if not exists charge_payment_proofs_charge_idx
+  on charge_payment_proofs (charge_id, created_at desc);
+
+drop trigger if exists charge_payment_proofs_updated_at on charge_payment_proofs;
+create trigger charge_payment_proofs_updated_at before update on charge_payment_proofs
+  for each row execute function set_updated_at();
+
+alter table charge_payment_proofs enable row level security;
+
+-- The showroom reads its own; staff read all. Nobody WRITES through this
+-- connection: every insert and review goes through a server action on the
+-- service role, for the same reason a charge does — evidence a showroom could
+-- edit after the fact is not evidence.
+drop policy if exists charge_payment_proofs_member_read on charge_payment_proofs;
+create policy charge_payment_proofs_member_read on charge_payment_proofs
+  for select using (is_vendor_member(vendor_id) or is_staff());
+
+do $$
+declare
+  waiting int;
+begin
+  select count(*) into waiting from charge_payment_proofs where state = 'submitted';
+  raise notice 'Payment proofs: table ready, % awaiting review.', waiting;
+end $$;
+
+notify pgrst, 'reload schema';

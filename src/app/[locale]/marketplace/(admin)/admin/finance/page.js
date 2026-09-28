@@ -10,6 +10,8 @@ import { billingDetails, stateLabel, stateTone, methodLabel, isOverdue, overdueL
 import { formatPrice, localized } from '@/marketplace/lib/listing';
 import ChargeRowActions from '../../_components/ChargeRowActions';
 import PaymentAccountsManager from '../../_components/PaymentAccountsManager';
+import PaymentProofQueue from '../../_components/PaymentProofQueue';
+import { listPendingProofs } from '@/marketplace/db/queries/proofs';
 
 export const instant = false;
 
@@ -113,10 +115,14 @@ async function Body({ searchParams, locale, t }) {
   const state = TABS.some((x) => x.key === sp.state) ? sp.state : 'due';
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const [overview, list, site] = await Promise.all([
+  const [overview, list, site, proofs] = await Promise.all([
     getBillingOverview({ days: 30, kind }),
     listCharges({ state, kind, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }),
     getSiteSettings().catch(() => null),
+    /* The receipts waiting for an answer. It never throws — a database
+       without the PAYMENT PROOFS section shows no queue and the rest of
+       Finance is unaffected. */
+    listPendingProofs().catch(() => ({ ready: false, items: [] })),
   ]);
 
   /* The table has never been created on this database. Said plainly, with the
@@ -194,6 +200,23 @@ async function Body({ searchParams, locale, t }) {
 
   return (
     <>
+      {/* ── First, because somebody is waiting on it ────────────────────
+          A showroom that sent a receipt this morning may be locked out right
+          now. Everything else on this page is a figure to read; this is the
+          only part with a person at the other end of it, so it sits above the
+          tabs rather than inside one of them — a queue nobody scrolls to is a
+          queue that grows. Renders nothing when it is empty. */}
+      {proofs.items.length ? (
+        <div className="px-4 lg:px-6">
+          <PaymentProofQueue
+            locale={locale}
+            items={proofs.items}
+            accounts={details.accounts ?? []}
+            currency={site?.currency}
+          />
+        </div>
+      ) : null}
+
       {/* ── The tab bar ──────────────────────────────────────────────────
           The only top-level control on the page. Each tab carries the number
           that makes it worth opening, so choosing one is not a guess.

@@ -320,6 +320,139 @@ export async function recordPayment(prevState, formData) {
 }
 
 /** Un-record a payment — a bounced cheque, or the wrong row. */
+/**
+ * Accept or refuse the receipt a showroom sent.
+ *
+ * ── Accepting CALLS recordPayment rather than repeating it ──────────────────
+ *
+ * Recording a payment is not one write: it marks the charge, extends the
+ * subscription by the days the charge carries, starts the promotion the charge
+ * paid for, and tells the showroom. Re-implementing that here would be a second
+ * copy of the most consequential path in the app, and the day somebody fixed a
+ * bug in one of them the other would keep it.
+ *
+ * So this decides, and delegates. The proof is marked accepted only AFTER the
+ * payment has actually been recorded — a receipt stamped "accepted" against a
+ * charge that failed to update would be a lie in the one place that must not
+ * hold one.
+ *
+ * ── Rejecting always carries a reason ───────────────────────────────────────
+ *
+ * The note is shown to the SHOWROOM. A rejection without one is a showroom that
+ * sends the identical screenshot again, and an admin who has to refuse it
+ * twice. It is required for that reason and no other.
+ */
+export async function reviewPaymentProof(prevState, formData) {
+  const { viewer, error: denied } = await adminForAction();
+  if (denied) return bad(denied);
+
+  const proofId = str(formData, 'proofId');
+  if (!UUID.test(proofId)) return bad('NOT_FOUND');
+
+  const decision = str(formData, 'decision');
+  if (decision !== 'accept' && decision !== 'reject') return bad('NOT_FOUND');
+
+  const reviewNote = str(formData, 'reviewNote').slice(0, 500) || null;
+  if (decision === 'reject' && !reviewNote) return bad('PROOF_REASON_REQUIRED');
+
+  const db = getMarketplaceDb();
+
+  const { data: proof, error: readError } = await db
+    .from('charge_payment_proofs')
+    .select('id, charge_id, vendor_id, state, method, reference, amount, paid_at')
+    .eq('id', proofId)
+    .maybeSingle();
+
+  if (readError) {
+    return bad(isMissingSchema(readError) ? 'PROOF_NOT_MIGRATED' : 'SAVE_FAILED', {
+      detail: readError.message,
+    });
+  }
+  if (!proof) return bad('NOT_FOUND');
+  // Two admins on the same queue: whoever got here second is told plainly.
+  if (proof.state !== 'submitted') return bad('PROOF_REVIEWED');
+
+  const stampReview = {
+    review_note: reviewNote,
+    reviewed_by: viewer.userId,
+    reviewed_at: new Date().toISOString(),
+  };
+
+  /* ── Refused ───────────────────────────────────────────────────────────── */
+  if (decision === 'reject') {
+    const { error } = await db
+      .from('charge_payment_proofs')
+      .update({ ...stampReview, state: 'rejected' })
+      .eq('id', proofId)
+      // Re-checked at the database, for the same reason recordPayment does it.
+      .eq('state', 'submitted');
+
+    if (error) return bad('SAVE_FAILED', { detail: error.message });
+
+    await writeAudit(viewer, 'charge.proof.rejected', 'charge', proof.charge_id, null, {
+      proof: proofId,
+      note: reviewNote,
+    });
+
+    await recordNotification({
+      audience: 'vendor',
+      vendorId: proof.vendor_id,
+      kind: 'payment_proof_rejected',
+      data: { note: reviewNote },
+      href: '/marketplace/seller/billing',
+    });
+
+    refreshProofs();
+    return ok({ state: 'rejected' });
+  }
+
+  /* ── Accepted: the payment is recorded first ───────────────────────────── */
+  const paid = new FormData();
+  paid.set('chargeId', proof.charge_id);
+  /* The admin's own entry wins where they changed it; otherwise the claim is
+     taken as made, which is what "accept" means. */
+  paid.set('method', str(formData, 'method') || proof.method || 'bank_transfer');
+  paid.set('reference', str(formData, 'reference') || proof.reference || '');
+  paid.set('paidAt', str(formData, 'paidAt') || proof.paid_at || '');
+  paid.set('paidInto', str(formData, 'paidInto'));
+  paid.set('note', str(formData, 'note'));
+
+  const result = await recordPayment(null, paid);
+
+  // Nothing is stamped when the money could not be booked. The receipt stays in
+  // the queue, and the admin is shown why.
+  if (!result?.ok) return result;
+
+  const { error } = await db
+    .from('charge_payment_proofs')
+    .update({ ...stampReview, state: 'accepted' })
+    .eq('id', proofId)
+    .eq('state', 'submitted');
+
+  /* The payment IS recorded at this point. A proof that failed to stamp is a
+     tidiness problem, not a money one, so it is reported alongside the success
+     rather than turning a booked payment into an error. */
+  if (error) {
+    return ok({ ...result, state: 'accepted', proofWarning: 'SAVE_FAILED' });
+  }
+
+  await writeAudit(viewer, 'charge.proof.accepted', 'charge', proof.charge_id, null, {
+    proof: proofId,
+  });
+
+  refreshProofs();
+  return ok({ ...result, state: 'accepted' });
+}
+
+/** Everywhere a receipt's state shows. */
+function refreshProofs() {
+  revalidatePath('/[locale]/marketplace/admin/finance', 'page');
+  revalidatePath('/[locale]/marketplace/seller/billing', 'page');
+  revalidatePath('/[locale]/marketplace/seller/billing/[id]', 'page');
+  // The badge beside Finance counts what is still waiting.
+  revalidatePath('/[locale]/marketplace/admin', 'layout');
+}
+
 export async function undoPayment(prevState, formData) {
   const { viewer, error: denied } = await adminForAction();
   if (denied) return bad(denied);

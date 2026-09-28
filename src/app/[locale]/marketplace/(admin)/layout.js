@@ -3,6 +3,7 @@ import { requireAdmin } from '@/marketplace/auth/session';
 import { getNotifications } from '@/marketplace/db/queries/notifications';
 import { countPendingBoosts } from '@/marketplace/db/queries/boosts';
 import { countAwaitingPayments } from '@/marketplace/db/queries/billing';
+import { countPendingProofs } from '@/marketplace/db/queries/proofs';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import AdminShell from './_components/AdminShell';
 
@@ -22,7 +23,7 @@ export default async function AdminLayout({ children, params }) {
   setRequestLocale(locale);
 
   const viewer = await requireAdmin();
-  const [pendingBoosts, awaitingPayments, site, notifications] = await Promise.all([
+  const [pendingBoosts, awaitingPayments, pendingProofs, site, notifications] = await Promise.all([
     countPendingBoosts(),
     /* The number on Finance and on Subscriptions. Two head-only counts, read
        here with the rest rather than inside the pages, because a badge has to be
@@ -30,6 +31,12 @@ export default async function AdminLayout({ children, params }) {
        showroom waiting to be let back in must not depend on an admin happening
        to open Finance to be noticed. */
     countAwaitingPayments(),
+    /* Receipts a showroom has sent and nobody has answered. Counted here with
+       the rest so the badge is on the sidebar whichever page of the panel an
+       admin is standing on — a showroom that paid this morning may be locked
+       out right now, and must not wait for somebody to happen to open
+       Finance. */
+    countPendingProofs(),
     getSiteSettings(),
     /* The bell. Awaited here with the rest rather than streamed, because it is
        two indexed reads and it lives in the header — a bell that pops in a
@@ -42,6 +49,7 @@ export default async function AdminLayout({ children, params }) {
       locale={locale}
       pendingBoosts={pendingBoosts}
       awaitingPayments={awaitingPayments}
+      pendingProofs={pendingProofs}
       notifications={notifications}
       currency={site.currency}
       brand={{

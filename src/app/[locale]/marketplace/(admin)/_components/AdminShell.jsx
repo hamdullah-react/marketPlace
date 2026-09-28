@@ -73,6 +73,7 @@ export default function AdminShell({
   pendingBoosts = 0,
   /** { total, subscription, boost, other } — payments waiting to be confirmed. */
   awaitingPayments = null,
+  pendingProofs = 0,
   brand = null,
   notifications = null,
   currency = null,
@@ -176,7 +177,10 @@ export default function AdminShell({
                click to solve. */
             badges={{
               [BOOSTS_HREF]: livePending,
-              [FINANCE_HREF]: awaitingPayments?.total ?? 0,
+              /* Unpaid charges AND receipts waiting to be looked at. Both
+                 are work on the Finance page and an admin does not need two
+                 numbers to know to open it. */
+              [FINANCE_HREF]: (awaitingPayments?.total ?? 0) + (pendingProofs ?? 0),
               [SUBSCRIPTIONS_HREF]: awaitingPayments?.subscription ?? 0,
             }}
             badgeTitles={{

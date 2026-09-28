@@ -157,6 +157,33 @@ const KINDS = {
     body: [say(d.title, locale), say(d.excerpt, locale)].filter(Boolean).join(' · '),
   }),
 
+  /* ── Receipts: a showroom says it has paid, an admin answers ──────────── */
+
+  // To the PLATFORM. The amount is the seller's claim, which is the number an
+  // admin is about to check against a bank statement.
+  payment_proof_submitted: (d, ctx) => ({
+    title: ctx.locale === 'ar' ? 'إيصال دفع جديد' : 'A payment receipt to review',
+    body: [d.ref, amount(d, ctx)].filter(Boolean).join(' · '),
+  }),
+
+  // To the SHOWROOM. No note on an acceptance: the charge itself now reads as
+  // paid, and the promotion or the extra days are the real answer.
+  payment_proof_accepted: (d, { locale }) => ({
+    title: locale === 'ar' ? 'تم قبول إيصالك' : 'Your receipt was accepted',
+    body: [say(d.ref, locale), locale === 'ar' ? 'سُجّلت الدفعة' : 'the payment is recorded']
+      .filter(Boolean)
+      .join(' · '),
+  }),
+
+  // The note is the whole message here — see reviewPaymentProof on why a
+  // rejection may not be sent without one.
+  payment_proof_rejected: (d, { locale }) => ({
+    title: locale === 'ar' ? 'لم يُقبل إيصالك' : 'Your receipt was not accepted',
+    body:
+      say(d.note, locale) ||
+      (locale === 'ar' ? 'تواصل مع الإدارة للتفاصيل' : 'Get in touch with the platform team'),
+  }),
+
   /* ── For a showroom, about the buyer ─────────────────────────────────── */
 
   lead_cancelled: (d, { locale }) => ({
