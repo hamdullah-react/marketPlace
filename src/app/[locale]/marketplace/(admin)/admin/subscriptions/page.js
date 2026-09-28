@@ -6,11 +6,11 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { listVendorAccess, getVendorPlans, listOpenRenewals } from '@/marketplace/db/queries/access';
 import { getSiteSettings, readSiteSettings } from '@/marketplace/db/queries/site';
-import { accessLabel, accessTone, WARN_DAYS } from '@/marketplace/lib/access';
+import { openProofsByCharge } from '@/marketplace/db/queries/proofs';
+import { billingDetails, isPresented } from '@/marketplace/lib/billing';
+import { WARN_DAYS } from '@/marketplace/lib/access';
 import { localized, formatPrice } from '@/marketplace/lib/listing';
-import { matches } from '@/marketplace/lib/search';
-import SearchBox from '../../../_components/SearchBox';
-import VendorAccessActions from '../../_components/VendorAccessActions';
+import SubscriptionsTable from '../../_components/SubscriptionsTable';
 import SubscriptionSettings from '../../_components/SubscriptionSettings';
 import DeleteChargeButton from '../../_components/DeleteChargeButton';
 
@@ -67,7 +67,6 @@ export default async function AdminSubscriptionsPage({ params, searchParams }) {
 
 async function Body({ searchParams, locale, t }) {
   const sp = (await searchParams) ?? {};
-  const term = typeof sp.q === 'string' ? sp.q.slice(0, 80) : '';
 
   const [{ ready, items }, plans, renewals, site, settings] = await Promise.all([
     listVendorAccess(),
@@ -101,25 +100,47 @@ async function Body({ searchParams, locale, t }) {
     );
   }
 
+  /* ── Which renewal requests have actually REACHED us ──────────────
+     With the receipt rule on, a showroom pressing "Request renewal" raises a
+     charge and nothing more: it is not an admin's to act on until the transfer
+     is attached. So the panel below lists the PRESENTED ones, and the count
+     beside its heading counts those — a queue that includes rows nobody here
+     can move is a queue that stops being worked.
+
+     The unpresented ones are not lost: they are in the Finance ledger under
+     "Awaiting receipt", which is where somebody goes when a showroom rings to
+     ask what happened to its request.
+
+     One read, and it never throws — a database without the PAYMENT PROOFS
+     section presents everything, which is exactly the behaviour before this
+     setting existed. */
+  const requireProof = billingDetails(site?.billing).requireProof;
+
+  const { byCharge: renewalProofs } = requireProof
+    ? await openProofsByCharge((renewals ?? []).map((r) => r.id)).catch(() => ({
+        byCharge: new Map(),
+      }))
+    : { byCharge: new Map() };
+
+  /* listOpenRenewals only ever returns UNPAID subscription charges, so `state`
+     is 'due' by construction — named here anyway, because isPresented reads it
+     and a row that arrived without one must not be silently presented. */
+  const presentedRenewals = (renewals ?? []).filter((r) =>
+    isPresented({ ...r, state: 'due' }, renewalProofs.has(r.id), requireProof)
+  );
+
   const trialDays = Number(site?.trialDays ?? 30);
 
-  /* ── Searched here, over the whole list ────────────────────────────────
-     listVendorAccess() reads every approved showroom — one platform's worth,
-     not a paged table — so the term is applied in memory and the match can be
-     the good one: both languages of the name, the slug, the city and the phone,
-     with Arabic letter forms and Arabic-Indic digits folded (lib/search.js).
-     Doing it in PostgREST would mean an `ilike` per field and no folding, so
-     "الاحمدي" would not find "الأحمدي".
+  /* ── The KPIs count the PLATFORM, never the search ──────────────
+     They are computed from `items`, and the table below filters the same
+     list without touching them. A headline that moves when you type is a
+     headline that cannot be read — "3 approved showrooms" is not true of the
+     platform, only of the box.
 
-     `filtered` is what the grid renders. The KPIs above it deliberately keep
-     counting `items`: a headline that moves when you search is a headline that
-     cannot be read — "3 approved showrooms" is not true of the platform, only
-     of the box. */
-  const filtered = term
-    ? items.filter((v) =>
-        matches(term, [v.name, v.slug, v.city, v.contact_phone, v.contact_email])
-      )
-    : items;
+     The search itself moved into DataTable, which folds Arabic letter forms
+     and Arabic-Indic digits the way lib/search.js did, and filters without a
+     round trip per keystroke. */
+
 
   const counts = items.reduce(
     (acc, v) => {
@@ -170,17 +191,17 @@ async function Body({ searchParams, locale, t }) {
           believes it has paid and is sitting in front of a locked dashboard.
           Oldest first, and the fix is one press on Finance — recording the
           payment moves their date by itself. */}
-      {renewals.length ? (
+      {presentedRenewals.length ? (
         <div className="px-4 lg:px-6">
           <Card className="p-4 ring-1 ring-amber-300 dark:ring-amber-900/60">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
               <Clock className="h-4 w-4" />
               {t('طلبات تجديد بانتظار التأكيد', 'Renewals waiting to be confirmed')}
-              <span className="tabular-nums">({renewals.length})</span>
+              <span className="tabular-nums">({presentedRenewals.length})</span>
             </h2>
 
             <ul className="mt-3 space-y-2">
-              {renewals.map((row) => (
+              {presentedRenewals.map((row) => (
                 <li
                   key={row.id}
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b pb-2 text-sm last:border-0 last:pb-0 dark:border-white/10"
@@ -260,124 +281,30 @@ async function Body({ searchParams, locale, t }) {
         </Card>
       </div>
 
-      {/* ── The showrooms ──────────────────────────────────────────────── */}
-      {items.length ? (
-        <div className="flex flex-wrap items-center gap-3 px-4 lg:px-6">
-          <h2 className="text-sm font-semibold text-brand-primary">
-            {t('المعارض', 'Showrooms')}
-          </h2>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {term
-              ? t(`${filtered.length} من ${items.length}`, `${filtered.length} of ${items.length}`)
-              : t(`${items.length} معرض`, `${items.length} showroom${items.length === 1 ? '' : 's'}`)}
-          </span>
-          <SearchBox
-            locale={locale}
-            className="ms-auto w-full sm:w-64"
-            placeholder={t('ابحث باسم المعرض أو المدينة أو الجوال', 'Search name, city or phone')}
-          />
-        </div>
-      ) : null}
+      {/* ── The showrooms ───────────────────────────────────
+          A TABLE, not a grid of cards. The question this screen answers is "who
+          needs chasing", which is one column read down forty rows — and in a
+          three-across grid that column does not exist. See SubscriptionsTable.
 
-      {filtered.length ? (
-        <div className="grid gap-3 px-4 sm:grid-cols-2 xl:grid-cols-3 lg:px-6">
-          {filtered.map((vendor) => {
-            const out = !vendor.access.allowed;
+          The search box, the filters, the counts, the pager and the empty states
+          all moved inside it, which is why this is now one line: they were four
+          separate pieces of markup here saying what DataTable says once.
 
-            return (
-              <Card
-                key={vendor.id}
-                className={`flex flex-col p-4 ${out ? 'ring-1 ring-red-200 dark:ring-red-900/60' : ''}`}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/${locale}/marketplace/vendors/${vendor.slug}`}
-                    className="truncate font-medium text-brand-primary hover:underline"
-                  >
-                    {localized(vendor.name, locale)}
-                  </Link>
-
-                  <span
-                    className={`ms-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${accessTone(
-                      vendor.access.state
-                    )}`}
-                  >
-                    {accessLabel(vendor.access.state, locale)}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
-                  <span>
-                    {t('حتى: ', 'Until: ')}
-                    {when(vendor.access_until)}
-                  </span>
-
-                  {vendor.access.daysLeft != null && vendor.access.allowed ? (
-                    <span className={vendor.access.state === 'ending' ? 'text-amber-700 dark:text-amber-400' : ''}>
-                      {t(`بقي ${vendor.access.daysLeft} يوم`, `${vendor.access.daysLeft} days left`)}
-                    </span>
-                  ) : null}
-
-                  {/* Inferred from the charges, not from the date — see
-                      listVendorAccess. */}
-                  <span>
-                    {vendor.paidBefore ? t('مشترك', 'Paying') : t('فترة مجانية', 'On trial')}
-                  </span>
-                </div>
-
-                {vendor.access.state === 'blocked' && vendor.access.reason ? (
-                  <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-                    {vendor.access.reason}
-                  </p>
-                ) : null}
-
-                {vendor.contact_phone ? (
-                  <a
-                    href={`tel:${vendor.contact_phone}`}
-                    dir="ltr"
-                    className="mt-2 block text-xs text-muted-foreground hover:text-brand-primary"
-                  >
-                    {vendor.contact_phone}
-                  </a>
-                ) : null}
-
-                <div className="mt-auto border-t pt-3 dark:border-white/10">
-                  <VendorAccessActions
-                    locale={locale}
-                    vendorId={vendor.id}
-                    vendorName={localized(vendor.name, locale)}
-                    blocked={vendor.access.state === 'blocked'}
-                    accessUntil={vendor.access.until}
-                    plans={activePlans}
-                  />
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="px-4 lg:px-6">
-          <div className="rounded-xl border border-dashed border-gray-300 py-14 text-center dark:border-gray-700">
-            <Store className="mx-auto h-9 w-9 text-gray-300 dark:text-gray-600" />
-            {/* Two different nothings. "No approved showrooms" on a platform
-                with forty of them, because somebody mistyped a name, is the
-                kind of empty state that gets reported as data loss. */}
-            <p className="mt-3 font-semibold text-brand-primary">
-              {term
-                ? t('لا معرض يطابق البحث', 'No showroom matches that search')
-                : t('لا توجد معارض معتمدة', 'No approved showrooms')}
-            </p>
-            {term ? (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t(
-                  'جرّب اسماً أو مدينة أو رقماً آخر.',
-                  'Try another name, city or number.'
-                )}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      )}
+          The ?q= filter that used to narrow this server-side is gone with them.
+          It could not coexist with the table's own search without there being
+          two boxes meaning the same thing, and the table's is the one that
+          filters without a round trip per keystroke. */}
+      <div className="px-4 lg:px-6">
+        <SubscriptionsTable
+          locale={locale}
+          items={items}
+          plans={activePlans}
+          /* The showrooms that have asked to renew and are still waiting. The
+             same list the panel above prints, handed to the table so the tab
+             can count it — one read, two readers. */
+          awaitingRenewal={presentedRenewals.map((r) => r.vendor_id).filter(Boolean)}
+        />
+      </div>
     </>
   );
 }

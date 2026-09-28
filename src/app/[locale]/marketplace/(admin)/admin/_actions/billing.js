@@ -794,3 +794,63 @@ export async function saveBillingTerms(prevState, formData) {
   refresh();
   return ok();
 }
+
+/**
+ * Require a receipt with every request, or do not.
+ *
+ * ── Why this is one switch and not two ──────────────────────────────────────
+ *
+ * Promotions and subscriptions are kept apart everywhere else in this codebase,
+ * deliberately, because they are different debts with different consequences.
+ * This is the one rule that is genuinely the same for both: either the platform
+ * wants to see the transfer before it starts counting, or it does not. Two
+ * switches would be set to the same value on day one and would differ by
+ * accident thereafter.
+ *
+ * ── It is not retroactive in the direction that would hurt ──────────────────
+ *
+ * Switching it ON un-queues requests that are already open and have no receipt.
+ * That is the intended effect — they are exactly the requests this setting says
+ * should not be in the queue — and it is reversible: switching it off brings
+ * them straight back, because nothing is stored per charge. The rule is applied
+ * at READ time (isPresented), so there is no state to migrate in either
+ * direction and no charge left in a shape that outlives the setting.
+ *
+ * What it never does is touch a charge. Nothing here writes to vendor_charges,
+ * so no showroom's reference, amount or date changes because an admin changed
+ * their mind about paperwork.
+ */
+export async function savePaymentProofPolicy(prevState, formData) {
+  const { viewer, error: denied } = await adminForAction();
+  if (denied) return bad(denied);
+
+  const require = str(formData, 'requireProof') === 'true';
+
+  const db = getMarketplaceDb();
+  const { billing, error: readError } = await readBilling(db);
+  if (readError) return bad(readError);
+
+  const failed = await writeBilling(db, { ...billing, requireProof: require });
+  if (failed) return bad(failed);
+
+  await writeAudit(
+    viewer,
+    'billing.proof_policy',
+    'site_settings',
+    'billing',
+    { requireProof: billing?.requireProof === true },
+    { requireProof: require }
+  );
+
+  /* Every screen the rule is read on. The seller's pages because the wording
+     changes there too — "this step is required" against "you can send it when
+     it suits you" is the same switch seen from the other side. */
+  revalidatePath('/[locale]/marketplace/admin/finance', 'page');
+  revalidatePath('/[locale]/marketplace/admin/subscriptions', 'page');
+  revalidatePath('/[locale]/marketplace/admin', 'layout');
+  revalidatePath('/[locale]/marketplace/seller/billing', 'page');
+  revalidatePath('/[locale]/marketplace/seller/subscription', 'page');
+  revalidatePath('/[locale]/marketplace/subscription', 'page');
+
+  return ok({ requireProof: require });
+}

@@ -380,6 +380,10 @@ export const ERRORS = {
     en: 'Your showroom’s subscription has ended. Contact the platform team to switch it back on.',
   },
   ACCESS_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
+  PROOF_ALREADY_REVIEWED: {
+    ar: 'تمت مراجعة هذا الإيصال ولم يعد بالإمكان سحبه. تواصل معنا إن كان هناك خطأ.',
+    en: 'This receipt has already been reviewed, so it can no longer be withdrawn. Get in touch if something is wrong with it.',
+  },
   ACCESS_REDUCE_REASON_REQUIRED: {
     ar: 'اكتب سبب تقليص المدة — يظهر لصاحب المعرض.',
     en: 'Give a reason for taking the time back — the showroom is shown it.',

@@ -23,11 +23,12 @@
 
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, Loader2, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useActionResult } from "@/marketplace/ui/useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
 import PlanCard from "../../_components/PlanCard";
+import PaymentProofDialog from "./PaymentProofDialog";
 import { localized, formatPrice } from "@/marketplace/lib/listing";
 import { requestRenewal, cancelRenewal } from "../_actions/subscription";
 
@@ -38,6 +39,14 @@ export default function RenewalPanel({
   vendorId = null,
   plans = [],
   openRenewal = null,
+  /* The receipt already sent against that renewal, if any. Null means none has
+     been — which is the state the panel has to be loudest about. */
+  openRenewalProof = null,
+  /* The platform's rule. When it is on, asking is only half the request: the
+     platform does not see it until the receipt arrives, and saying so is the
+     difference between a showroom waiting patiently for nothing and one that
+     finishes the job. */
+  requireProof = false,
   /* The platform's currency, from site settings. A client bundle has its own
      module scope and never sees the server's settings, so this arrives as a
      prop; undefined falls back inside formatPrice rather than crashing. */
@@ -80,10 +89,20 @@ export default function RenewalPanel({
   if (openRenewal) {
     return (
       <div className="rounded-xl bg-brand-primary/5 p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
-          <Clock className="h-4 w-4" />
-          {t("طلب تجديد قائم", "Renewal requested")}
-        </p>
+        {/* Two different states wearing one heading would be the whole bug:
+            "requested" reads as "with them", and under the receipt rule it is
+            not with them at all until step 2 is done. */}
+        {requireProof && !openRenewalProof ? (
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4" />
+            {t("لم يصل طلبك بعد — ينقصه الإيصال", "Your request has not reached us yet — it needs the receipt")}
+          </p>
+        ) : (
+          <p className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
+            <Clock className="h-4 w-4" />
+            {t("طلب تجديد قائم", "Renewal requested")}
+          </p>
+        )}
 
         <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
           <div>
@@ -106,12 +125,68 @@ export default function RenewalPanel({
           ) : null}
         </dl>
 
-        <p className="mt-3 text-xs text-muted-foreground">
-          {t(
-            "حوّل المبلغ واكتب الرقم المرجعي في بيان التحويل. يُفتح الوصول بمجرد تأكيد الفريق للدفعة — تلقائياً، دون تحديث الصفحة.",
-            "Transfer the amount and put the reference on it. Access opens as soon as the team confirms the payment — by itself, with no refresh."
-          )}
-        </p>
+        {/* ── The step that is NOT optional ────────────────────────
+            Asking to renew raises a charge and does nothing else. A showroom
+            that presses the button, transfers the money at its bank and then
+            waits is waiting for something that will not happen: nobody on the
+            platform knows the transfer exists until the receipt arrives.
+
+            That used to be a sentence in the same grey as everything around it,
+            and it was read as a description of a process running by itself
+            rather than as an instruction. So it is now two numbered steps with
+            the button inside the second one — and the panel says plainly, in
+            amber, when the receipt has not been sent. */}
+        <ol className="mt-3 grid gap-2 text-xs">
+          <li className="flex gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 font-bold text-brand-primary">
+              1
+            </span>
+            <span className="text-muted-foreground">
+              {t(
+                "حوّل المبلغ إلى حساب المنصة، واكتب الرقم المرجعي في بيان التحويل.",
+                "Transfer the amount to the platform’s account, putting the reference on the transfer."
+              )}
+            </span>
+          </li>
+
+          <li className="flex gap-2">
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-bold ${
+                openRenewalProof
+                  ? "bg-brand-primary/10 text-brand-primary"
+                  : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+              }`}
+            >
+              2
+            </span>
+            <span className={openRenewalProof ? "text-muted-foreground" : "text-amber-800 dark:text-amber-300"}>
+              <strong className="font-semibold">
+                {t("أرسل إيصال التحويل — خطوة لازمة. ", "Send us the transfer receipt — this step is required. ")}
+              </strong>
+              {requireProof
+                ? t(
+                    "لا يصل طلبك إلى فريق المنصة قبله. بمجرد إرساله يدخل الطلب قائمة المراجعة، ويُفتح الوصول فور اعتماده — تلقائياً، دون تحديث الصفحة.",
+                    "Your request does not reach the platform team until you do. Once it is sent the request joins their queue, and access opens the moment it is accepted — by itself, with no refresh."
+                  )
+                : t(
+                    "لا تُسجّل الدفعة ولا تبدأ المدة قبل أن يراها الفريق. يُفتح الوصول فور اعتماده — تلقائياً، دون تحديث الصفحة.",
+                    "The payment is not recorded and your days do not start until somebody here has seen it. Access opens the moment it is accepted — by itself, with no refresh."
+                  )}
+            </span>
+          </li>
+        </ol>
+
+        {/* The button for step 2, right under it. vendorId may be null on a
+            panel rendered for a showroom the viewer only reads; the dialog
+            refuses that on the server anyway. */}
+        <div className="mt-3">
+          <PaymentProofDialog
+            locale={locale}
+            vendorId={vendorId}
+            charge={{ ...openRenewal, state: "due" }}
+            proof={openRenewalProof}
+          />
+        </div>
 
         {error ? (
           <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
@@ -208,10 +283,15 @@ export default function RenewalPanel({
         </Button>
 
         <span className="text-xs text-muted-foreground">
-          {t(
-            "يُصدر مستحقاً برقم مرجعي للتحويل — لا يُخصم أي مبلغ الآن.",
-            "This raises a charge with a reference to transfer against. Nothing is taken now."
-          )}
+          {requireProof
+            ? t(
+                "يُصدر مستحقاً برقم مرجعي للتحويل — لا يُخصم أي مبلغ الآن، ويكتمل الطلب بإرسال إيصال التحويل.",
+                "This raises a charge with a reference to transfer against. Nothing is taken now, and the request is completed by sending the transfer receipt."
+              )
+            : t(
+                "يُصدر مستحقاً برقم مرجعي للتحويل — لا يُخصم أي مبلغ الآن.",
+                "This raises a charge with a reference to transfer against. Nothing is taken now."
+              )}
         </span>
       </div>
     </div>

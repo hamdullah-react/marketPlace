@@ -1,17 +1,18 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
-import { AlertTriangle, BanknoteIcon, Clock, Landmark, Megaphone, RefreshCw, Store, Wallet } from 'lucide-react';
+import { AlertTriangle, BanknoteIcon, Landmark, Megaphone, RefreshCw, Store, Wallet } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { getBillingOverview, listCharges } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
-import { billingDetails, stateLabel, stateTone, methodLabel, isOverdue, overdueLabel, kindLabel } from '@/marketplace/lib/billing';
+import { billingDetails, kindLabel } from '@/marketplace/lib/billing';
 import { formatPrice, localized } from '@/marketplace/lib/listing';
 import ChargeRowActions from '../../_components/ChargeRowActions';
 import PaymentAccountsManager from '../../_components/PaymentAccountsManager';
+import ChargesTable from '../../_components/ChargesTable';
 import PaymentProofQueue from '../../_components/PaymentProofQueue';
-import { listPendingProofs } from '@/marketplace/db/queries/proofs';
+import { listPendingProofs, openProofsByCharge } from '@/marketplace/db/queries/proofs';
 
 export const instant = false;
 
@@ -20,7 +21,9 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-const PER_PAGE = 50;
+/* The most charges one ledger will show. See the listCharges call for why this
+   is a ceiling and not a page size. */
+const LEDGER_MAX = 500;
 
 /**
  * Finance — what showrooms owe the platform, and what has been paid.
@@ -75,14 +78,6 @@ export default async function AdminFinancePage({ params, searchParams }) {
 async function Body({ searchParams, locale, t }) {
   const sp = (await searchParams) ?? {};
 
-  const TABS = [
-    { key: 'due', label: t('مستحقة', 'Due') },
-    { key: 'overdue', label: t('متأخرة', 'Overdue') },
-    { key: 'paid', label: t('مدفوعة', 'Paid') },
-    { key: 'void', label: t('ملغاة', 'Cancelled') },
-    { key: 'all', label: t('الكل', 'All') },
-  ];
-
 
   /* ── The primary split, and it is chosen BEFORE the state ───────────────
      Promotions and subscriptions are two different businesses sharing one
@@ -112,12 +107,18 @@ async function Body({ searchParams, locale, t }) {
           : 'all';
 
   const isLedger = section === 'promotions' || section === 'subscriptions' || section === 'other';
-  const state = TABS.some((x) => x.key === sp.state) ? sp.state : 'due';
-  const page = Math.max(1, Number(sp.page) || 1);
 
   const [overview, list, site, proofs] = await Promise.all([
     getBillingOverview({ days: 30, kind }),
-    listCharges({ state, kind, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }),
+    /* The whole ledger, because the table filters, searches and pages in the
+       browser now — a `?state=` round trip per tab press was a request to
+       answer a question about rows already on the screen.
+
+       LEDGER_MAX is the honest edge of that choice: past it the list is
+       truncated and the filtering below would be over part of the data, which is
+       the point at which this belongs back in PostgREST. It is far above what a
+       platform's charges run to, and it is a ceiling rather than a page. */
+    listCharges({ kind, limit: LEDGER_MAX }),
     getSiteSettings().catch(() => null),
     /* The receipts waiting for an answer. It never throws — a database
        without the PAYMENT PROOFS section shows no queue and the rest of
@@ -159,6 +160,18 @@ async function Body({ searchParams, locale, t }) {
     { key: 'accounts', label: t('طرق الدفع', 'Payment methods'), icon: Landmark },
   ];
 
+  /* Which of THIS ledger's charges have a receipt waiting for an answer. Keyed
+     on the charge ids, so it runs after them, and it never throws — a database
+     without the PAYMENT PROOFS section simply shows no waiting badge and the
+     rest of Finance is unaffected.
+
+     The queue above already lists every pending receipt platform-wide; this is
+     the same fact attached to the rows, so an admin who filters to one ledger
+     still sees which of its charges is the urgent one. */
+  const { byCharge: openProofs } = await openProofsByCharge(
+    (list.items ?? []).map((c) => c.id)
+  ).catch(() => ({ byCharge: new Map() }));
+
   const money = (n) => formatPrice(n, locale, site?.currency);
   const details = billingDetails(site?.billing);
 
@@ -168,27 +181,20 @@ async function Body({ searchParams, locale, t }) {
      three. On Overview these figures are the whole platform. */
   const kindName = kind === 'all' ? t('الكل', 'everything') : kindLabel(kind, locale).toLowerCase();
 
-  /* Every link carries BOTH dimensions. A state tab that dropped the kind would
-     quietly throw the admin back into the merged list they were trying to get
-     out of, and changing the kind resets the page because row 3 of promotions
-     has nothing to do with row 3 of subscriptions. */
+  /* Only the SECTION now. The state filter and the page number used to ride
+     along here; both moved into the table, where they cost no round trip — and
+     with them went the bug this comment used to guard against, a stale
+     `state=void` silently filtering the next ledger somebody opened.
+
+     The section stays in the URL deliberately: promotions and subscriptions are
+     different businesses, and a link somebody pastes to a colleague has to open
+     the one they meant. */
   const href = (next) => {
-    const q = new URLSearchParams();
     const sec = next.section ?? section;
-    const st = next.state ?? state;
-    if (sec && sec !== 'overview') q.set('section', sec);
-    /* The state filter belongs to a ledger and means nothing anywhere else, so
-       it is not carried onto Overview or Payment methods — a stale `state=void`
-       riding along in the URL would silently filter the next ledger opened. */
-    if (st && st !== 'due' && (next.section ? next.section !== 'overview' : isLedger)) {
-      q.set('state', st);
-    }
-    if (next.page && next.page > 1) q.set('page', String(next.page));
-    const query = q.toString();
-    return `/${locale}/marketplace/admin/finance${query ? `?${query}` : ''}`;
+    const query = sec && sec !== 'overview' ? `?section=${sec}` : '';
+    return `/${locale}/marketplace/admin/finance${query}`;
   };
 
-  const pages = Math.ceil(list.total / PER_PAGE);
   const when = (iso) =>
     iso
       ? new Date(iso).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-GB', {
@@ -237,7 +243,7 @@ async function Body({ searchParams, locale, t }) {
             return (
               <Link
                 key={x.key}
-                href={href({ section: x.key, state: 'due', page: 1 })}
+                href={href({ section: x.key })}
                 aria-current={on ? 'page' : undefined}
                 className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
                   on
@@ -303,7 +309,7 @@ async function Body({ searchParams, locale, t }) {
             return (
               <Link
                 key={x.key}
-                href={href({ section: x.key, state: 'due', page: 1 })}
+                href={href({ section: x.key })}
                 className="raised-card rounded-xl p-4 transition-colors hover:ring-2 hover:ring-brand-primary"
               >
                 <p className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
@@ -426,209 +432,32 @@ async function Body({ searchParams, locale, t }) {
           Only inside a ledger. On Overview a table of every charge of every
           kind is the mixed-up list this whole split exists to undo, and on
           Payment methods it is simply unrelated. */}
+      {/* ── The charges, for this ledger only ───────────────────────
+          Only inside a ledger. On Overview a table of every charge of every kind
+          is the mixed-up list the section split exists to undo, and on Payment
+          methods it is simply unrelated.
+
+          A TABLE now, not a grid of cards — see ChargesTable for why. The state
+          tabs, the count per tab, the search, the pager and both empty states
+          went inside it with everything else, which is why four blocks of markup
+          here became one line. */}
       {isLedger ? (
-      <div className="px-4 lg:px-6">
-        <h2 className="mb-2 text-sm font-semibold text-brand-primary">
-          {kind === 'all'
-            ? t('كل المستحقات', 'All charges')
-            : t(`مستحقات ${kindLabel(kind, locale)}`, `${kindLabel(kind, locale)} charges`)}
-        </h2>
+        <div className="px-4 lg:px-6">
+          <h2 className="mb-2 text-sm font-semibold text-brand-primary">
+            {kind === 'all'
+              ? t('كل المستحقات', 'All charges')
+              : t(`مستحقات ${kindLabel(kind, locale)}`, `${kindLabel(kind, locale)} charges`)}
+          </h2>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {TABS.map((x) => (
-            <Link
-              key={x.key}
-              href={href({ state: x.key })}
-              aria-current={x.key === state ? 'page' : undefined}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                x.key === state
-                  ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                  : 'border-gray-200 text-muted-foreground hover:border-brand-primary dark:border-white/10'
-              }`}
-            >
-              {x.label}
-            </Link>
-          ))}
-          <span className="ms-auto text-xs text-muted-foreground tabular-nums">
-            {list.total} {t('سجل', list.total === 1 ? 'record' : 'records')}
-          </span>
+          <ChargesTable
+            locale={locale}
+            items={list.items}
+            accounts={details.accounts ?? []}
+            currency={site?.currency}
+            awaitingReview={[...openProofs.keys()]}
+            requireProof={details.requireProof}
+          />
         </div>
-
-        {/* A GRID, not a column. Every charge is the same handful of facts, so
-            they read as a set of comparable cards — and on a wide screen a
-            single column of twenty wastes two-thirds of the width and turns
-            "who owes us" into a scroll instead of a glance.
-
-            The comment sits OUTSIDE the ternary below, because a branch holds
-            ONE expression and a comment beside the div is two children in a
-            place that allows one — a parse error, not a style nit. */}
-        {list.items.length ? (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {list.items.map((charge) => {
-              const late = isOverdue(charge);
-
-              return (
-                <Card
-                  key={charge.id}
-                  className={`flex flex-col p-4 ${late ? 'ring-1 ring-amber-300 dark:ring-amber-900/60' : ''}`}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-muted-foreground" dir="ltr">
-                      {charge.ref}
-                    </span>
-
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${stateTone(charge.state)}`}>
-                      {stateLabel(charge.state, locale)}
-                    </span>
-
-                    {late ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                        <Clock className="h-3 w-3" />
-                        {overdueLabel(charge, locale)}
-                      </span>
-                    ) : null}
-
-                    <span className="ms-auto text-base font-bold tabular-nums text-brand-primary">
-                      {money(charge.amount)}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    {charge.vendors ? (
-                      <Link
-                        href={`/${locale}/marketplace/vendors/${charge.vendors.slug}`}
-                        className="flex items-center gap-1.5 font-medium text-brand-primary hover:underline"
-                      >
-                        <Store className="h-3.5 w-3.5" />
-                        {localized(charge.vendors.name, locale)}
-                      </Link>
-                    ) : null}
-
-                    <span>{localized(charge.description, locale)}</span>
-
-                    {/* The consequence of pressing Record payment on THIS row.
-                        An admin about to confirm money should know it also
-                        reopens a dashboard. */}
-                    {charge.kind === 'subscription' && charge.access_days ? (
-                      <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-medium text-brand-primary tabular-nums">
-                        {t(
-                          `الدفع يمنح ${charge.access_days} يوم وصول`,
-                          `paying grants ${charge.access_days} days of access`
-                        )}
-                      </span>
-                    ) : null}
-
-                    {charge.listings ? (
-                      <Link
-                        href={`/${locale}/marketplace/listing/${charge.listings.slug}`}
-                        className="hover:text-brand-primary"
-                      >
-                        {localized(charge.listings.name, locale)}
-                      </Link>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
-                    <span>
-                      {t('صدر: ', 'Issued: ')}
-                      {when(charge.issued_at)}
-                    </span>
-                    {charge.state === 'due' && charge.due_at ? (
-                      <span>
-                        {t('الاستحقاق: ', 'Due: ')}
-                        {when(charge.due_at)}
-                      </span>
-                    ) : null}
-                    {charge.state === 'paid' ? (
-                      <>
-                        <span>
-                          {t('دُفع: ', 'Paid: ')}
-                          {when(charge.paid_at)}
-                        </span>
-                        <span>{methodLabel(charge.payment_method, locale)}</span>
-                        {charge.payment_ref ? (
-                          <span dir="ltr" className="font-mono">
-                            {charge.payment_ref}
-                          </span>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </div>
-
-                  {charge.state === 'void' && charge.void_reason ? (
-                    <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-muted-foreground dark:bg-white/5">
-                      {t('سبب الإلغاء: ', 'Cancelled because: ')}
-                      {charge.void_reason}
-                    </p>
-                  ) : null}
-
-                  {charge.state === 'paid' && charge.paid_into ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {t('وصل إلى: ', 'Received into: ')}
-                      <span className="font-medium text-brand-primary">{charge.paid_into}</span>
-                    </p>
-                  ) : null}
-
-                  {charge.note ? (
-                    <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-muted-foreground dark:bg-white/5">
-                      {charge.note}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-auto border-t pt-3 dark:border-white/10">
-                    <ChargeRowActions
-                      locale={locale}
-                      charge={charge}
-                      accounts={details.accounts}
-                      vendorName={charge.vendors ? localized(charge.vendors.name, locale) : ''}
-                      carName={charge.listings ? localized(charge.listings.name, locale) : ''}
-                      descriptionLabel={localized(charge.description, locale)}
-                      amountLabel={money(charge.amount)}
-                      dueLabel={charge.due_at ? when(charge.due_at) : ''}
-                    />
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="mt-3 rounded-xl border border-dashed border-gray-300 py-14 text-center dark:border-gray-700">
-            <Wallet className="mx-auto h-9 w-9 text-gray-300 dark:text-gray-600" />
-            <p className="mt-3 font-semibold text-brand-primary">
-              {state === 'due'
-                ? t('لا مستحقات قائمة', 'Nothing outstanding')
-                : state === 'overdue'
-                  ? t('لا مستحقات متأخرة', 'Nothing overdue')
-                  : t('لا شيء في هذه القائمة', 'Nothing in this list')}
-            </p>
-            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              {t(
-                'يُنشأ مستحق تلقائياً عند الموافقة على طلب تمييز.',
-                'A charge is raised automatically when a boost request is approved.'
-              )}
-            </p>
-          </div>
-        )}
-
-        {pages > 1 ? (
-          <nav className="mt-6 flex items-center justify-center gap-2">
-            {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-              <Link
-                key={n}
-                href={href({ state, page: n })}
-                aria-current={n === page ? 'page' : undefined}
-                className={`min-w-9 rounded-lg border px-3 py-1.5 text-center text-xs tabular-nums ${
-                  n === page
-                    ? 'border-brand-primary bg-brand-primary/10 text-brand-primary'
-                    : 'border-gray-200 text-muted-foreground hover:border-brand-primary dark:border-white/10'
-                }`}
-              >
-                {n}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
-      </div>
       ) : null}
 
       {/* Overview's way into the work, so the summary is not a dead end. */}

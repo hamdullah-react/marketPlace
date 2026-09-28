@@ -1,20 +1,16 @@
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { setRequestLocale } from 'next-intl/server';
-import { AlertTriangle, Clock, FileText, Landmark, Megaphone, RefreshCw, Wallet } from 'lucide-react';
+import { AlertTriangle, Landmark, Megaphone, Receipt, RefreshCw, Wallet } from 'lucide-react';
 import { requireVendor } from '@/marketplace/auth/session';
 import { getVendorCharges, getVendorChargeTotals } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { getVendorPlans, getOpenRenewal } from '@/marketplace/db/queries/access';
-import {
-  billingDetails, stateLabel, stateTone, methodLabel, isOverdue, overdueLabel,
-  accountKindLabel, formatIban, kindLabel,
-} from '@/marketplace/lib/billing';
+import { billingDetails, hasReceiptWithUs, accountKindLabel, formatIban } from '@/marketplace/lib/billing';
 import { formatPrice, localized } from '@/marketplace/lib/listing';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import RenewalPanel from '../../_components/RenewalPanel';
-import PaymentProofDialog from '../../_components/PaymentProofDialog';
+import BillingTable from '../../_components/BillingTable';
 import { latestProofsByCharge } from '@/marketplace/db/queries/proofs';
 
 /**
@@ -107,12 +103,17 @@ async function Body({ searchParams, locale, t }) {
   }
 
   /* The latest receipt per charge, in ONE read rather than one per row: the
-     list needs to know, for every line, whether something is already with us.
-     It runs after the charges because it is keyed on their ids, and it never
-     throws — a database without the PAYMENT PROOFS section simply shows no
-     receipt state and the rest of the page is unaffected. */
+     statement has a Receipt column and every line needs it, not only the lines
+     still owed. It used to ask for the `due` ones alone, which was right while
+     the button was the only thing that read it and wrong now there is a column:
+     a receipt refused on a charge an admin later cancelled would have shown as
+     "—", losing the one explanation the row had.
+
+     Keyed on the charge ids, so it runs after them, and it never throws — a
+     database without the PAYMENT PROOFS section simply shows no receipt state
+     and the rest of the page is unaffected. */
   const { byCharge: proofs } = await latestProofsByCharge(
-    (list.items ?? []).filter((c) => c.state === 'due').map((c) => c.id)
+    (list.items ?? []).map((c) => c.id)
   );
 
   const money = (n) => formatPrice(n, locale, site?.currency);
@@ -121,154 +122,63 @@ async function Body({ searchParams, locale, t }) {
 
   /* Subscription before promotions, deliberately: it is the one that can close
      this dashboard, so it is the one a showroom should read first.
+  /* ── One page, one table, and two things above it ─────────────────
+     This was five tabs over three card grids, and the tabs were the problem
+     rather than the fix: a showroom that came to renew had to read past a bill
+     to find the button, one checking a promotion charge scrolled past the
+     subscription panel, and the `all` tab's own empty state hid the renewal
+     card from exactly the showroom that had no charges yet and had followed
+     "Renew" to get here.
+
+     So the order is now what somebody came for: where they stand, the button
+     that changes it, the statement, and the bank details under it. The kind and
+     state filters live on the table, where they cost no round trip.
+
      byKind comes from the same single read as the headline totals — see
-     getVendorChargeTotals — so the two can never disagree with each other. */
+     getVendorChargeTotals — so the two can never disagree. */
   const byKind = totals.byKind ?? { boost: {}, subscription: {}, other: {} };
 
-  /* ── One page, four jobs ───────────────────────────────────────────────
-     The figures, the renewal control, where to pay, and two statements were
-     stacked down one scroll. A seller who came here to renew had to read past
-     a bill to find the button, and a seller checking a promotion charge had to
-     scroll past the subscription panel to reach it.
-
-     The TAB is the only top-level choice now. `all` is the Overview; the others
-     each hold one ledger and nothing else. */
-  const TAB_KEYS = ['all', 'subscription', 'boost', 'other', 'pay'];
-  const tab = TAB_KEYS.includes(sp?.tab) ? sp.tab : 'all';
-
-  const LEDGERS = [
-    {
-      key: 'subscription',
-      label: kindLabel('subscription', locale),
-      icon: RefreshCw,
-      figures: { outstanding: 0, overdue: 0, ...byKind.subscription },
-    },
-    {
-      key: 'boost',
-      label: kindLabel('boost', locale),
-      icon: Megaphone,
-      figures: { outstanding: 0, overdue: 0, ...byKind.boost },
-    },
-    /* Renders only when it has rows (see the guard in the map). Without it, a
-       charge an admin entered by hand would be counted in the headline total
-       while appearing in none of the sections — a statement whose rows do not
-       add up to its own figure. */
-    {
-      key: 'other',
-      label: kindLabel('other', locale),
-      icon: Wallet,
-      figures: { outstanding: 0, overdue: 0, ...byKind.other },
-    },
-  ];
-
-  /* A ledger with no rows and nothing owed is a tab that can only disappoint,
-     so it is not offered — except `other`, which is hidden entirely until an
-     admin has entered one, since most showrooms will never see it. */
-  const has = (key) => list.items.some((c) => c.kind === key);
-
-  const TABS = [
-    { key: 'all', label: t('الكل', 'Overview'), icon: Wallet, figures: null },
-    ...LEDGERS.filter((x) => x.key !== 'other' || has('other')),
-    { key: 'pay', label: t('طريقة الدفع', 'How to pay'), icon: Landmark, figures: null },
-  ];
-
-  /* The statement below renders whichever ledgers this tab covers — all of
-     them on Overview, exactly one inside a ledger, none on How to pay. */
-  const SECTIONS =
-    tab === 'all' ? LEDGERS : LEDGERS.filter((x) => x.key === tab);
-
-  const href = (key) =>
-    `/${locale}/marketplace/seller/billing${key === 'all' ? '' : `?tab=${key}`}`;
-
-  const when = (iso) =>
-    iso
-      ? new Date(iso).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-GB', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        })
-      : '—';
-
-  /* ── Nothing billed yet is not nothing to DO ──────────────────────
-     This used to return the empty state and stop, which quietly broke the one
-     journey the page exists for. A showroom in its last week has no charges
-     yet, follows "Renew" from the dashboard banner, and landed on a screen
-     saying "you owe nothing" with no way to renew — because the renewal card
-     is rendered BELOW a return that never ran.
-
-     So an empty statement is now only an empty STATEMENT: it takes the place of
-     the ledger sections further down, and everything a seller came here to
-     press still renders above it. */
-  const empty = !list.items.length;
-
-  const emptyStatement = (
-      <div className="px-4 lg:px-6">
-        <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center dark:border-gray-700">
-          <Wallet className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-          <p className="mt-3 font-semibold text-brand-primary">
-            {t('لا مستحقات عليك', 'You owe nothing')}
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            {t(
-              'يظهر هنا مستحق عند الموافقة على طلب تمييز لإحدى سياراتك، أو عند طلب تجديد الاشتراك. ويُعرض كل نوع على حدة.',
-              'A charge appears here when a request to feature one of your cars is approved, or when you ask to renew your subscription. Each kind is listed on its own.'
-            )}
-          </p>
-          <Link
-            href={`/${locale}/marketplace/seller/promotions`}
-            className="mt-3 inline-block text-sm font-medium text-brand-primary hover:underline"
-          >
-            {t('الترويج والتمييز', 'Promotions')}
-          </Link>
-        </div>
-      </div>
+  /* Every charge still owed with no receipt with us — or one that came back
+     refused. Both renewals and promotions, because the rule is the same for
+     each: the platform records money when it can SEE it has arrived, and a
+     showroom that transferred yesterday and said nothing is waiting for
+     something that is not going to happen. */
+  const unsent = (list.items ?? []).filter(
+    (c) => c.state === 'due' && !hasReceiptWithUs(proofs.get(c.id))
   );
 
   return (
     <>
-      {/* ── The tab bar ──────────────────────────────────────────────────
-          Each ledger carries what it is owed, so choosing one is not a guess.
+      {/* ── The one thing they may not know ───────────────────────
+          Above the figures, because it is the only thing on this page that is
+          waiting on THEM. It renders nothing when there is nothing to send,
+          which is most of the time — a permanent notice is one nobody reads. */}
+      {unsent.length ? (
+        <div className="px-4 lg:px-6">
+          <div className="flex flex-wrap items-start gap-x-3 gap-y-1 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            <Receipt className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <strong className="font-semibold">
+                {unsent.length === 1
+                  ? t('مستحق واحد ينتظر إيصال التحويل. ', 'One charge is waiting for your transfer receipt. ')
+                  : t(`${unsent.length} مستحقات تنتظر إيصال التحويل. `, `${unsent.length} charges are waiting for your transfer receipt. `)}
+              </strong>
+              {details.requireProof
+                ? t(
+                    'لا تصل هذه الطلبات إلى فريق المنصة قبل إرسال الإيصال. أرسله من قائمة الإجراءات في الجدول أدناه، وعند اعتماده تبدأ المدة أو يبدأ الترويج.',
+                    'These requests do not reach the platform team until the receipt is sent. Send it from a row’s actions menu below — and when it is accepted, your days or your promotion begin.'
+                  )
+                : t(
+                    'تُسجّل الدفعة بعد أن يرى الفريق الإيصال — وعندها تبدأ المدة أو يبدأ الترويج. أرسله من قائمة الإجراءات في الجدول أدناه.',
+                    'The payment is recorded once somebody here has seen the receipt — and that is when your days or your promotion begin. Send it from a row’s actions menu in the statement below.'
+                  )}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
-          Not offered while there is nothing billed: four tabs onto the same
-          empty list are four ways to learn one thing.
-          --------------------------------------------------------------- */}
-      {empty ? null : (
-      <div className="px-4 lg:px-6">
-        <nav className="flex flex-wrap gap-2">
-          {TABS.map((x) => {
-            const on = x.key === tab;
-            const owed = x.figures?.outstanding ?? 0;
-
-            return (
-              <Link
-                key={x.key}
-                href={href(x.key)}
-                aria-current={on ? 'page' : undefined}
-                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
-                  on
-                    ? 'border-brand-primary bg-brand-primary/10 font-semibold text-brand-primary'
-                    : 'border-gray-200 text-muted-foreground hover:border-brand-primary dark:border-white/10'
-                }`}
-              >
-                <x.icon className="h-4 w-4" />
-                {x.label}
-                {owed > 0 ? (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                    {money(owed)}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-      )}
-
-      {/* The headline figures are the WHOLE position, so they belong to
-          Overview. Inside a ledger the tab's own badge already says what that
-          one is owed. */}
-      {tab === 'all' && !empty ? (
-      <div className="grid grid-cols-2 gap-3 px-4 lg:grid-cols-3 lg:px-6">
+      {/* ── Where they stand ───────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 px-4 lg:grid-cols-4 lg:px-6">
         <Card className="p-4">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Wallet className="h-3.5 w-3.5" />
@@ -282,8 +192,8 @@ async function Body({ searchParams, locale, t }) {
           </p>
         </Card>
 
-        {/* Only when there is something late. A zero here would be a warning
-            about nothing, on a screen about money. */}
+        {/* Only when something is late. A zero here would be a warning about
+            nothing, on a screen about money. */}
         {totals.overdue > 0 ? (
           <Card className="p-4">
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -301,27 +211,38 @@ async function Body({ searchParams, locale, t }) {
 
         <Card className="p-4">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Landmark className="h-3.5 w-3.5" />
-            {t('إجمالي المدفوع', 'Paid to date')}
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t('الاشتراك', 'Subscription')}
           </p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-brand-primary">{money(totals.collected)}</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-brand-primary">
+            {money(byKind.subscription?.outstanding ?? 0)}
+          </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
-            {t(`${totals.paidCount} دفعة`, `${totals.paidCount} payment${totals.paidCount === 1 ? '' : 's'}`)}
+            {t(`${byKind.subscription?.count ?? 0} سجل`, `${byKind.subscription?.count ?? 0} record${(byKind.subscription?.count ?? 0) === 1 ? '' : 's'}`)}
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Megaphone className="h-3.5 w-3.5" />
+            {t('الترويج', 'Promotions')}
+          </p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-brand-primary">
+            {money(byKind.boost?.outstanding ?? 0)}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
+            {t(`${byKind.boost?.count ?? 0} سجل`, `${byKind.boost?.count ?? 0} record${(byKind.boost?.count ?? 0) === 1 ? '' : 's'}`)}
           </p>
         </Card>
       </div>
 
-      ) : null}
-
-      {/* ── Renewing ──────────────────────────────────────────────────────
-          Here as well as on the blocked screen, and that is the point: a
-          showroom should be able to renew BEFORE it is locked out. The banner in
-          the dashboard's last week links straight here.
-
-          The comment sits OUTSIDE the ternary: a branch holds ONE expression,
-          and a comment beside the div is two children where one is allowed.
-          --------------------------------------------------------------- */}
-      {tab === 'all' || tab === 'subscription' ? (
+      {/* ── Renewing ────────────────────────────────────────
+          UNCONDITIONAL, and that is the fix. It used to sit behind a tab whose
+          own empty state returned before reaching it, so a showroom with no
+          charges yet — which is exactly the showroom in its last week, following
+          "Renew" from the dashboard banner — arrived at "you owe nothing" with no
+          way to renew. A showroom should be able to renew BEFORE it is locked
+          out, and this is the only control on the page that does that. */}
       <div className="px-4 lg:px-6">
         <Card className="p-4">
           <h2 className="text-sm font-semibold text-brand-primary">
@@ -339,20 +260,32 @@ async function Body({ searchParams, locale, t }) {
             vendorId={vendorId}
             plans={plans}
             openRenewal={openRenewal}
+            openRenewalProof={openRenewal ? (proofs.get(openRenewal.id) ?? null) : null}
+            requireProof={details.requireProof}
             currency={site?.currency}
           />
         </Card>
       </div>
-      ) : null}
 
-      {/* ── Where to pay ──────────────────────────────────────────────────
-          Above the list when anything is owed: a statement with no payment
-          details is a bill with nowhere to send the money.
-          --------------------------------------------------------------- */}
-      {/* Its own tab, and ALSO on Overview whenever something is owed — a
-          statement showing a debt with no way to settle it is a bill with
-          nowhere to send the money. Inside a ledger it stays out of the way. */}
-      {tab === 'pay' || (tab === 'all' && totals.outstanding > 0) ? (
+      {/* ── The statement ───────────────────────────────────── */}
+      <div className="px-4 lg:px-6">
+        <BillingTable
+          locale={locale}
+          vendorId={vendorId}
+          items={list.items}
+          /* Pairs, not a Map: a Map does not survive the boundary to a client
+             component, and the table rebuilds it in one pass. */
+          proofPairs={[...proofs.entries()]}
+          currency={site?.currency}
+        />
+      </div>
+
+      {/* ── Where to pay ──────────────────────────────────────
+          No longer a tab of its own. It was one press away from the statement it
+          belongs under — a bill with nowhere to send the money is a bill nobody
+          can pay — and putting it here costs nothing, because a showroom that
+          does not need it scrolls past it once. */}
+      {details.filled ? (
         <div className="px-4 lg:px-6">
           <Card className="p-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
@@ -360,266 +293,95 @@ async function Body({ searchParams, locale, t }) {
               {t('طريقة الدفع', 'How to pay')}
             </h2>
 
-            {details.filled ? (
-              <>
-                {/* One card per way to pay — a bank, a wallet, cash at the
-                    office. Whichever suits them. */}
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {details.accounts.map((account) => (
-                    <div key={account.id} className="raised-card rounded-xl p-3">
-                      <p className="text-sm font-semibold text-brand-primary">{account.label}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {accountKindLabel(account.kind, locale)}
-                        {account.country ? ` · ${account.country}` : ''}
-                      </p>
+            {/* One card per way to pay — a bank, a wallet, cash at the office. */}
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {details.accounts.map((account) => (
+                <div key={account.id} className="raised-card rounded-xl p-3">
+                  <p className="text-sm font-semibold text-brand-primary">{account.label}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {accountKindLabel(account.kind, locale)}
+                    {account.country ? ` · ${account.country}` : ''}
+                  </p>
 
-                      <dl className="mt-2 space-y-0.5 text-xs">
-                        {account.bankName ? (
-                          <div className="flex gap-2">
-                            <dt className="text-muted-foreground">{t('البنك', 'Bank')}</dt>
-                            <dd className="truncate font-medium">{account.bankName}</dd>
-                          </div>
-                        ) : null}
-                        {account.accountName ? (
-                          <div className="flex gap-2">
-                            <dt className="text-muted-foreground">{t('اسم الحساب', 'Account name')}</dt>
-                            <dd className="truncate font-medium">{account.accountName}</dd>
-                          </div>
-                        ) : null}
-                        {account.iban ? (
-                          <div className="flex gap-2">
-                            <dt className="text-muted-foreground">{t('الآيبان', 'IBAN')}</dt>
-                            <dd className="truncate font-mono font-medium" dir="ltr">
-                              {formatIban(account.iban)}
-                            </dd>
-                          </div>
-                        ) : null}
-                        {account.accountNumber ? (
-                          <div className="flex gap-2">
-                            <dt className="text-muted-foreground">{t('رقم الحساب', 'Account no.')}</dt>
-                            <dd className="truncate font-mono font-medium" dir="ltr">
-                              {account.accountNumber}
-                            </dd>
-                          </div>
-                        ) : null}
-                        {account.swift ? (
-                          <div className="flex gap-2">
-                            <dt className="text-muted-foreground">SWIFT</dt>
-                            <dd className="truncate font-mono" dir="ltr">
-                              {account.swift}
-                            </dd>
-                          </div>
-                        ) : null}
-                        {account.notes ? (
-                          <p className="pt-1 text-muted-foreground">{account.notes}</p>
-                        ) : null}
-                      </dl>
-                    </div>
-                  ))}
-                </div>
-
-                {terms ? <p className="mt-3 text-xs text-muted-foreground">{terms}</p> : null}
-
-                {/* The reference is what lets the platform match a transfer to a
-                    row on this page. Without it a payment arrives from a name
-                    that may not match the showroom's, against nothing. */}
-                <p className="mt-3 rounded-lg bg-brand-primary/5 p-2 text-xs text-muted-foreground">
-                  {t(
-                    'اكتب رقم المستحق (مثل CHG-2026-00001) في بيان التحويل حتى نتمكن من مطابقته.',
-                    'Put the charge reference (e.g. CHG-2026-00001) on the transfer so we can match it.'
-                  )}
-                </p>
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {t(
-                  'لم تُنشر بيانات التحويل بعد. تواصل مع فريق المنصة لمعرفة طريقة الدفع.',
-                  'Payment details have not been published yet. Contact the platform team to arrange payment.'
-                )}
-              </p>
-            )}
-          </Card>
-        </div>
-      ) : null}
-
-      {/* ── The statement, in two ───────────────────────────────────────
-          Subscription first, then promotions, and never interleaved. They are
-          different debts with different consequences: falling behind on the
-          subscription closes this dashboard, while an unpaid promotion does
-          not. A single date-ordered list put those side by side as though they
-          were the same thing, which is what made this page confusing.
-
-          Each section carries its own outstanding figure, so a showroom can see
-          what it owes for WHAT rather than one merged number it has to take
-          apart itself.
-
-          A GRID inside each: every charge is the same handful of facts, so they
-          read as a comparable set instead of a column that wastes the width.
-          --------------------------------------------------------------- */}
-      {empty && tab !== 'pay' ? emptyStatement : null}
-
-      {SECTIONS.map((group) => {
-        const rows = list.items.filter((charge) => charge.kind === group.key);
-        if (!rows.length) return null;
-
-        const owed = group.figures.outstanding;
-
-        return (
-          <div key={group.key} className="px-4 lg:px-6">
-            <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-primary">
-                <group.icon className="h-4 w-4" />
-                {group.label}
-              </h2>
-
-              {owed > 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {t('مستحق عليك ', 'you owe ')}
-                  <span className="font-semibold tabular-nums text-brand-primary">{money(owed)}</span>
-                  {group.figures.overdue > 0
-                    ? t(` — منها ${money(group.figures.overdue)} متأخرة`, ` — ${money(group.figures.overdue)} of it overdue`)
-                    : null}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  {t('لا مستحقات', 'nothing outstanding')}
-                </span>
-              )}
-
-              <span className="ms-auto text-xs text-muted-foreground tabular-nums">
-                {rows.length} {t('سجل', rows.length === 1 ? 'record' : 'records')}
-              </span>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {rows.map((charge) => {
-                const late = isOverdue(charge);
-
-                return (
-                  <Card
-                    key={charge.id}
-                    className={`flex flex-col p-4 ${late ? 'ring-1 ring-amber-300 dark:ring-amber-900/60' : ''}`}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-muted-foreground" dir="ltr">
-                        {charge.ref}
-                      </span>
-
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${stateTone(charge.state)}`}>
-                        {stateLabel(charge.state, locale)}
-                      </span>
-
-                      {late ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                          <Clock className="h-3 w-3" />
-                          {overdueLabel(charge, locale)}
-                        </span>
-                      ) : null}
-
-                      <span className="ms-auto text-base font-bold tabular-nums text-brand-primary">
-                        {money(charge.amount)}
-                      </span>
-                    </div>
-
-                    <p className="mt-2 text-sm text-gray-800 dark:text-gray-200">
-                      {localized(charge.description, locale)}
-                      {charge.listings ? (
-                        <Link
-                          href={`/${locale}/marketplace/listing/${charge.listings.slug}`}
-                          className="ms-2 text-xs text-muted-foreground hover:text-brand-primary"
-                        >
-                          {localized(charge.listings.name, locale)}
-                        </Link>
-                      ) : null}
-                    </p>
-
-                    <div className="mt-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
-                      <span>
-                        {t('صدر: ', 'Issued: ')}
-                        {when(charge.issued_at)}
-                      </span>
-                      {charge.state === 'due' && charge.due_at ? (
-                        <span>
-                          {t('الاستحقاق: ', 'Due: ')}
-                          {when(charge.due_at)}
-                        </span>
-                      ) : null}
-                      {charge.state === 'paid' ? (
-                        <>
-                          <span>
-                            {t('دُفع: ', 'Paid: ')}
-                            {when(charge.paid_at)}
-                          </span>
-                          <span>{methodLabel(charge.payment_method, locale)}</span>
-                          {charge.paid_into ? <span>{charge.paid_into}</span> : null}
-                          {charge.payment_ref ? (
-                            <span className="font-mono" dir="ltr">
-                              {charge.payment_ref}
-                            </span>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </div>
-
-                    {/* ── Saying you have paid ─────────────────────────────
-                        Only while something is actually owed. On a paid charge
-                        there is nothing to claim, and on a void one there is
-                        nothing to pay — offering the button there would be
-                        inviting somebody to send a receipt nobody can accept. */}
-                    {charge.state === 'due' ? (
-                      <div className="mb-3">
-                        <PaymentProofDialog
-                          locale={locale}
-                          vendorId={vendorId}
-                          charge={charge}
-                          proof={proofs.get(charge.id) ?? null}
-                        />
+                  <dl className="mt-2 space-y-0.5 text-xs">
+                    {account.bankName ? (
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground">{t('البنك', 'Bank')}</dt>
+                        <dd className="truncate font-medium">{account.bankName}</dd>
                       </div>
                     ) : null}
-
-                    {/* The document, for every charge — a receipt once it is paid, a
-                        statement of what is owed before that. Both are things a
-                        showroom's accounts department asks for by email. */}
-                    <div className="mt-auto border-t pt-3 dark:border-white/10">
-                      <Link
-                        href={`/${locale}/marketplace/seller/billing/${charge.id}`}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        {charge.state === 'paid'
-                          ? t('سند الاستلام — عرض وطباعة', 'Receipt — view and print')
-                          : t('بيان المستحق — عرض وطباعة', 'Statement — view and print')}
-                      </Link>
-                    </div>
-
-                    {/* A cancelled charge is SHOWN, with the reason. A bill that
-                        simply vanishes leaves the showroom arguing with a screen that
-                        says nothing ever happened. */}
-                    {charge.state === 'void' && charge.void_reason ? (
-                      <p className="mt-2 rounded-lg bg-gray-50 p-2 text-xs text-muted-foreground dark:bg-white/5">
-                        {t('أُلغي لأن: ', 'Cancelled because: ')}
-                        {charge.void_reason}
-                      </p>
+                    {account.accountName ? (
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground">{t('اسم الحساب', 'Account name')}</dt>
+                        <dd className="truncate font-medium">{account.accountName}</dd>
+                      </div>
                     ) : null}
-                  </Card>
-                );
-              })}
+                    {account.iban ? (
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground">{t('الآيبان', 'IBAN')}</dt>
+                        <dd className="truncate font-mono font-medium" dir="ltr">
+                          {formatIban(account.iban)}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {account.accountNumber ? (
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground">{t('رقم الحساب', 'Account no.')}</dt>
+                        <dd className="truncate font-mono font-medium" dir="ltr">
+                          {account.accountNumber}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {account.swift ? (
+                      <div className="flex gap-2">
+                        <dt className="text-muted-foreground">SWIFT</dt>
+                        <dd className="truncate font-mono" dir="ltr">
+                          {account.swift}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {account.notes ? (
+                      <p className="pt-1 text-muted-foreground">{account.notes}</p>
+                    ) : null}
+                  </dl>
+                </div>
+              ))}
             </div>
-          </div>
-        );
-      })}
 
-      {tab !== 'pay' && !empty ? (
-        <p className="px-4 text-xs text-muted-foreground lg:px-6">
-          {t(
-            'تُسجَّل الدفعات من قِبل فريق المنصة بعد استلامها. إن حوّلت مبلغاً ولم يظهر هنا، تواصل معنا.',
-            'Payments are recorded by the platform team once received. If you have transferred and it is not shown here, get in touch.'
-          )}
-        </p>
-      ) : null}
+            {terms ? <p className="mt-3 text-xs text-muted-foreground">{terms}</p> : null}
+
+            {/* The reference is what lets the platform match a transfer to a row
+                in the statement above. Without it a payment arrives from a name
+                that may not match the showroom's, against nothing. */}
+            <p className="mt-3 rounded-lg bg-brand-primary/5 p-2 text-xs text-muted-foreground">
+              {t(
+                'اكتب رقم المستحق (مثل CHG-2026-00001) في بيان التحويل حتى نتمكن من مطابقته.',
+                'Put the charge reference (e.g. CHG-2026-00001) on the transfer so we can match it.'
+              )}
+            </p>
+          </Card>
+        </div>
+      ) : (
+        <div className="px-4 lg:px-6">
+          <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            {t(
+              'لم تُنشر بيانات التحويل بعد. تواصل مع فريق المنصة لمعرفة طريقة الدفع.',
+              'Payment details have not been published yet. Contact the platform team to arrange payment.'
+            )}
+          </p>
+        </div>
+      )}
+
+      <p className="px-4 text-xs text-muted-foreground lg:px-6">
+        {t(
+          'تُسجّل الدفعات من قِبل فريق المنصة بعد استلامها. أرسل إيصال التحويل من قائمة الإجراءات لتسريع المراجعة.',
+          'Payments are recorded by the platform team once received. Send the transfer receipt from a row\u2019s actions menu to speed that up.'
+        )}
+      </p>
     </>
   );
 }
+
 
 function BillingSkeleton() {
   return (

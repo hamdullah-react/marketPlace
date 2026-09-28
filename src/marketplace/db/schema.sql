@@ -5207,6 +5207,33 @@ alter table vendors add column if not exists access_block_reason text;
 alter table vendors add column if not exists access_blocked_at timestamptz;
 alter table vendors add column if not exists access_blocked_by text;
 
+-- ── When time is taken BACK ─────────────────────────────────────
+--
+-- An admin can shorten a showroom's period — a mistyped extension, a transfer
+-- that bounced, a refund. The date alone cannot explain that: a seller who had
+-- six months on Monday and three on Tuesday is owed a sentence, and without one
+-- the app has silently taken something and left them to notice.
+--
+-- These three columns are that sentence. They are NOT the audit log, which
+-- already records every change: the log is for the platform's own accounting and
+-- is deliberately unreadable by its subject (§17.12), while this is written to be
+-- shown to the showroom on their own dashboard.
+--
+-- ── Why not reuse access_block_reason ───────────────────────────────
+--
+-- They are different facts with different lifetimes. A block reason explains why
+-- a switch is DOWN and must vanish the moment it goes up; this explains why a
+-- date MOVED and stays true afterwards. Sharing one column would mean an admin
+-- lifting a block erases the explanation for a reduction that still stands, or
+-- a reduction overwriting the reason a showroom is currently switched off.
+--
+-- Cleared by extendAccess, because giving time back supersedes having taken it:
+-- a notice about last week's correction sitting above a fresh month reads as a
+-- bug from the seller's side.
+alter table vendors add column if not exists access_reduced_reason text;
+alter table vendors add column if not exists access_reduced_at timestamptz;
+alter table vendors add column if not exists access_reduced_days integer;
+
 -- The admin's list is "who runs out soon" and "who is already out", which is an
 -- ordered scan of this column across a handful of live showrooms.
 create index if not exists vendors_access_idx on vendors (access_until)

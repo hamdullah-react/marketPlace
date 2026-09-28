@@ -204,3 +204,83 @@ export async function submitPaymentProof(prevState, formData) {
   refresh();
   return ok({ id: saved?.id ?? null });
 }
+
+/**
+ * Take a receipt back.
+ *
+ * ── Only while nobody has answered it ──────────────────────────────
+ *
+ * A showroom attaches the wrong screenshot, or the transfer fails after they
+ * sent it — and until now their only move was to ring somebody, because one
+ * waiting receipt per charge meant the mistake blocked the correction. This is
+ * the way out, and it is deliberately narrow: `state = 'submitted'` only.
+ *
+ * An ACCEPTED receipt is the evidence behind a recorded payment, and a REJECTED
+ * one is the record of a decision with a reason attached. Neither belongs to the
+ * seller to erase — a payment whose proof can be deleted by the party who
+ * benefits from it is not proof of anything, and a showroom that could clear a
+ * rejection would be deleting the sentence explaining what to fix. The state
+ * check enforces that, and so does the WHERE clause on the delete.
+ *
+ * ── The object goes with the row ───────────────────────────────
+ *
+ * The row is the only thing that makes the object findable, so it is deleted
+ * FIRST and the file second. The other order risks a row pointing at nothing,
+ * which the admin queue would render as a receipt whose picture will not open.
+ * A file left behind after a successful row delete is invisible and harmless by
+ * comparison; it is still removed, just not allowed to fail the action.
+ */
+export async function deletePaymentProof(prevState, formData) {
+  /* vendorForRenewal, exactly as submitting does: the showroom that most needs
+     to correct a receipt is the one whose dashboard has already closed. */
+  const wanted = str(formData, 'vendorId') || null;
+  const { vendorId, error: denied } = await vendorForRenewal(wanted);
+  if (denied || !vendorId) return bad(denied ?? 'NOT_ALLOWED');
+
+  const proofId = str(formData, 'proofId');
+  if (!UUID.test(proofId)) return bad('NOT_FOUND');
+
+  const db = getMarketplaceDb();
+
+  /* Scoped to THIS showroom in the query, not checked afterwards. A receipt
+     belonging to somebody else must read exactly like one that never existed —
+     the same rule the view route settled on, and for the same reason: this is
+     somebody's banking. */
+  const { data: proof, error: readError } = await db
+    .from('charge_payment_proofs')
+    .select('id, state, storage_path')
+    .eq('id', proofId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+
+  if (readError) {
+    if (isMissingSchema(readError)) return bad('PROOF_NOT_MIGRATED');
+    return bad('SAVE_FAILED', { detail: readError.message });
+  }
+  if (!proof) return bad('NOT_FOUND');
+  if (proof.state !== 'submitted') return bad('PROOF_ALREADY_REVIEWED');
+
+  /* The state is in the WHERE clause as well as the check above. Between the
+     read and the write an admin may have accepted it, and losing that race must
+     not delete the evidence for a payment that has just been recorded. */
+  const { data: gone, error } = await db
+    .from('charge_payment_proofs')
+    .delete()
+    .eq('id', proofId)
+    .eq('vendor_id', vendorId)
+    .eq('state', 'submitted')
+    .select('id');
+
+  if (error) return bad('DELETE_FAILED', { detail: error.message });
+  // Nothing deleted means the race above was lost. Said honestly.
+  if (!gone?.length) return bad('PROOF_ALREADY_REVIEWED');
+
+  if (proof.storage_path) {
+    later(async () => {
+      await db.storage.from(PROOF_BUCKET).remove([proof.storage_path]).catch(() => {});
+    });
+  }
+
+  refresh();
+  return ok({ id: proofId });
+}

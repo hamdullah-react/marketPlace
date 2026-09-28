@@ -392,3 +392,37 @@ export async function getVendorCharge(chargeId, vendorId) {
   if (error) return null;
   return data ?? null;
 }
+
+/**
+ * One charge, for STAFF — the admin's detail page.
+ *
+ * The same read as getVendorCharge with the vendor filter taken off, and that
+ * omission is the whole difference between the two: a showroom may only ever
+ * fetch its own, so the `eq('vendor_id')` there is a security boundary and not a
+ * convenience. Keeping them as two functions means neither can be called with
+ * the wrong one of those intentions by forgetting an argument — a single
+ * `getCharge(id, vendorId = null)` would silently become the staff version
+ * every time somebody left the second argument off.
+ *
+ * The caller is responsible for having established that it IS staff.
+ */
+export async function getCharge(chargeId) {
+  if (!chargeId) return null;
+
+  const build = (select) =>
+    getMarketplaceDb()
+      .from('vendor_charges')
+      .select(
+        `${select},
+         vendors ( id, slug, name, logo_url, cr_number, vat_number, contact_email, contact_phone, city, address ),
+         listings ( id, slug, name )`
+      )
+      .eq('id', chargeId)
+      .maybeSingle();
+
+  let { data, error } = await build(SELECT);
+  if (retryWithout(error)) ({ data, error } = await build(BASE));
+
+  if (error) return null;
+  return data ?? null;
+}

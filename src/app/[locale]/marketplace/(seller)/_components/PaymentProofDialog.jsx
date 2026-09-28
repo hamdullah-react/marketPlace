@@ -17,13 +17,28 @@
  * question "did it go through" is answered without pressing anything. A refused
  * one shows the reason and the button comes back — which is the entire purpose
  * of making a rejection carry a note.
+ *
+ * ── And a way back out ───────────────────────────────────────
+ *
+ * A waiting receipt can be withdrawn, and it can be opened first — the two
+ * things somebody does when they suspect they attached the wrong screenshot. One
+ * waiting receipt per charge is what made this necessary: without it the mistake
+ * blocks its own correction, and the only remedy is a phone call. Only while it
+ * is still unanswered; see deletePaymentProof for why an accepted or rejected
+ * one is not the seller's to erase.
  */
 
 import { startTransition, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  AlertTriangle, Check, Clock, FileUp, Loader2, Paperclip, Send, X,
+  AlertTriangle, Check, Clock, ExternalLink, Eye, FileUp, Loader2,
+  MoreHorizontal, Paperclip, Send, Trash2, X,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +50,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useActionResult } from "./useActionResult";
-import { submitPaymentProof } from "../_actions/payment-proof";
+import { submitPaymentProof, deletePaymentProof } from "../_actions/payment-proof";
 import { errorText } from "@/marketplace/lib/errors";
 import { PAYMENT_METHODS, methodLabel } from "@/marketplace/lib/billing";
 import { toLocalInput, toInstant } from "@/marketplace/lib/datetime";
@@ -52,6 +67,12 @@ export default function PaymentProofDialog({
      none has been sent. The page reads them all in one query rather than one
      per row (see latestProofsByCharge). */
   proof = null,
+  /* 'card' is the state as a line of text with a button under it — right inside
+     a billing card. 'menu' folds the same two actions into one dropdown, which
+     is what fits a table cell. Same dialog, same actions, same server calls;
+     see ChargeRowActions for this split on the admin's side. */
+  variant = "card",
+  detailHref = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -61,6 +82,7 @@ export default function PaymentProofDialog({
   const [file, setFile] = useState(null);
   const [method, setMethod] = useState("bank_transfer");
   const [tooBig, setTooBig] = useState(false);
+  const [confirmDrop, setConfirmDrop] = useState(false);
   const fileInput = useRef(null);
 
   const send = useActionResult(submitPaymentProof, INITIAL, {
@@ -71,12 +93,23 @@ export default function PaymentProofDialog({
     },
   });
 
+  /* autoClearMs 0: if withdrawing is refused because an admin answered it a
+     second earlier, that sentence must stay on screen — it is the whole
+     explanation for why the button did nothing. */
+  const drop = useActionResult(deletePaymentProof, INITIAL, {
+    autoClearMs: 0,
+    onSuccess: () => {
+      setConfirmDrop(false);
+      router.refresh();
+    },
+  });
+
   const waiting = proof?.state === "submitted";
   const refused = proof?.state === "rejected";
 
-  const error = send.result?.error
-    ? errorText(send.result.error, locale, send.result.params)
-    : null;
+  const error = [send, drop]
+    .map((r) => (r.result?.error ? errorText(r.result.error, locale, r.result.params) : null))
+    .find(Boolean) ?? null;
 
   const pick = (e) => {
     const chosen = e.target.files?.[0] ?? null;
@@ -105,45 +138,11 @@ export default function PaymentProofDialog({
   };
 
   /* ── Already under review ───────────────────────────────────────────────── */
-  if (waiting) {
-    return (
-      <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        {t(
-          "أُرسل الإيصال وهو قيد المراجعة. ستصلك رسالة عند اعتماده.",
-          "Your receipt is with us and is being reviewed. You will be told when it is accepted."
-        )}
-      </p>
-    );
-  }
-
-  return (
-    <>
-      {/* A refusal is shown ABOVE the button, with the reason, so the next
-          attempt is a different one. */}
-      {refused ? (
-        <p className="mb-2 flex items-start gap-1.5 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            <strong className="font-semibold">{t("لم يُقبل الإيصال السابق: ", "Your last receipt was not accepted: ")}</strong>
-            {proof.review_note}
-          </span>
-        </p>
-      ) : null}
-
-      <Button
-        type="button"
-        size="sm"
-        variant={refused ? "default" : "outline"}
-        className="w-full gap-1.5"
-        onClick={() => setOpen(true)}
-      >
-        <Paperclip className="h-3.5 w-3.5" />
-        {refused
-          ? t("أرسل إيصالاً آخر", "Send another receipt")
-          : t("لقد دفعت — أرسل الإيصال", "I have paid — send the receipt")}
-      </Button>
-
+  /* ── The form, hoisted ─────────────────────────────────────
+     Both faces open the SAME dialog, so it is declared once and mounted by
+     whichever of them is rendering. Writing it twice is how the card and
+     the table would come to ask a showroom for different things. */
+  const Form = (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent dir={isAr ? "rtl" : "ltr"} className="sm:max-w-lg">
           <DialogHeader>
@@ -285,6 +284,212 @@ export default function PaymentProofDialog({
           </form>
         </DialogContent>
       </Dialog>
+  );
+
+  /* ── The menu face ──────────────────────────────────────
+     One dropdown holding everything a showroom can do about one charge, and
+     state-dependent rather than a fixed list with half of it greyed out: there
+     is nothing to withdraw before a receipt is sent, and nothing to send while
+     one is already under review.
+
+     preventDefault before opening the dialog — the menu would otherwise unmount
+     on the same tick and hand focus back to a trigger that is going away. */
+  if (variant === "menu") {
+    const busy = send.pending || drop.pending;
+
+    return (
+      <>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={busy}
+              aria-label={t("إجراءات", "Actions")}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+            </Button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align={isAr ? "start" : "end"} className="w-56">
+            {detailHref ? (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href={detailHref} className="flex items-center gap-2">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    {charge.state === "paid"
+                      ? t("سند الاستلام", "Receipt")
+                      : t("بيان المستحق", "Statement")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+
+            {/* What they already sent, through a URL signed at click time —
+                there is no permanent address for a private receipt. */}
+            {proof?.id ? (
+              <DropdownMenuItem asChild>
+                <a
+                  href={`/api/marketplace/payments/${proof.id}/view`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  {t("عرض ما أرسلته", "See what you sent")}
+                </a>
+              </DropdownMenuItem>
+            ) : null}
+
+            {waiting ? (
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600 dark:text-red-400"
+                onSelect={() => {
+                  const fd = new FormData();
+                  fd.set("vendorId", vendorId ?? "");
+                  fd.set("proofId", proof.id);
+                  drop.dismiss();
+                  startTransition(() => drop.formAction(fd));
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {t("سحب الإيصال", "Withdraw the receipt")}
+                </span>
+              </DropdownMenuItem>
+            ) : charge.state === "due" ? (
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setOpen(true);
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <Paperclip className="h-3.5 w-3.5" />
+                  {refused
+                    ? t("أرسل إيصالاً آخر", "Send another receipt")
+                    : t("لقد دفعت — أرسل الإيصال", "I have paid — send the receipt")}
+                </span>
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {Form}
+      </>
+    );
+  }
+
+  if (waiting) {
+    return (
+      <div>
+        <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {t(
+            "أُرسل الإيصال وهو قيد المراجعة. ستصلك رسالة عند اعتماده.",
+            "Your receipt is with us and is being reviewed. You will be told when it is accepted."
+          )}
+        </p>
+
+        {error ? (
+          <p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* Opening it first is the point: somebody who suspects they attached
+              the wrong screenshot should be able to LOOK before they undo
+              anything. The link mints a signed URL at click time — there is no
+              permanent address for a private receipt. */}
+          <a
+            href={`/api/marketplace/payments/${proof.id}/view`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-brand-primary"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            {t("عرض ما أرسلته", "See what you sent")}
+          </a>
+
+          {confirmDrop ? (
+            <>
+              <span className="text-xs text-muted-foreground">
+                {t("سحب الإيصال؟ يمكنك إرسال غيره.", "Withdraw it? You can send another.")}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={drop.pending}
+                className="gap-1.5"
+                onClick={() => {
+                  const fd = new FormData();
+                  fd.set("vendorId", vendorId ?? "");
+                  fd.set("proofId", proof.id);
+                  drop.dismiss();
+                  startTransition(() => drop.formAction(fd));
+                }}
+              >
+                {drop.pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {t("نعم، اسحب", "Yes, withdraw")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={drop.pending}
+                onClick={() => setConfirmDrop(false)}
+              >
+                {t("تراجع", "Keep it")}
+              </Button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDrop(true)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-red-600"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t("سحب الإيصال", "Withdraw the receipt")}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* A refusal is shown ABOVE the button, with the reason, so the next
+          attempt is a different one. */}
+      {refused ? (
+        <p className="mb-2 flex items-start gap-1.5 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong className="font-semibold">{t("لم يُقبل الإيصال السابق: ", "Your last receipt was not accepted: ")}</strong>
+            {proof.review_note}
+          </span>
+        </p>
+      ) : null}
+
+      <Button
+        type="button"
+        size="sm"
+        variant={refused ? "default" : "outline"}
+        className="w-full gap-1.5"
+        onClick={() => setOpen(true)}
+      >
+        <Paperclip className="h-3.5 w-3.5" />
+        {refused
+          ? t("أرسل إيصالاً آخر", "Send another receipt")
+          : t("لقد دفعت — أرسل الإيصال", "I have paid — send the receipt")}
+      </Button>
+
+      {Form}
     </>
   );
 }

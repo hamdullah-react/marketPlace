@@ -166,9 +166,15 @@ export function totals(charges, now = Date.now()) {
   let overdueCount = 0;
   let dueCount = 0;
   let paidCount = 0;
+  /* Cancelled rows carry no money — they are counted and nothing else, which is
+     exactly what a tab bar needs from them. */
+  let voidCount = 0;
+  let count = 0;
 
   for (const c of charges ?? []) {
     const amount = Number(c.amount ?? 0);
+    count += 1;
+    if (c.state === 'void') voidCount += 1;
     if (c.state === 'due') {
       outstanding += amount;
       dueCount += 1;
@@ -182,7 +188,7 @@ export function totals(charges, now = Date.now()) {
     }
   }
 
-  return { outstanding, collected, overdue, dueCount, overdueCount, paidCount };
+  return { outstanding, collected, overdue, dueCount, overdueCount, paidCount, voidCount, count };
 }
 
 /**
@@ -328,8 +334,78 @@ export function billingDetails(raw) {
     // Free text, both languages — "pay within 7 days", or whatever this platform
     // actually tells its showrooms.
     terms: value.terms && typeof value.terms === 'object' ? value.terms : {},
+    /* ── Must a receipt come with the request? ─────────────────────
+       An admin's choice, in the same jsonb as the accounts — which is where it
+       belongs, because it is a rule about how this platform takes money and it
+       is read wherever the accounts are.
+
+       false by default, and that default is deliberate: switching it on changes
+       what happens to requests a showroom has ALREADY sent, and a platform that
+       silently started ignoring them on the day this shipped would be a
+       platform whose admins wondered where the renewals went. Off means exactly
+       what happened before this setting existed.
+
+       It applies to promotions and subscriptions alike. They are different
+       debts everywhere else in this schema, and this is the one thing that is
+       genuinely the same about them: both are a showroom saying "I will pay",
+       and the question is whether the platform wants to see the transfer before
+       it starts counting. One setting, because two would only ever be set to
+       the same value and then drift. */
+    requireProof: value.requireProof === true,
+
     // A plain boolean, not a getter: this crosses the server/client boundary as
     // props, and a getter does not survive that trip.
     filled: accounts.length > 0,
   };
 }
+
+/**
+ * Has this request actually reached the platform?
+ *
+ * ── The question this answers ─────────────────────────────────
+ *
+ * A showroom pressing "Request renewal" or asking for a promotion raises a
+ * charge. Whether that charge is something an ADMIN should be looking at is a
+ * separate matter, and until now the two were the same thing: the request
+ * appeared in the admin's queue the instant it was made, whether or not any
+ * money had moved. On a platform where most requests are followed by a transfer
+ * within the hour that is fine; on one where they are not, the queue fills with
+ * intentions and the real payments are buried among them.
+ *
+ * With `requireProof` on, a request counts as PRESENTED only once a receipt is
+ * attached. The charge still exists from the moment it is raised — it has to,
+ * because it carries the reference the showroom must quote on the transfer —
+ * but the admin's queues and badges skip it until there is something to look at.
+ *
+ * ── Nothing is hidden, only unqueued ────────────────────────────
+ *
+ * An unpresented charge is still in the ledger, still searchable, and has a
+ * filter of its own. "The admin does not have to deal with it yet" and "the
+ * admin cannot find it" are different, and only the first is wanted: a showroom
+ * ringing to ask what happened to its request must not be met with a screen
+ * saying no such request exists.
+ *
+ * A REJECTED receipt un-presents the charge again, which is the point of
+ * rejecting one: the ball is back with the showroom, and the queue should say
+ * so rather than counting a row nobody here can move.
+ */
+export function isPresented(charge, hasReceipt, requireProof) {
+  // Only ever gates what is still owed. A paid or cancelled charge is history,
+  // and history is always visible.
+  if (!charge || charge.state !== 'due') return true;
+  if (!requireProof) return true;
+
+  return hasReceipt === true;
+}
+
+/**
+ * Is a receipt with the platform for this charge?
+ *
+ * The second argument `isPresented` wants, derived from a proof row. Its own
+ * function because the two callers hold different things — one has the row, the
+ * other only a set of charge ids — and the definition of "with us" (sent, or
+ * already accepted; a REJECTED one is back with the showroom) should not be
+ * written out twice and then disagree.
+ */
+export const hasReceiptWithUs = (proof) =>
+  proof?.state === 'submitted' || proof?.state === 'accepted';

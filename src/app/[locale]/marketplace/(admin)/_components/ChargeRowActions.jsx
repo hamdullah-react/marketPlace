@@ -27,9 +27,16 @@
  */
 
 import { startTransition, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BanknoteIcon, Loader2, RotateCcw, Trash2, XCircle } from "lucide-react";
+import {
+  BanknoteIcon, ExternalLink, Loader2, MoreHorizontal, RotateCcw, Trash2, XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -53,6 +60,14 @@ export default function ChargeRowActions({
   amountLabel = "",
   descriptionLabel = "",
   dueLabel = "",
+  /* 'buttons' in a card, 'menu' in a table cell. The DIALOGS are identical
+     either way — this chooses nothing but how they are reached, which is why
+     it is a prop and not a second component that would drift from this one. */
+  variant = "buttons",
+  /* The record's own page, offered first in the menu. A table row whose only
+     route to the detail is a menu item nobody opens is a detail page nobody
+     reads, so it is also the row's link — this is the second way in. */
+  detailHref = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -108,14 +123,113 @@ export default function ChargeRowActions({
   const field =
     "mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:border-brand-primary dark:border-white/10 dark:bg-[#161616]";
 
+  /* ── The menu face ──────────────────────────────────────
+     onSelect calls preventDefault before opening a dialog. Without it the menu
+     closes on the same tick the dialog opens, and Radix moves focus back to the
+     trigger as it unmounts — which lands on a dialog that is still mounting and
+     leaves the first field unfocused, or on a browser that scrolls the row back
+     into view. Opening after the close is what keeps the two from fighting. */
+  const Trigger = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          disabled={busy}
+          aria-label={t("إجراءات", "Actions")}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align={isAr ? "start" : "end"} className="w-52">
+        {detailHref ? (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href={detailHref} className="flex items-center gap-2">
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t("عرض التفاصيل", "Open")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
+
+        {charge?.state === "due" ? (
+          <>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setPayOpen(true);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <BanknoteIcon className="h-3.5 w-3.5" />
+                {t("تسجيل دفعة", "Record payment")}
+              </span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              className="text-red-600 focus:text-red-600 dark:text-red-400"
+              onSelect={(e) => {
+                e.preventDefault();
+                setVoidOpen(true);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <XCircle className="h-3.5 w-3.5" />
+                {t("إلغاء المستحق", "Cancel charge")}
+              </span>
+            </DropdownMenuItem>
+          </>
+        ) : null}
+
+        {charge?.state === "paid" ? (
+          <DropdownMenuItem onSelect={() => send(undo, {})}>
+            <span className="flex items-center gap-2">
+              <RotateCcw className="h-3.5 w-3.5" />
+              {t("إلغاء تسجيل الدفعة", "Un-record payment")}
+            </span>
+          </DropdownMenuItem>
+        ) : null}
+
+        {/* Never on a PAID charge: deleteCharge refuses it, and a menu item
+            whose only outcome is an error should not be drawn. */}
+        {charge?.state && charge.state !== "paid" ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-red-600 focus:text-red-600 dark:text-red-400"
+              onSelect={(e) => {
+                e.preventDefault();
+                setDeleteOpen(true);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <Trash2 className="h-3.5 w-3.5" />
+                {t("حذف", "Delete")}
+              </span>
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <>
-      {error ? (
+      {/* In a table the error cannot live above the trigger — there is no room
+          in a cell, and a red paragraph would resize the row. It is shown in the
+          dialog it came from instead, which is where the reader already is. */}
+      {error && variant !== "menu" ? (
         <p className="mb-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </p>
       ) : null}
 
+      {variant === "menu" ? Trigger : (
       <div className="flex flex-wrap items-center gap-2">
         {charge?.state === "due" ? (
           <>
@@ -171,6 +285,7 @@ export default function ChargeRowActions({
           </Button>
         ) : null}
       </div>
+      )}
 
       {/* ── Delete, for good ─────────────────────────────────────────────── */}
       <Dialog open={deleteOpen} onOpenChange={(next) => setDeleteOpen(Boolean(next))}>

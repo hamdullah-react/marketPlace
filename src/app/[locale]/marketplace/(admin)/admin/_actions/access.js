@@ -87,16 +87,31 @@ export async function extendAccess(prevState, formData) {
      down would hand them a screen that still says blocked with a date a month
      out — which reads as a bug and generates the support call this is meant to
      end. Clearing it is the intent of the press. */
-  const { error } = await db
-    .from('vendors')
-    .update({
-      access_until: until,
-      access_blocked: false,
-      access_block_reason: null,
-      access_blocked_at: null,
-      access_blocked_by: null,
-    })
-    .eq('id', vendorId);
+  /* Giving time back SUPERSEDES having taken it, so the notice explaining the
+     reduction goes with it. Leaving it would put "your subscription was
+     shortened" above a dashboard that has just been given another month — which
+     reads as a bug from the seller's side, and generates the call this is all
+     meant to prevent. */
+  const clearing = {
+    access_until: until,
+    access_blocked: false,
+    access_block_reason: null,
+    access_blocked_at: null,
+    access_blocked_by: null,
+    access_reduced_reason: null,
+    access_reduced_at: null,
+    access_reduced_days: null,
+  };
+
+  let { error } = await db.from('vendors').update(clearing).eq('id', vendorId);
+
+  /* 42703 — this database predates the three reduction columns. Extending is
+     the more important half by far, so it proceeds without them rather than
+     refusing over a notice that cannot exist here anyway. */
+  if (error?.code === '42703') {
+    const { access_reduced_reason, access_reduced_at, access_reduced_days, ...base } = clearing;
+    ({ error } = await db.from('vendors').update(base).eq('id', vendorId));
+  }
 
   if (error) return bad(notMigrated(error) ? 'ACCESS_NOT_MIGRATED' : 'SAVE_FAILED', { detail: error.message });
 
@@ -173,7 +188,30 @@ export async function reduceAccess(prevState, formData) {
   const until = reducedTo(vendor, days);
   if (!until) return bad('ACCESS_NO_DATE');
 
-  const { error } = await db.from('vendors').update({ access_until: until }).eq('id', vendorId);
+  /* The sentence is stored ON THE ROW, not only in the audit log and the bell.
+     The log is deliberately unreadable by its subject, and a bell notification
+     is read once and scrolls away — neither can answer "why do I have three
+     months instead of six" on the morning the seller notices. See the WHEN TIME
+     IS TAKEN BACK note in schema.sql. */
+  const change = {
+    access_until: until,
+    access_reduced_reason: reason,
+    access_reduced_at: new Date().toISOString(),
+    access_reduced_days: days,
+  };
+
+  let { error } = await db.from('vendors').update(change).eq('id', vendorId);
+
+  /* 42703 — the three columns have not been added yet. The DATE is the
+     substance of this action, so it is written anyway; the seller is told
+     through the notification instead, and running schema.sql restores the
+     notice on their dashboard. `partial` is handed back so the admin is told
+     rather than left believing the showroom can see an explanation it cannot. */
+  let partial = false;
+  if (error?.code === '42703') {
+    ({ error } = await db.from('vendors').update({ access_until: until }).eq('id', vendorId));
+    partial = !error;
+  }
 
   if (error) return bad(notMigrated(error) ? 'ACCESS_NOT_MIGRATED' : 'SAVE_FAILED', { detail: error.message });
 
@@ -203,7 +241,7 @@ export async function reduceAccess(prevState, formData) {
   });
   refresh();
 
-  return ok({ vendorId, until, allowed: state.allowed });
+  return ok({ vendorId, until, allowed: state.allowed, partial });
 }
 
 /** Switch a showroom off now, whatever its date says. */

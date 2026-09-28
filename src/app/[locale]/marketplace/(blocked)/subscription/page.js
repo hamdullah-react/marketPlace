@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
-import { Lock, Mail, MessageCircle, Phone, ShieldCheck, Wallet } from 'lucide-react';
+import { CalendarMinus, Lock, Mail, MessageCircle, Phone, ShieldCheck, Wallet } from 'lucide-react';
 import { vendorForBlockedScreen } from '@/marketplace/auth/session';
 import { getVendorChargeTotals, getVendorCharges } from '@/marketplace/db/queries/billing';
 import { getVendorPlans, getOpenRenewal } from '@/marketplace/db/queries/access';
+import { latestProofsByCharge } from '@/marketplace/db/queries/proofs';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { accessLabel } from '@/marketplace/lib/access';
 import { billingDetails, accountKindLabel, formatIban } from '@/marketplace/lib/billing';
@@ -81,6 +82,13 @@ export default async function SubscriptionPage({ params, searchParams }) {
     getSiteSettings().catch(() => null),
   ]);
 
+  /* The receipt already sent against the open renewal, so the panel can tell a
+     locked-out showroom whether the step it is waiting on is theirs or ours.
+     One id, so one row; it never throws. */
+  const { byCharge: renewalProofs } = await latestProofsByCharge(
+    openRenewal ? [openRenewal.id] : []
+  ).catch(() => ({ byCharge: new Map() }));
+
   const money = (n) => formatPrice(n, locale, site?.currency);
   const details = billingDetails(site?.billing);
   const shop = localized(viewer.vendor.name, locale);
@@ -119,6 +127,30 @@ export default async function SubscriptionPage({ params, searchParams }) {
         phone={site?.contactPhone}
         whatsapp={whatsapp}
       />
+
+      {/* ── Why, when the reason is that somebody took the time back ────
+          A showroom shortened past its own date arrives here to "your
+          subscription has ended", which is true and useless: they did not reach
+          this date, they were moved to it. Shown for as long as they are out,
+          with no fortnight window — unlike the dashboard notice, this is the
+          explanation for the screen they are looking at right now.
+          -------------------------------------------------------------- */}
+      {access.state === 'expired' && viewer.vendor.access_reduced_reason ? (
+        <div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm dark:bg-amber-950/40">
+          <p className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300">
+            <CalendarMinus className="h-4 w-4 shrink-0" />
+            {Number(viewer.vendor.access_reduced_days) > 0
+              ? t(
+                  `تم تقليص مدة اشتراكك بـ ${Number(viewer.vendor.access_reduced_days)} يوم`,
+                  `${Number(viewer.vendor.access_reduced_days)} days were taken off your subscription`
+                )
+              : t('تم تقليص مدة اشتراكك', 'Your subscription was shortened')}
+          </p>
+          <p className="mt-1 text-amber-800 dark:text-amber-300/90">
+            {viewer.vendor.access_reduced_reason}
+          </p>
+        </div>
+      ) : null}
 
       {/* ── What happened ───────────────────────────────────────────────── */}
       <div className="flex items-start gap-4">
@@ -172,6 +204,8 @@ export default async function SubscriptionPage({ params, searchParams }) {
             vendorId={viewer.vendorId}
             plans={plans}
             openRenewal={openRenewal}
+            openRenewalProof={openRenewal ? (renewalProofs.get(openRenewal.id) ?? null) : null}
+            requireProof={details.requireProof}
             currency={site?.currency}
           />
         </div>

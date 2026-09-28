@@ -99,6 +99,14 @@ export const getViewer = cache(async () => {
     db.from('vendor_members').select(select).eq('user_id', user.id);
 
   const MEMBERSHIPS_FULL =
+    'vendor_id, role, vendors!inner ( id, slug, name, state, access_until, access_blocked, ' +
+    'access_block_reason, access_reduced_reason, access_reduced_at, access_reduced_days )';
+  /* Everything FULL had before the reduction columns existed. A database missing
+     only those three keeps its dates and its blocks — the seller simply is not
+     shown the sentence explaining a change, which is a cosmetic loss. Falling
+     straight to BASE here would drop access_until as well and hand every
+     showroom an unlimited dashboard, which is not. */
+  const MEMBERSHIPS_ACCESS =
     'vendor_id, role, vendors!inner ( id, slug, name, state, access_until, access_blocked, access_block_reason )';
   const MEMBERSHIPS_BASE = 'vendor_id, role, vendors!inner ( id, slug, name, state )';
 
@@ -127,10 +135,15 @@ export const getViewer = cache(async () => {
   // the correct failure direction.
   const role = profile?.role ?? 'buyer';
 
-  const memberships =
-    membershipsResult.error?.code === '42703'
-      ? (await readMemberships(MEMBERSHIPS_BASE)).data
-      : membershipsResult.data;
+  /* Down the tiers one at a time, each giving up the least it can. */
+  let memberships = membershipsResult.data;
+  if (membershipsResult.error?.code === '42703') {
+    const withAccess = await readMemberships(MEMBERSHIPS_ACCESS);
+    memberships =
+      withAccess.error?.code === '42703'
+        ? (await readMemberships(MEMBERSHIPS_BASE)).data
+        : withAccess.data;
+  }
 
   // Only APPROVED vendors count. A pending application must not open the
   // seller dashboard, and a suspended showroom must stop being able to sell

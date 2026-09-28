@@ -3,7 +3,6 @@ import { requireVendor } from '@/marketplace/auth/session';
 import { getShellVendor } from './_apicalls/shellApi';
 import { getNotifications } from '@/marketplace/db/queries/notifications';
 import SellerShell from './_components/SellerShell';
-import TrialEndingBanner from './_components/TrialEndingBanner';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -54,22 +53,6 @@ export default async function SellerLayout({ children, params }) {
   // dashboard to someone who is about to be sent elsewhere.
   const { vendor } = await requireVendor();
 
-  /**
-   * The warning, days before the wall.
-   *
-   * A seller whose dashboard simply stops one morning has been ambushed, and
-   * the first thing they do about it is ring somebody. This is the cheapest
-   * possible prevention: one line, only inside the last week, carrying the date
-   * and the way to sort it out.
-   *
-   * In the LAYOUT rather than on each page so it follows them around the
-   * dashboard — and it is the one thing a layout is genuinely right for here,
-   * because it is a notice rather than a gate. The gate is requireVendor()
-   * above, which re-runs on every page; this is allowed to be stale by a
-   * navigation, because being a day out on a countdown costs nothing.
-   */
-  const ending = vendor.access.state === 'ending';
-
   return (
     <SellerShell
       locale={locale}
@@ -80,10 +63,27 @@ export default async function SellerLayout({ children, params }) {
       notificationsPromise={getNotifications({ audience: 'vendor', vendorId: vendor.id }).catch(
         () => ({ items: [], unread: 0 })
       )}
+      /* The verdict, computed ONCE, here. The header chip reads it and
+         /seller/subscription reads it again from the same session, so the
+         countdown and the page it opens cannot tell a seller two things — which
+         is the rule the blocked screen was rewritten to obey. */
+      access={vendor.access}
     >
-      {ending ? (
-        <TrialEndingBanner locale={locale} daysLeft={vendor.access.daysLeft} until={vendor.access.until} />
-      ) : null}
+      {/* ── The banners are GONE from here, on purpose ───────────────
+          Two of them used to sit at the top of every page in the dashboard —
+          above the listings, above the leads, above the media library — for as
+          long as they applied. Two lines of amber over a screen somebody opened
+          to do something else is not a warning; it is a tax on every other task,
+          and it stops being read by about the second day.
+
+          What is persistent instead is the countdown in the header, which is
+          always on screen and changes colour as the date approaches. It links to
+          /seller/subscription, where the full warning lives along with the
+          reason, the renewal control and the bank details — so the notice is one
+          press away rather than in the way. See that page and AccessCountdown.
+
+          The blocked screen is unaffected: a showroom that is actually out is
+          redirected by requireVendor() above and never reaches this layout. */}
       {children}
     </SellerShell>
   );

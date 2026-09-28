@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   LayoutDashboardIcon, CarIcon, PlusIcon, ImagesIcon,
   StarIcon, WalletIcon, SettingsIcon, BarChartIcon, StoreIcon,
+  CalendarClock as CalendarClockIcon,
   ExternalLinkIcon, HelpCircleIcon, SearchIcon, UserIcon, LibraryIcon,
   ChevronsUpDownIcon, LogOutIcon, BadgeCheckIcon, ClipboardListIcon,
   ChevronDownIcon, UsersIcon, TagIcon, SparklesIcon,
@@ -46,6 +47,7 @@ import {
 } from "@/components/ui/collapsible";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
 import NotificationBell from "../../_components/NotificationBell";
+import AccessCountdown from "./AccessCountdown";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { useLiveLeads } from "./useLiveLeads";
 
@@ -86,6 +88,11 @@ const NAV_CRM = [
 ];
 
 const NAV_CUSTOMERS = [
+  /* Before Billing, because it is the shorter answer: "how long have I got and
+     how do I renew" is one screen, and the statement is the detail behind it.
+     In the nav as well as under the header's countdown — a page reachable only
+     from a chip in a corner is a page somebody has to be told about. */
+  { href: "/marketplace/seller/subscription", icon: CalendarClockIcon, ar: "اشتراكك", en: "Subscription" },
   { href: "/marketplace/seller/billing", icon: WalletIcon, ar: "المستحقات", en: "Billing" },
 ];
 
@@ -290,7 +297,19 @@ function VendorIdentitySkeleton() {
   );
 }
 
-export default function SellerShell({ locale = "ar", vendorPromise, children, notificationsPromise = null, currency = null }) {
+export default function SellerShell({
+  locale = "ar",
+  vendorPromise,
+  children,
+  notificationsPromise = null,
+  currency = null,
+  /* Where the showroom stands, already decided by the layout's accessState().
+     Passed as a value rather than re-derived here: one verdict per request is
+     the rule the blocked screen was rewritten to obey, and a header that did
+     its own arithmetic would be a second opinion able to disagree with the
+     guard that actually holds the door. */
+  access = null,
+}) {
   /* No vendorId prop: the shell already resolves one below for the live-leads
      channel and the vendor picker, and a second copy could disagree with it. */
   const isAr = locale === "ar";
@@ -463,6 +482,26 @@ export default function SellerShell({ locale = "ar", vendorPromise, children, no
                 lives here — otherwise there is no way out of a locale once
                 you are inside the seller area. */}
             <div className="ms-auto flex shrink-0 items-center gap-1">
+              {/* Before the bell. The bell is news — things that happened — and
+                  this is a standing fact about the account, so it reads first
+                  and does not move when a notification arrives. Needs no
+                  Suspense: the layout already had this value in hand.
+
+                  It is also the ONLY persistent warning now. The two banners
+                  that used to sit over every page were removed in favour of
+                  this plus the page it opens — see (seller)/layout.js. That
+                  makes the colour of this chip load-bearing rather than
+                  decorative: amber in the last week, red once it has run out. */}
+              {access ? (
+                <AccessCountdown
+                  locale={locale}
+                  until={access.until}
+                  allowed={access.allowed}
+                  initialDaysLeft={access.daysLeft}
+                  href={`/${locale}/marketplace/seller/subscription`}
+                />
+              ) : null}
+
               {/* Its own boundary: the bell is two reads the header should not
                   wait for, and a quiet bell is the right fallback. */}
               <Suspense fallback={<span className="inline-block h-8 w-8" />}>

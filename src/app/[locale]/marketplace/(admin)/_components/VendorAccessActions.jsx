@@ -27,7 +27,15 @@
 
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarMinus, CalendarPlus, Loader2, Lock, Unlock } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle, CalendarMinus, CalendarPlus, ExternalLink, Loader2, Lock,
+  MoreHorizontal, Unlock,
+} from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -49,6 +57,10 @@ export default function VendorAccessActions({
      Null on a row that has never had one — there is then nothing to subtract
      from, and the button says so rather than failing on the server. */
   accessUntil = null,
+  /* 'buttons' in a card, 'menu' in a table cell — the same choice, and the same
+     reasoning, as ChargeRowActions. Every dialog below is untouched. */
+  variant = "buttons",
+  detailHref = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -126,12 +138,101 @@ export default function VendorAccessActions({
 
   return (
     <>
-      {error ? (
+      {/* In a table there is no room above the trigger, and a red paragraph
+          would resize the row. Each dialog carries the error itself, which is
+          where the reader already is when it happens. */}
+      {error && variant !== "menu" ? (
         <p className="mb-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </p>
       ) : null}
 
+      {/* ── The menu face ─────────────────────────────────────
+          preventDefault before opening a dialog: otherwise the menu unmounts on
+          the same tick and Radix returns focus to a trigger that is going away,
+          while the dialog is still mounting. Opening after the close is what
+          keeps the two out of each other's way. */}
+      {variant === "menu" ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={busy}
+              aria-label={t("\u0625\u062c\u0631\u0627\u0621\u0627\u062a", "Actions")}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+            </Button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align={isAr ? "start" : "end"} className="w-52">
+            {detailHref ? (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href={detailHref} className="flex items-center gap-2">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    {t("\u0639\u0631\u0636 \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644", "Open")}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setExtendOpen(true);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <CalendarPlus className="h-3.5 w-3.5" />
+                {t("\u062a\u0645\u062f\u064a\u062f", "Give more time")}
+              </span>
+            </DropdownMenuItem>
+
+            {/* Only with a date to subtract from \u2014 the server refuses otherwise. */}
+            {hasDate ? (
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setReduceOpen(true);
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <CalendarMinus className="h-3.5 w-3.5" />
+                  {t("\u062a\u0642\u0644\u064a\u0635 \u0627\u0644\u0645\u062f\u0629", "Take time back")}
+                </span>
+              </DropdownMenuItem>
+            ) : null}
+
+            <DropdownMenuSeparator />
+
+            {blocked ? (
+              <DropdownMenuItem onSelect={() => send(unblock, {})}>
+                <span className="flex items-center gap-2">
+                  <Unlock className="h-3.5 w-3.5" />
+                  {t("\u0631\u0641\u0639 \u0627\u0644\u0625\u064a\u0642\u0627\u0641", "Unblock")}
+                </span>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600 dark:text-red-400"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setBlockOpen(true);
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5" />
+                  {t("\u0625\u064a\u0642\u0627\u0641", "Block")}
+                </span>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" disabled={busy} className="gap-1.5" onClick={() => setExtendOpen(true)}>
           <CalendarPlus className="h-3.5 w-3.5" />
@@ -180,6 +281,7 @@ export default function VendorAccessActions({
           </Button>
         )}
       </div>
+      )}
 
       {/* ── Give more time ──────────────────────────────────────────────── */}
       <Dialog open={extendOpen} onOpenChange={(next) => setExtendOpen(Boolean(next))}>

@@ -176,3 +176,43 @@ export async function listOpenRenewals() {
   if (error) return [];
   return data ?? [];
 }
+
+/**
+ * One showroom's access row IN FULL, with its verdict already computed — the
+ * admin's subscription detail page.
+ *
+ * getVendorAccess() above is the narrow read an ACTION does before it writes:
+ * six columns, no judgement, because the action is about to change one of them.
+ * This is the read a PAGE does, so it carries what a page has to print — the
+ * contact details, the city, the sentence explaining a reduction — and it
+ * attaches accessState() rather than leaving the page to derive it.
+ *
+ * That last part is the point. A page that re-derived the verdict would be a
+ * second opinion able to disagree with the guard holding the door, which is the
+ * bug the blocked screen was rewritten to fix. One verdict per request.
+ *
+ * Two tiers, like the session read: a database without the reduction columns
+ * keeps its dates and its blocks rather than failing the whole select.
+ */
+const ACCESS_DETAIL =
+  'id, slug, name, logo_url, city, contact_phone, contact_email, state, approved_at, created_at, ' +
+  'access_until, access_blocked, access_block_reason, access_blocked_at, ' +
+  'access_reduced_reason, access_reduced_at, access_reduced_days';
+
+const ACCESS_DETAIL_BASE =
+  'id, slug, name, logo_url, city, contact_phone, contact_email, state, approved_at, created_at, ' +
+  'access_until, access_blocked, access_block_reason, access_blocked_at';
+
+export async function getVendorAccessDetail(vendorId) {
+  if (!vendorId) return null;
+
+  const read = (columns) =>
+    getMarketplaceDb().from('vendors').select(columns).eq('id', vendorId).maybeSingle();
+
+  let { data, error } = await read(ACCESS_DETAIL);
+  if (error?.code === '42703') ({ data, error } = await read(ACCESS_DETAIL_BASE));
+
+  if (error || !data) return null;
+
+  return { ...data, access: accessState(data) };
+}
