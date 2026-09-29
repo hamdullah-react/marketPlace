@@ -24,13 +24,14 @@ import {
   isAndroid,
   usePushRegistration,
 } from "./usePushRegistration";
+import PushTrouble from "./PushTrouble";
 
 export default function PushToggle({ locale = "ar", audience = "vendor", vendorId = null }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
   const push = usePushRegistration({ locale, audience, vendorId });
-  const { state, busy, note, failure, detail, tested, registered, granted } = push;
+  const { state, busy, note, failure, tested, registered, granted } = push;
 
   /* ── The states that cannot be pressed out of ───────────────────────── */
   if (push.blocked) {
@@ -135,13 +136,8 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
           read on a phone, at the bottom of a list, and the sentence that says
           why nothing happened has to be the thing the eye lands on. */}
       {failure ? (
-        <div className="mt-1.5 rounded-lg bg-red-50 p-2 dark:bg-red-950/40">
-          <p className="text-[11px] text-red-700 dark:text-red-300">{failure}</p>
-          {detail ? (
-            <p className="mt-1 font-mono text-[10px] text-red-700/70 dark:text-red-300/70" dir="ltr">
-              {detail}
-            </p>
-          ) : null}
+        <div className="mt-1.5">
+          <PushTrouble push={push} locale={locale} compact />
         </div>
       ) : note ? (
         <p className="mt-1 px-1 text-[11px] text-muted-foreground">{note}</p>

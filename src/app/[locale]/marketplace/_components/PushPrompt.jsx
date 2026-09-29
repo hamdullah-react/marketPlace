@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { usePushRegistration } from "./usePushRegistration";
+import PushTrouble from "./PushTrouble";
 
 /* One key for the whole platform rather than one per audience. The question is
    "may this BROWSER show notifications", which a browser answers once for the
@@ -187,14 +188,7 @@ export default function PushPrompt({ locale = "ar", audience = "vendor", vendorI
             the buttons are the last thing on screen and anything under them is
             off it. */}
         {push.failure ? (
-          <div className="rounded-lg bg-red-50 p-2.5 dark:bg-red-950/40">
-            <p className="text-xs text-red-700 dark:text-red-300">{push.failure}</p>
-            {push.detail ? (
-              <p className="mt-1 font-mono text-[10px] text-red-700/70 dark:text-red-300/70" dir="ltr">
-                {push.detail}
-              </p>
-            ) : null}
-          </div>
+          <PushTrouble push={push} locale={locale} />
         ) : push.note ? (
           <p className="text-xs text-muted-foreground">{push.note}</p>
         ) : null}

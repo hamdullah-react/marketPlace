@@ -69,6 +69,31 @@ export const isAndroid = () =>
   typeof navigator !== "undefined" && /Android/.test(navigator.userAgent);
 
 /**
+ * Installed to the home screen, or running in a browser tab?
+ *
+ * This is the single biggest difference between how this site behaves on a
+ * locked phone and how WhatsApp behaves, and until now nothing here even asked
+ * the question. Android treats an INSTALLED web app as an app: its own entry in
+ * the app list, its own notification channel — which is the only place a
+ * custom notification sound can be chosen — and background wake-ups that
+ * survive the browser being swiped away. The same site in a tab is a tab, and
+ * Android is free to stop it.
+ */
+export const isInstalled = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      // iOS never implemented display-mode; this is Safari's own flag.
+      window.navigator.standalone === true
+    );
+  } catch {
+    return false;
+  }
+};
+
+/**
  * What this browser can do, as one word.
  *
  *   insecure    opened over http:// on a phone or another machine. Service
@@ -133,6 +158,12 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
   const t = (ar, en) => (isAr ? ar : en);
 
   const state = useSyncExternalStore(subscribeNoop, readPushState, () => "unknown");
+
+  /* Read the same way as `state`, and for the same reason: `display-mode` is
+     browser state, not React state, and the server cannot know it. A server
+     snapshot of `false` means the first paint says "a tab" — which is what an
+     unknown should say — rather than hydrating into a mismatch. */
+  const installed = useSyncExternalStore(subscribeNoop, isInstalled, () => false);
 
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -445,6 +476,113 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audience, locale, done, report]);
 
+  /**
+   * ── Start this device over ────────────────────────────────────────────
+   *
+   * "Registration failed - push service error" almost always means the browser
+   * is holding a push registration for this origin that it will not reuse and
+   * will not replace by itself — left behind by a VAPID key that changed, a
+   * service worker that was replaced, or an attempt that died halfway.
+   *
+   * `enable` already tries one teardown inline, and inline is the problem: it
+   * happens inside the same call that just failed, racing the registration it
+   * is trying to destroy. This is the same cure performed deliberately, from a
+   * clean call stack, with nothing else in flight — and it tears down EVERY
+   * registration on the origin rather than the one handle it happens to hold,
+   * because a worker registered at an older scope is invisible to the newer one
+   * and is exactly the kind of leftover that causes this.
+   *
+   * The alternative it replaces is "clear this site's data in Chrome settings",
+   * which nobody finds and which also signs them out.
+   *
+   * It does NOT re-enable afterwards. The next press is a fresh attempt with a
+   * clean slate, and keeping the two apart means a failure has one cause to
+   * look at rather than two.
+   */
+  const reset = useCallback(async () => {
+    setBusy(true);
+    setNote("");
+    setFailure("");
+    setDetail("");
+
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+
+      for (const reg of regs) {
+        const sub = await reg.pushManager?.getSubscription().catch(() => null);
+
+        if (sub) {
+          /* Told to the server BEFORE the browser forgets it. Once the local
+             subscription is gone its endpoint is unrecoverable, and a row left
+             behind is a device this platform would go on pushing to for ever. */
+          const fd = new FormData();
+          fd.set("audience", audience);
+          fd.set("endpoint", sub.endpoint);
+          await unsubscribeFromPush(null, fd).catch(() => {});
+          await sub.unsubscribe().catch(() => {});
+        }
+
+        await reg.unregister().catch(() => {});
+      }
+
+      setRegistered(false);
+      setKnown({ done: true, sub: false });
+      setTested(null);
+      done(
+        t(
+          "تمت إعادة الضبط. اضغط «نبّهني» مرة أخرى لتفعيلها من جديد.",
+          "Reset. Press notify again to turn them back on."
+        )
+      );
+    } catch (err) {
+      done(t("تعذّرت إعادة الضبط: ", "Could not reset: ") + (err?.message ?? String(err)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audience, locale, done]);
+
+  /**
+   * ── What this device can actually be asked ────────────────────────────
+   *
+   * Everything a failure here depends on, in one block somebody can paste into
+   * a message. Three rounds of "it does not work" have been spent guessing at
+   * facts the browser was willing to state: whether it is installed, whether a
+   * worker is registered, whether a subscription already exists and which push
+   * service it belongs to.
+   *
+   * The endpoint is reduced to its HOST. The full URL is a credential —
+   * anybody holding it can push to this device — and the host is the part that
+   * answers the only question worth asking of it: is this going to FCM at all.
+   */
+  const diagnostics = useCallback(async () => {
+    const lines = [];
+    const add = (k, v) => lines.push(`${k}: ${v}`);
+
+    add("url", typeof location === "undefined" ? "?" : location.origin);
+    add("installed", isInstalled() ? "yes (home screen)" : "no (browser tab)");
+    add("secure", typeof window !== "undefined" && window.isSecureContext);
+    add("permission", typeof Notification === "undefined" ? "n/a" : Notification.permission);
+    add("vapidKey", key ? `present (${key.length} chars)` : "MISSING");
+    add("ua", typeof navigator === "undefined" ? "?" : navigator.userAgent);
+
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      add("workers", regs.length);
+
+      for (const reg of regs) {
+        add("  scope", reg.scope);
+        add("  active", Boolean(reg.active));
+        const sub = await reg.pushManager?.getSubscription().catch(() => null);
+        add("  subscription", sub ? new URL(sub.endpoint).host : "none");
+      }
+    } catch (err) {
+      add("workers", `unreadable (${err?.message ?? err})`);
+    }
+
+    if (failure) add("lastFailure", detail || failure);
+
+    return lines.join("\n");
+  }, [key, failure, detail]);
+
   const runTest = useCallback(async () => {
     setNote("");
     setFailure("");
@@ -487,8 +625,14 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
     detail,
     tested,
     hasKey: Boolean(key),
+    installed,
+    /* True when the failure is the one a reset actually cures, so the button
+       for it appears where it helps and nowhere else. */
+    resettable: /push service error|AbortError|Registration failed/i.test(detail || failure || ""),
     enable,
     disable,
+    reset,
+    diagnostics,
     runTest,
   };
 }
