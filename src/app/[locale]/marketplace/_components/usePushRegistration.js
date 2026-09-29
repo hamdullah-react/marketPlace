@@ -470,16 +470,33 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
         ),
       }[timedOut];
 
-      /* Chrome says "Registration failed - push service error" when the DEVICE
-         cannot register with Google's push service. By the time it reaches here
-         the stale-registration cure above has already been tried, so what is
-         left is the device itself — and the three answers below are the ones
-         that actually fix it, in the order they are worth trying. */
+      /* ── "Registration failed - push service error" ────────────
+         Chrome's own words, and they are about the DEVICE reaching Google, not
+         about this site. Chrome registers the browser with FCM over
+         mtalk.google.com on ports 5228–5230, and this is what it says when that
+         does not complete.
+
+         ── The advice used to be in the wrong order ─────────────
+
+         It led with "check Google Play services is enabled and not restricted",
+         which is the standard answer and was measurably wrong here: this
+         platform has a device that registered successfully against
+         fcm.googleapis.com, so Play services works on it. Sending somebody into
+         Android's app settings to verify something already proven true is how a
+         five-second fix becomes an afternoon.
+
+         What is left, once Play services is not in question, is what sits
+         BETWEEN the phone and Google — a VPN or a network that blocks those
+         ports — and the browser's own cached registration for this origin.
+         Those are the three below, shortest first, and the third is the only
+         one this page cannot perform itself: an in-page reset clears the
+         subscription and the service worker, and Chrome's internal FCM record
+         for the site survives it. Clearing the site's data is what purges it. */
       const pushService =
         /push service error|AbortError|Registration failed/i.test(message) &&
         t(
-          "لم يقبل جهازك التسجيل لدى خدمة الإشعارات. جرّب بالترتيب: ١) تأكد أن «خدمات Google Play» مفعّلة وغير مقيّدة، ٢) أوقف موفّر البيانات ووضع توفير البطارية لمتصفح Chrome، ٣) جرّب شبكة أخرى — بعض شبكات الجوال تحجب FCM.",
-          "Your device would not register with the push service. In order: 1) check Google Play services is enabled and not restricted, 2) turn off Data Saver and battery optimisation for Chrome, 3) try another network — some mobile networks block FCM."
+          "الجوال لم يصل إلى خدمة إشعارات جوجل. جرّب بالترتيب: ١) أوقف الـ VPN إن كان مفعّلاً، ٢) بدّل بين الواي فاي وبيانات الجوّال، ٣) امسح بيانات هذا الموقع من إعدادات كروم.",
+          "Your phone could not reach Google’s notification service. In order: 1) turn off your VPN if one is on, 2) switch between Wi‑Fi and mobile data, 3) clear this site’s data in Chrome."
         );
 
       setFailure(reason ?? pushService ?? t("تعذّر التفعيل: ", "Could not turn it on: ") + message);
