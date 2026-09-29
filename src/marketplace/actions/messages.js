@@ -23,7 +23,7 @@
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { getViewer, vendorForRenewal } from '@/marketplace/auth/session';
-import { recordNotification } from '@/marketplace/db/queries/notifications';
+import { pushNotification } from '@/marketplace/lib/push';
 import { notifyVendorLeads, notifyAdmins } from '@/marketplace/lib/realtime';
 import { CHAT_BUCKET } from '@/marketplace/db/queries/messages';
 import { isMissingSchema } from '@/marketplace/db/queries/engagement';
@@ -235,9 +235,23 @@ export async function sendMessage(prevState, formData) {
      Both, because they answer different questions: the first makes the drawer
      move while somebody is looking at it, and the second is what a showroom
      finds in the morning. */
+  /* ── A message is NOT a notification ───────────────────────────
+     It deliberately does NOT call recordNotification, which is what every other
+     event here uses. That would put every line of a conversation in the bell
+     and add it to the bell's count — so a ten-message exchange would leave ten
+     unread notifications sitting beside a conversation the person had already
+     read, and clearing one would have nothing to do with the other.
+
+     A chat keeps its own count, on its own icon, and the drawer clears it by
+     being opened. Two counters for one fact is how both stop being believed.
+
+     What IS still sent is the PUSH, called directly rather than through
+     recordNotification, because that is the half that reaches a phone whose
+     screen is off — and it is the whole reason messaging is worth having on a
+     phone at all. It writes no row, so the bell never sees it. */
   if (who.side === 'admin') {
     notifyVendorLeads(who.vendorId, 'message_new', { conversationId });
-    await recordNotification({
+    await pushNotification({
       audience: 'vendor',
       vendorId: who.vendorId,
       kind: 'message_new',
@@ -246,7 +260,7 @@ export async function sendMessage(prevState, formData) {
     });
   } else {
     notifyAdmins('message_new', { conversationId, vendorId: who.vendorId });
-    await recordNotification({
+    await pushNotification({
       audience: 'admin',
       kind: 'message_new',
       data: { preview, from: who.name },
@@ -287,57 +301,17 @@ export async function markConversationRead(prevState, formData) {
     return bad(isMissingSchema(error) ? 'MESSAGES_NOT_MIGRATED' : 'SAVE_FAILED');
   }
 
-  refresh();
-  return ok({ vendorId: who.vendorId });
-}
-
-/**
- * "…is typing."
- *
- * ── Why this goes through the SERVER at all ─────────────────────────────────
- *
- * A typing indicator is the one thing in a chat that obviously wants to be
- * peer-to-peer: the browser already holds an open socket on the right topic, so
- * sending straight down it would cost nothing. It does not work here. The
- * client subscribes to a PRIVATE channel, and the policies on
- * realtime.messages (schema.sql §21.7 and §21.9) grant SELECT only — receiving.
- * Sending from a browser would need an INSERT policy on a table this project's
- * role does not own, which is the thing §21.7 spent three attempts discovering.
- *
- * So it takes the path that is known to work on this project: an HTTP POST to
- * the broadcast endpoint, from the server. That costs a round trip, which is
- * why the CLIENT throttles it to one call every few seconds rather than one per
- * keystroke — see MessagesDrawer.
- *
- * ── It says nothing ────────────────────────────────────────────────────────
- *
- * The payload carries the side and the showroom and no text. A typing signal
- * that carried the draft would be a draft delivered to whoever is listening,
- * before its author had decided to send it.
- *
- * ── Nothing is stored ──────────────────────────────────────────────────────
- *
- * No row, no column, no timestamp. A typing state is true for four seconds and
- * is worthless afterwards, and the receiver expires it on its own clock — so a
- * "stopped" signal that never arrives cannot leave an indicator stuck on. That
- * is also why this returns ok() without reading anything back: there is nothing
- * for the caller to do with the answer.
- */
-export async function signalTyping(prevState, formData) {
-  const wanted = str(formData, 'vendorId') || null;
-  const who = await resolveSide(wanted);
-  // Silently, not loudly: a refused typing signal is not worth a message in
-  // somebody's chat window, and the send itself will refuse for the same reason.
-  if (who.error) return bad(who.error);
-
+  /* ── Telling the other end it was read ─────────────────────────
+     What turns the ticks from a fact discovered on the next refetch into one
+     that moves while somebody is looking at it. No notification and no push:
+     "they read it" is worth a mark on a bubble and is not worth a buzz in
+     somebody's pocket. */
   if (who.side === 'admin') {
-    notifyVendorLeads(who.vendorId, 'message_typing', { side: 'admin' });
+    notifyVendorLeads(who.vendorId, 'message_read', {});
   } else {
-    notifyAdmins('message_typing', { side: 'vendor', vendorId: who.vendorId });
+    notifyAdmins('message_read', { vendorId: who.vendorId });
   }
 
-  /* No refresh(). This changes nothing on the server, and revalidating a layout
-     every three seconds while somebody types would be the most expensive part
-     of the whole feature. */
-  return ok();
+  refresh();
+  return ok({ vendorId: who.vendorId });
 }

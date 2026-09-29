@@ -37,6 +37,7 @@ import { useActionResult } from "../(seller)/_components/useActionResult";
 import { notificationText, timeAgo } from "@/marketplace/lib/notifications";
 import { markAllNotificationsRead } from "../_actions/notifications";
 import PushToggle from "./PushToggle";
+import PushPrompt from "./PushPrompt";
 import { ting, unlockAudio } from "../(seller)/_components/useLiveLeads";
 
 const INITIAL = { ok: false, error: null };
@@ -135,128 +136,142 @@ export default function NotificationBell({
   };
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) markRead();
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={
-            count
-              ? t(`${count} إشعار غير مقروء`, `${count} unread notifications`)
-              : t("الإشعارات", "Notifications")
-          }
-          className={
-            variant === "header"
-              ? /* Matches the search button and the saved-cars heart exactly —
-                   same size, same raise, same radius, and the same step down on
-                   a phone. */
-                "raised relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10"
-              : "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-black/5 hover:text-brand-primary dark:hover:bg-white/10"
-          }
-        >
-          <Bell
+    <>
+      {/* ── Asked, rather than waiting to be found ───────────────
+          It rides with the bell instead of being mounted in each of the three
+          shells, because this component is ALREADY the one place that knows
+          which audience is looking and which showroom they are in — and it is
+          already rendered for signed-in people only, in the dashboard header,
+          the admin header and the public header alike. A second mount point
+          would be a fourth place to keep those props in step.
+
+          It opens itself once per browser and then never again; see
+          PushPrompt for why it is our dialog and not the browser's. */}
+      <PushPrompt locale={locale} audience={audience} vendorId={vendorId} />
+
+      <DropdownMenu
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (next) markRead();
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={
+              count
+                ? t(`${count} إشعار غير مقروء`, `${count} unread notifications`)
+                : t("الإشعارات", "Notifications")
+            }
             className={
               variant === "header"
-                ? "h-[18px] w-[18px] text-brand-primary sm:h-5 sm:w-5"
-                : "h-4 w-4"
+                ? /* Matches the search button and the saved-cars heart exactly —
+                     same size, same raise, same radius, and the same step down on
+                     a phone. */
+                  "raised relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10"
+                : "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-black/5 hover:text-brand-primary dark:hover:bg-white/10"
             }
-          />
+          >
+            <Bell
+              className={
+                variant === "header"
+                  ? "h-[18px] w-[18px] text-brand-primary sm:h-5 sm:w-5"
+                  : "h-4 w-4"
+              }
+            />
 
-          {/* Nothing at zero. A permanent "0" is a badge that has stopped
-              meaning anything, and the eye learns to skip it. */}
-          {count ? (
-            /* The same geometry as the saved-cars badge beside it — h-4,
-               min-w-4, leading-none — so the two sit at identical height and
-               offset instead of being a pixel apart.
+            {/* Nothing at zero. A permanent "0" is a badge that has stopped
+                meaning anything, and the eye learns to skip it. */}
+            {count ? (
+              /* The same geometry as the saved-cars badge beside it — h-4,
+                 min-w-4, leading-none — so the two sit at identical height and
+                 offset instead of being a pixel apart.
 
-               The COLOUR stays red where that one is brand green, and that is
-               the one difference worth keeping: a saved count is a tally, an
-               unread count is something asking to be dealt with, and a row of
-               identical green pills would flatten the distinction. */
-            <span className="raised-solid absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white tabular-nums">
-              {count > 9 ? "9+" : count}
-            </span>
-          ) : null}
-        </button>
-      </DropdownMenuTrigger>
+                 The COLOUR stays red where that one is brand green, and that is
+                 the one difference worth keeping: a saved count is a tally, an
+                 unread count is something asking to be dealt with, and a row of
+                 identical green pills would flatten the distinction. */
+              <span className="raised-solid absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white tabular-nums">
+                {count > 9 ? "9+" : count}
+              </span>
+            ) : null}
+          </button>
+        </DropdownMenuTrigger>
 
-      <DropdownMenuContent
-        align={isAr ? "start" : "end"}
-        dir={isAr ? "rtl" : "ltr"}
-        /* Width is capped to the viewport so the panel cannot hang off the side
-           of a phone, and the list scrolls rather than growing past the screen. */
-        className="w-[min(22rem,calc(100vw-2rem))] p-0"
-      >
-        <div className="flex items-center gap-2 border-b px-3 py-2 dark:border-white/10">
-          <p className="text-sm font-semibold text-brand-primary">
-            {t("الإشعارات", "Notifications")}
-          </p>
-          {unread ? (
-            <span className="ms-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <CheckCheck className="h-3 w-3" />
-              {t("تم وضع علامة مقروء", "Marked as read")}
-            </span>
-          ) : null}
-        </div>
+        <DropdownMenuContent
+          align={isAr ? "start" : "end"}
+          dir={isAr ? "rtl" : "ltr"}
+          /* Width is capped to the viewport so the panel cannot hang off the side
+             of a phone, and the list scrolls rather than growing past the screen. */
+          className="w-[min(22rem,calc(100vw-2rem))] p-0"
+        >
+          <div className="flex items-center gap-2 border-b px-3 py-2 dark:border-white/10">
+            <p className="text-sm font-semibold text-brand-primary">
+              {t("الإشعارات", "Notifications")}
+            </p>
+            {unread ? (
+              <span className="ms-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <CheckCheck className="h-3 w-3" />
+                {t("تم وضع علامة مقروء", "Marked as read")}
+              </span>
+            ) : null}
+          </div>
 
-        {items.length ? (
-          <ul className="max-h-[60vh] overflow-y-auto">
-            {items.map((n) => {
-              const { title, body } = notificationText(n.kind, n.data, { locale, currency });
-              const fresh = !n.read_at;
+          {items.length ? (
+            <ul className="max-h-[60vh] overflow-y-auto">
+              {items.map((n) => {
+                const { title, body } = notificationText(n.kind, n.data, { locale, currency });
+                const fresh = !n.read_at;
 
-              const row = (
-                <div className={`px-3 py-2.5 ${fresh ? "bg-brand-primary/5" : ""}`}>
-                  <p className="flex items-center gap-2 text-sm font-medium text-brand-primary">
-                    {fresh ? (
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-primary" />
+                const row = (
+                  <div className={`px-3 py-2.5 ${fresh ? "bg-brand-primary/5" : ""}`}>
+                    <p className="flex items-center gap-2 text-sm font-medium text-brand-primary">
+                      {fresh ? (
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-primary" />
+                      ) : null}
+                      <span className="min-w-0 truncate">{title}</span>
+                    </p>
+                    {body ? (
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">{body}</p>
                     ) : null}
-                    <span className="min-w-0 truncate">{title}</span>
-                  </p>
-                  {body ? (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{body}</p>
-                  ) : null}
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {timeAgo(n.created_at, locale)}
-                  </p>
-                </div>
-              );
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {timeAgo(n.created_at, locale)}
+                    </p>
+                  </div>
+                );
 
-              return (
-                <li key={n.id} className="border-b last:border-0 dark:border-white/10">
-                  {/* Only a link when the row has somewhere to go. A pointer
-                      cursor over something inert is a promise the app cannot
-                      keep. */}
-                  {n.href ? (
-                    <Link
-                      href={`/${locale}${n.href}`}
-                      onClick={() => setOpen(false)}
-                      className="block hover:bg-black/5 dark:hover:bg-white/5"
-                    >
-                      {row}
-                    </Link>
-                  ) : (
-                    row
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-            {t("لا توجد إشعارات بعد", "Nothing yet")}
-          </p>
-        )}
+                return (
+                  <li key={n.id} className="border-b last:border-0 dark:border-white/10">
+                    {/* Only a link when the row has somewhere to go. A pointer
+                        cursor over something inert is a promise the app cannot
+                        keep. */}
+                    {n.href ? (
+                      <Link
+                        href={`/${locale}${n.href}`}
+                        onClick={() => setOpen(false)}
+                        className="block hover:bg-black/5 dark:hover:bg-white/5"
+                      >
+                        {row}
+                      </Link>
+                    ) : (
+                      row
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              {t("لا توجد إشعارات بعد", "Nothing yet")}
+            </p>
+          )}
 
-        {/* The switch lives with the list rather than in Settings: this is
-            where somebody is when they think "I want to know about these". */}
-        <PushToggle locale={locale} audience={audience} vendorId={vendorId} />
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {/* The switch lives with the list rather than in Settings: this is
+              where somebody is when they think "I want to know about these". */}
+          <PushToggle locale={locale} audience={audience} vendorId={vendorId} />
+          </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }

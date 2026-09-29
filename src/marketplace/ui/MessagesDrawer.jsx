@@ -39,8 +39,8 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, ArrowRight, Download, Loader2, MessageSquare, Paperclip, Search,
-  Send, Smile, Store, X,
+  ArrowLeft, ArrowRight, Check, CheckCheck, Download, Loader2, MessageSquare,
+  Paperclip, Search, Send, Smile, Store, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,16 +50,10 @@ import { errorText } from "@/marketplace/lib/errors";
 import { localized } from "@/marketplace/lib/listing";
 import { matches } from "@/marketplace/lib/search";
 import { useActionResult } from "@/marketplace/ui/useActionResult";
-import { sendMessage, markConversationRead, signalTyping } from "@/marketplace/actions/messages";
+import { sendMessage, markConversationRead } from "@/marketplace/actions/messages";
 
 const INITIAL = { ok: false, error: null };
 
-/* How long an indicator stays up after the last signal, and how often we send
-   one. TTL is comfortably the longer of the two, so a continuous typist never
-   flickers — and a typist who walks away disappears about four seconds later
-   without anything having to be sent. */
-const TYPING_TTL = 4000;
-const TYPING_EVERY = 2500;
 
 /* A picture is shown in the bubble; everything else is a link that downloads.
    The test is the stored mime rather than the extension, because the extension
@@ -138,6 +132,11 @@ export default function MessagesDrawer({
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(true);
+  /* When the OTHER side last opened this thread. Every message I sent before
+     that moment has been read; everything after it has not. One timestamp
+     rather than a receipt per message — see the MESSAGES section of
+     schema.sql, which stores read state per SIDE for exactly that reason. */
+  const [theirReadAt, setTheirReadAt] = useState(null);
 
   const [draft, setDraft] = useState("");
   const [files, setFiles] = useState([]);
@@ -155,21 +154,10 @@ export default function MessagesDrawer({
      attachment gets, which still downloads. */
   const [broken, setBroken] = useState(() => new Set());
 
-  /* ── The other side is typing ────────────────────────────────
-     A timestamp rather than a boolean, and it EXPIRES on this clock. A "stopped
-     typing" signal that never arrives — a closed tab, a dropped socket, a
-     refused broadcast — would otherwise leave the indicator on for ever, which
-     is the classic way this feature goes wrong. Nothing has to arrive for it to
-     switch off. */
-  const [typingAt, setTypingAt] = useState(0);
-  const [, setTick] = useState(0);
 
   const fileInput = useRef(null);
   const bottom = useRef(null);
   const textarea = useRef(null);
-  /* When we last TOLD the other side. The action is a server round trip, so it
-     is throttled here rather than fired per keystroke — see signalTyping. */
-  const toldAt = useRef(0);
 
   const unread = useMemo(() => new Map(unreadPairs), [unreadPairs]);
 
@@ -186,10 +174,6 @@ export default function MessagesDrawer({
 
   const seen = useActionResult(markConversationRead, INITIAL, { autoClearMs: 0 });
 
-  /* Its result is never read and its errors are never shown: a refused typing
-     signal is not worth a line in somebody's chat window, and the send itself
-     will refuse for the same reason a moment later. */
-  const typing = useActionResult(signalTyping, INITIAL, { autoClearMs: 0 });
 
   /* ── Reading the thread ────────────────────────────────────────────────────
      `quiet` skips the spinner. A refetch caused by an arriving message must not
@@ -214,6 +198,7 @@ export default function MessagesDrawer({
         const data = await res.json();
         setReady(data.ready !== false);
         setItems(Array.isArray(data.items) ? data.items : []);
+        setTheirReadAt(data.theirReadAt ?? null);
       } catch {
         // Keep whatever is on screen rather than emptying a conversation
         // because one fetch failed.
@@ -228,9 +213,34 @@ export default function MessagesDrawer({
     if (open && active) load();
   }, [open, active, load]);
 
-  /* Opening a thread is reading it. Fired from the effect rather than the click
-     so it also covers the admin switching between showrooms, and it is
-     idempotent — one column, one timestamp. */
+  /* ── The newest thing THEY said ───────────────────────────────────────
+     Not a count and not the array: the id of the last message from the other
+     side. It is what the mark-read effect below watches, and it changes only
+     when something actually arrives from them — so my own sends, a search
+     narrowing the list, and a refetch that returns the same thread all leave
+     it alone. */
+  const lastTheirs = useMemo(() => {
+    for (let i = items.length - 1; i >= 0; i -= 1) {
+      if (items[i]?.sender !== side) return items[i]?.id ?? null;
+    }
+    return null;
+  }, [items, side]);
+
+  /* Opening a thread is reading it — and so is having it open when something
+     arrives.
+
+     Fired from an effect rather than the click so it also covers the admin
+     switching between showrooms, and it is idempotent: one column, one
+     timestamp.
+
+     ── Why `lastTheirs` is in the dependencies ─────────────────────────
+     Without it this ran once per opening, which left the thread UNREAD in the
+     database for as long as somebody sat watching it. Two things were wrong
+     with that: the badge came back the moment the drawer closed, on messages
+     that had been read as they landed; and the sender's ticks never turned
+     green until the reader closed and reopened. Both are the same bug — a
+     thread on screen is a thread being read, which is what every messenger
+     means by read. */
   useEffect(() => {
     if (!open || !active) return;
 
@@ -245,26 +255,14 @@ export default function MessagesDrawer({
     startTransition(() => seen.formAction(fd));
     // `seen` is a stable action runner; re-running on its identity would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, active]);
+  }, [open, active, lastTheirs]);
 
-  /* ── Expiring the indicator ───────────────────────────────
-     A second's tick, and ONLY while something is showing. `typingAt` is compared
-     against the clock during render, so without a re-render the indicator would
-     sit there until the next message arrived — and a permanent interval would be
-     a timer running all day in a drawer nobody has opened. */
-  useEffect(() => {
-    if (!typingAt) return;
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [typingAt]);
-
-  const showTyping = typingAt > 0 && Date.now() - typingAt < TYPING_TTL;
 
   // Newest message in view, the way every thread behaves.
   useEffect(() => {
     if (!open) return;
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [items, open, showTyping]);
+  }, [items, open]);
 
   /* ── The socket ───────────────────────────────────────────────────────────
      One topic per side, both of which already have a policy (schema.sql §21.7
@@ -297,21 +295,13 @@ export default function MessagesDrawer({
 
       channel = supabase
         .channel(topic, { config: { private: true } })
-        /* ── …is typing ────────────────────────────────────
-           Ignored when it is our own side's — an admin's own typing comes back
-           on the admin topic, and showing a person their own indicator is the
-           kind of bug that is funny once.
-
-           On the admin side a vendorId rides along, so typing in one showroom's
-           thread does not put "typing…" on another's. */
-        .on("broadcast", { event: "message_typing" }, ({ payload }) => {
-          if (payload?.side === side) return;
-          if (side === "admin" && payload?.vendorId && payload.vendorId !== picked) return;
-          setTypingAt(Date.now());
+        /* They opened the thread. Only the ticks change, so this refetches
+           quietly and does not touch the server — a read receipt is not worth
+           re-rendering a route for. */
+        .on("broadcast", { event: "message_read" }, () => {
+          load({ quiet: true });
         })
         .on("broadcast", { event: "message_new" }, () => {
-          // Whatever they were typing, they have sent it.
-          setTypingAt(0);
           /* Two things, and they are different: the open thread reloads, and
              the server re-renders so the badge and the conversation list move
              for somebody who is NOT looking at this thread. */
@@ -402,26 +392,10 @@ export default function MessagesDrawer({
     fd.set("body", draft);
     for (const file of files) fd.append("files", file);
 
-    toldAt.current = 0;
     send.dismiss();
     startTransition(() => send.formAction(fd));
   };
 
-  /* Called on every keystroke and sent at most once per TYPING_EVERY. The
-     receiver's indicator lasts TYPING_TTL, which is longer, so a continuous
-     typist keeps it alight with roughly one request every three seconds rather
-     than one per character. */
-  const announceTyping = () => {
-    if (!active) return;
-
-    const now = Date.now();
-    if (now - toldAt.current < TYPING_EVERY) return;
-    toldAt.current = now;
-
-    const fd = new FormData();
-    if (named) fd.set("vendorId", named);
-    startTransition(() => typing.formAction(fd));
-  };
 
   const insertEmoji = (glyph) => {
     setDraft((d) => d + glyph);
@@ -749,8 +723,38 @@ export default function MessagesDrawer({
                           </div>
                         ) : null}
 
-                        <p className={`mt-1 text-[10px] tabular-nums ${mine ? "opacity-70" : "text-muted-foreground"}`}>
+                        {/* ── Sent, and read ───────────────────────────
+                            On MY messages only: a tick on something the other
+                            side sent would be telling them what they already
+                            know.
+
+                            Two states, not three. A single tick means it is on
+                            the server, a double green one means the other side
+                            has opened the thread since. There is deliberately no
+                            "delivered" in between — nothing here observes a
+                            phone receiving anything, and a tick that claimed
+                            otherwise would be decoration pretending to be
+                            information. */}
+                        <p
+                          className={`mt-1 flex items-center gap-1 text-[10px] tabular-nums ${
+                            mine ? "justify-end opacity-80" : "text-muted-foreground"
+                          }`}
+                        >
                           {when(m.created_at)}
+
+                          {mine ? (
+                            theirReadAt && Date.parse(theirReadAt) > Date.parse(m.created_at) ? (
+                              <CheckCheck
+                                className="h-3.5 w-3.5 shrink-0 text-green-300"
+                                aria-label={t("تمت قراءتها", "Read")}
+                              />
+                            ) : (
+                              <Check
+                                className="h-3.5 w-3.5 shrink-0 opacity-70"
+                                aria-label={t("أُرسلت", "Sent")}
+                              />
+                            )
+                          ) : null}
                         </p>
                       </div>
                     </div>
@@ -758,29 +762,6 @@ export default function MessagesDrawer({
                 })
               )}
 
-              {/* ── …is typing ─────────────────────────────────
-                  In the flow rather than floating over it, so the thread scrolls
-                  to it the way it scrolls to a message — an indicator hidden
-                  below the fold is one nobody sees. Three dots on the same
-                  staggered delay every chat uses. */}
-              {showTyping ? (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-1 rounded-2xl rounded-es-sm bg-gray-100 px-3 py-2.5 dark:bg-white/10">
-                    {[0, 150, 300].map((delay) => (
-                      <span
-                        key={delay}
-                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/70"
-                        style={{ animationDelay: `${delay}ms` }}
-                      />
-                    ))}
-                    <span className="ms-1.5 text-[11px] text-muted-foreground">
-                      {side === "admin"
-                        ? t("المعرض يكتب…", "The showroom is typing…")
-                        : t("فريق المنصة يكتب…", "The platform team is typing…")}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
 
               <div ref={bottom} />
             </div>
@@ -878,10 +859,7 @@ export default function MessagesDrawer({
                 <textarea
                   ref={textarea}
                   value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    announceTyping();
-                  }}
+                  onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
                     /* Enter sends, Shift+Enter is a new line — what every chat
                        does, and the reason the field is a textarea rather than

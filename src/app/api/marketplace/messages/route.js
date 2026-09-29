@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getViewer } from '@/marketplace/auth/session';
-import { listMessages, unreadCounts } from '@/marketplace/db/queries/messages';
+import { getConversation, listMessages, unreadCounts } from '@/marketplace/db/queries/messages';
 
 /**
  * One showroom's thread, for the drawer.
@@ -50,10 +50,25 @@ export async function GET(request) {
 
   const side = isStaff ? 'admin' : 'vendor';
 
-  const [thread, unread] = await Promise.all([
+  const [thread, unread, conversation] = await Promise.all([
     listMessages(vendorId, { search, limit: 200 }),
     unreadCounts(side, vendorId),
+    getConversation(vendorId),
   ]);
+
+  /* ── When the OTHER side last looked ───────────────────────────
+     One timestamp, and it is all the ticks need: a message I sent has been read
+     if this moment is later than the moment I sent it. Per-message receipts
+     would be a row per message per reader for a fact that is already implied by
+     one column — see the MESSAGES section of schema.sql, which stores read
+     state per SIDE for exactly that reason.
+
+     Only the other side's is sent. Mine says when I last opened the thread and
+     is nobody else's business, least of all a client's. */
+  const theirReadAt =
+    side === 'admin'
+      ? (conversation.conversation?.vendor_read_at ?? null)
+      : (conversation.conversation?.admin_read_at ?? null);
 
   return NextResponse.json(
     {
@@ -62,6 +77,7 @@ export async function GET(request) {
       vendorId,
       items: thread.items,
       unread: unread.total,
+      theirReadAt,
     },
     // A conversation is the last thing that should ever be served from a cache.
     { headers: { 'Cache-Control': 'no-store, private' } }
