@@ -21,26 +21,14 @@ import { notificationText } from '@/marketplace/lib/notifications';
  *
  * So the caller does not await this, and everything inside is caught.
  *
- * ── Language ────────────────────────────────────────────────────────────────
+ * ── Language ────────────────────────────────────────────────────────
  *
  * The payload carries the finished sentence, because a service worker has no
  * session and cannot look anything up (see public/sw.js). Which language that
- * sentence is in is therefore decided HERE, at send time.
- *
- * It used to be hardcoded 'ar', with a comment calling that "the platform's own
- * default". It was not: the platform's default lives in
- * site_settings.default_locale, an admin sets it, and on this deployment it is
- * English — so every push arrived in Arabic on a dashboard whose every label was
- * English. A hardcoded language is a setting nobody can change.
- *
- * Resolved per RECIPIENT, in the order that knows most about them:
- *
- *   a showroom   its own Store settings → the platform's → Arabic
- *   the platform the platform's → Arabic
- *
- * 'both' is an authoring choice, not a reading one — a notification is one
- * sentence and cannot be in two languages — so it falls through to the next
- * answer rather than being treated as a language.
+ * sentence is in is therefore decided HERE, at send time — and it comes from
+ * `site_languages`, the table that records which language this site defaults
+ * to. readLocale() below says at length why that took three attempts to get
+ * right, and which two columns it was reading instead.
  */
 
 let configured = null;
@@ -76,51 +64,68 @@ const oneLanguage = (value) => (value === 'ar' || value === 'en' ? value : null)
 /**
  * Which language this notification should be written in.
  *
- * Two small reads, on a path that already runs after the response and is
- * allowed to fail quietly — a push in the wrong language is better than no
- * push, so every step falls through rather than throwing.
+ * ── It was reading the wrong column, twice ─────────────────────────
+ *
+ * This used to resolve the language from `site_settings.default_locale`, and
+ * from `vendors.settings.default_locale` for a showroom. Both are AUTHORING
+ * preferences — the schema says so in as many words: "how the admin WRITES.
+ * 'ar' or 'en' shows one box per bilingual field; 'both' shows one box plus a
+ * popup holding both languages." They answer "which editor do I want", not
+ * "which language do I read".
+ *
+ * The stored values proved it. This deployment has both set to 'both', which is
+ * a legal authoring choice and not a language at all — so the guard above
+ * turned it into null and this fell through to a hardcoded 'ar'. Every push
+ * went out in Arabic on a platform whose site default is English, and no
+ * setting an admin could reach would have changed it.
+ *
+ * The site's reading language lives in `site_languages`: one row per language,
+ * `enabled`, and exactly one `is_default`, enforced by a unique index. That is
+ * the column that means what this function needs, and nothing was reading it.
+ *
+ * ── `profiles.locale` is not a choice either ────────────────────
+ *
+ * A buyer's row was read first, with a comment calling it "which language they
+ * chose when they signed up". Nothing in this application has ever written that
+ * column — its only writer is the handle_new_user trigger, which defaults it to
+ * 'ar' for everybody. Honouring it meant honouring a value its owner never
+ * expressed, and it is why buyers were the most reliably wrong.
+ *
+ * So it is not read. The day a profile carries a language the person actually
+ * picked, put it back at the top of this function; until then the site default
+ * is the only honest answer for every audience.
+ *
+ * One read, of the one table that records it. It runs after the response and is
+ * allowed to fail quietly — a push in the wrong language is better than no push
+ * — so it falls through rather than throwing.
+ *
+ * The audience arguments stay in the signature: they are what a per-person or
+ * per-showroom reading preference would key off the day one exists, and
+ * dropping them would mean editing every caller to put them back.
  */
 async function readLocale(db, audience, vendorId, userId = null) {
-  let platform = null;
-
   try {
     const { data } = await db
-      .from('site_settings')
-      .select('default_locale')
-      .eq('id', true)
+      .from('site_languages')
+      .select('code')
+      .eq('is_default', true)
+      .eq('enabled', true)
       .maybeSingle();
-    platform = oneLanguage(data?.default_locale);
+
+    const chosen = oneLanguage(data?.code);
+    if (chosen) return chosen;
   } catch {
-    // The column arrives with the WEBSITE CONTENT section; without it the
-    // platform simply has no stated preference.
+    // The table arrives with the WEBSITE CONTENT section. Without it the
+    // platform has not stated a language, and the fallback below stands.
   }
 
-  if (audience === 'buyer' && userId) {
-    try {
-      const { data } = await db.from('profiles').select('locale').eq('id', userId).maybeSingle();
-      // A buyer is one person and their profile says which language they chose
-      // when they signed up — the most specific answer there is.
-      const own = oneLanguage(data?.locale);
-      if (own) return own;
-    } catch {
-      // No profile row yet. The platform's answer still stands.
-    }
-  }
-
-  if (audience === 'vendor' && vendorId) {
-    try {
-      const { data } = await db.from('vendors').select('settings').eq('id', vendorId).maybeSingle();
-      const own = oneLanguage(data?.settings?.default_locale);
-      // The showroom's own choice outranks the platform's — it is their staff
-      // reading it.
-      if (own) return own;
-    } catch {
-      // No settings, or an old shape. The platform's answer still stands.
-    }
-  }
-
-  return platform ?? 'ar';
+  /* Only reached where site_languages is missing or has no enabled default —
+     both of which the schema's seed and its unique index make impossible on a
+     normal install. 'ar' rather than 'en' because that is what the seed marks
+     as default, so an unconfigured database behaves like a freshly seeded one. */
+  return 'ar';
 }
+
 
 /**
  * Push one recorded notification to every device of its audience.
