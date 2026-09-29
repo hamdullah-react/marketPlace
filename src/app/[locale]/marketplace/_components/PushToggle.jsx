@@ -511,7 +511,7 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
         </button>
       ) : null}
 
-      {/* ── The one route to a horn on a LOCKED phone ────────────────────
+      {/* ── The one route to OUR sound on a LOCKED phone ─────────────
           A push arriving on a locked phone is drawn by the operating system,
           not by this site: a service worker has no audio API at all, and the
           Notification API's `sound` property was removed from the spec years
@@ -519,22 +519,21 @@ export default function PushToggle({ locale = "ar", audience = "vendor", vendorI
           is set to — and that is the phone owner's setting, which they can
           point at any file they like.
 
-          This is that file: the same horn, trimmed to its three beeps with the
-          leading silence removed, so it fires the instant the notification
-          lands rather than half a second later.
+          This is that file: the same chime the dashboard plays, so the phone
+          and the laptop make one sound rather than two unrelated ones.
 
           Android only. iOS has no per-site notification sound at all. */}
       {granted && registered && isAndroid() ? (
         <a
-          href="/sounds/horn-notification.wav"
-          download="car-horn.wav"
+          href="/sounds/smile.mp3"
+          download="sauda-notification.mp3"
           className="mt-1 flex w-full items-start gap-2 rounded-lg px-1 py-1 text-start text-[11px] text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
         >
           <Download className="mt-0.5 h-3 w-3 shrink-0" />
           <span>
             {t(
-              "للحصول على صوت البوق والجوال مقفل: نزّل هذا الملف، ثم اضغط مطولاً على أي إشعار ← الإعدادات ← الصوت، واختره.",
-              "For the horn while your phone is locked: download this, then long-press any notification → Settings → Sound, and pick it."
+              "لسماع هذا الصوت والجوال مقفل: نزّل الملف، ثم اضغط مطولاً على أي إشعار ← الإعدادات ← الصوت، واختره.",
+              "For this sound while your phone is locked: download it, then long-press any notification → Settings → Sound, and pick it."
             )}
           </span>
         </a>

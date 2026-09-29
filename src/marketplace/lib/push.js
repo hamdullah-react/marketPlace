@@ -143,25 +143,81 @@ export async function pushNotification({
 
   const db = getMarketplaceDb();
 
-  let query = db
-    .from('push_subscriptions')
-    .select('endpoint, p256dh, auth')
-    .eq('audience', audience);
+  /* ── Who this message is for, as DEVICES ─────────────────────────
+     Two sources, added together and de-duplicated by endpoint.
 
-  /* A showroom's devices belong to the showroom; a buyer's belong to the
-     person. Addressing one by the other's key would push a buyer's message to
-     a showroom's desk. */
-  if (audience === 'vendor') query = query.eq('vendor_id', vendorId);
-  else if (audience === 'buyer') query = query.eq('user_id', userId);
+     The first is the old shape: a row filed under one audience, matched
+     exactly. Those still work and are still the only thing a device that
+     subscribed before this change has.
 
-  const { data: devices, error } = await query;
+     The second is the one that fixes the phone that stayed silent. A device
+     registered as 'all' belongs to a PERSON, and whether it should receive
+     this message is decided here, now, by asking the same questions every
+     guard in the schema asks: is its owner a member of this showroom, is its
+     owner staff. Nothing is copied onto the subscription row, so a salesperson
+     who leaves a showroom stops receiving its messages on the next send rather
+     than whenever somebody remembers to delete a row. */
+  const legacy = db.from('push_subscriptions').select('endpoint, p256dh, auth').eq('audience', audience);
+  if (audience === 'vendor') legacy.eq('vendor_id', vendorId);
+  else if (audience === 'buyer') legacy.eq('user_id', userId);
 
-  if (error) {
+  /** The people entitled to this message, or null when it cannot be answered. */
+  const entitled = async () => {
+    if (audience === 'buyer') return userId ? [userId] : [];
+
+    if (audience === 'vendor') {
+      if (!vendorId) return [];
+      const { data } = await db.from('vendor_members').select('user_id').eq('vendor_id', vendorId);
+      return (data ?? []).map((r) => r.user_id).filter(Boolean);
+    }
+
+    if (audience === 'admin') {
+      /* Staff as well as admin: the panel is open to both, so a notification
+         addressed to the platform is addressed to both. */
+      const { data } = await db.from('profiles').select('id').in('role', ['staff', 'admin']);
+      return (data ?? []).map((r) => r.id).filter(Boolean);
+    }
+
+    return [];
+  };
+
+  const people = await entitled();
+
+  const [own, shared] = await Promise.all([
+    legacy,
+    people.length
+      ? db
+          .from('push_subscriptions')
+          .select('endpoint, p256dh, auth')
+          .eq('audience', 'all')
+          .in('user_id', people)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (own.error) {
     // 42P01 — the WEB PUSH section has not been run. Everything else works.
-    console.warn('[push] no subscriptions read:', error.message);
+    console.warn('[push] no subscriptions read:', own.error.message);
     return { ok: false, error: 'SAVE_FAILED' };
   }
-  if (!devices?.length) return { ok: true, sent: 0 };
+
+  /* 23514 / 42703 on the second read means the ONE DEVICE section has not been
+     run yet: 'all' is not a legal audience there, so nothing is stored under it
+     and an empty answer is the truthful one. Not a reason to drop the message
+     the first read already found. */
+  if (shared.error) {
+    console.warn('[push] shared devices not read:', shared.error.message);
+  }
+
+  // One device can legitimately appear in both halves — an old row and a new
+  // one are two rows, but the same endpoint is one phone, and a duplicate send
+  // is a duplicate notification on it.
+  const byEndpoint = new Map();
+  for (const d of [...(own.data ?? []), ...(shared.data ?? [])]) {
+    if (d?.endpoint) byEndpoint.set(d.endpoint, d);
+  }
+
+  const devices = [...byEndpoint.values()];
+  if (!devices.length) return { ok: true, sent: 0 };
 
   const locale = await readLocale(db, audience, vendorId, userId);
   const { title, body } = notificationText(kind, data, { locale });
@@ -177,6 +233,7 @@ export async function pushNotification({
   });
 
   const dead = [];
+  const delivered = [];
 
   const results = await Promise.allSettled(
     devices.map((d) =>
@@ -186,6 +243,10 @@ export async function pushNotification({
           payload,
           { TTL: 60 * 60 * 24 }
         )
+        .then((res) => {
+          delivered.push(d.endpoint);
+          return res;
+        })
         .catch((err) => {
           /* 404 and 410 are the push service saying this address is gone for
              good — uninstalled, permission revoked, site data cleared. Any
@@ -212,8 +273,32 @@ export async function pushNotification({
       );
   }
 
+  /* ── The record this table never kept ─────────────────────────
+     `last_used_at` has existed since the WEB PUSH section and nothing has ever
+     written to it, so the honest answer to "are notifications arriving" was
+     that nobody could tell — a device that has never been delivered to looked
+     exactly like one that was delivered to a minute ago.
+
+     Stamped on SUCCESS only, and it claims no more than it knows: the push
+     service accepted the message. Whether a phone then displayed it is past the
+     last thing this server can see, and a column that implied otherwise would
+     be worse than none.
+
+     Its failure is swallowed. A stamp that cannot be written is a diagnostic
+     lost, not a notification lost, and the send has already happened. */
+  if (delivered.length) {
+    await db
+      .from('push_subscriptions')
+      .update({ last_used_at: new Date().toISOString() })
+      .in('endpoint', delivered)
+      .then(
+        () => {},
+        (err) => console.warn('[push] could not stamp delivery:', err?.message ?? err)
+      );
+  }
+
   const failed = results.filter((r) => r.status === 'rejected').length;
   if (failed) console.warn(`[push] ${failed}/${devices.length} sends failed.`);
 
-  return { ok: true, sent: devices.length - failed - dead.length, removed: dead.length };
+  return { ok: true, sent: delivered.length, failed, removed: dead.length };
 }

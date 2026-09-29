@@ -86,39 +86,43 @@ import { useOnChange } from "@/hooks/use-on-change";
  */
 let audioCtx = null;
 
-/* ── The real horn ─────────────────────────────────────────────────────────
-   A recording, with the synthesised pair below it as the fallback. Both are
+/* ── The notification sound ──────────────────────────────────
+   A recording, with the synthesised chime below it as the fallback. Both are
    kept on purpose: the file is the better sound and the synth is the one that
-   cannot fail, and a notification that makes no noise because a 51 KB asset
+   cannot fail, and a notification that makes no noise because a 33 KB asset
    404'd on a bad connection would be the same complaint all over again.
 
-   ── Why it is played from 0.45s ────────────────────────────────────────────
+   ── This was a car horn ────────────────────────────────────
 
-   Measured, not guessed: the file is 2.57s long and the first 0.451s of it are
-   SILENCE. Played from the start, pressing the button would do nothing for
-   almost half a second — which is exactly how a working sound gets reported as
-   broken. The horn itself runs 0.45s → 1.50s and the rest is silence again, so
-   only that slice is played.
+   It was chosen because a horn is the sound of the thing being sold, which is a
+   better argument about a marketplace than about the person hearing it forty
+   times a day: a horn is an ALARM, and an alarm is what somebody switches off.
+   It also came from a stock library whose licence was never confirmed, which is
+   a second reason not to keep shipping it.
 
-   Trimmed at playback rather than by re-encoding the file: no build step, and
-   the numbers sit next to the reason for them. */
-const HORN_URL = "/sounds/horn.mp3";
-const HORN_START = 0.45;
-const HORN_LENGTH = 1.1;
+   ── Played whole, not trimmed ────────────────────────────────
 
-let hornBuffer = null;
-let hornAsked = false;
+   The horn was played from 0.45s because its first 0.451 seconds were measured
+   silence, and starting at zero made a working sound feel broken. Those numbers
+   belonged to THAT file. This one is unmeasured — there was no decoder on the
+   machine that swapped it — so it plays in full rather than to a guess. If it
+   turns out to open with silence, measure the gap and put an offset back; a
+   wrong number here is worse than none. */
+const CHIME_URL = "/sounds/smile.mp3";
+
+let chimeBuffer = null;
+let chimeAsked = false;
 
 /** Fetched once, on the first gesture — never on page load. */
-function loadHorn(ctx) {
-  if (hornAsked || !ctx) return;
-  hornAsked = true;
+function loadChime(ctx) {
+  if (chimeAsked || !ctx) return;
+  chimeAsked = true;
 
-  fetch(HORN_URL)
+  fetch(CHIME_URL)
     .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(String(res.status)))))
     .then((bytes) => ctx.decodeAudioData(bytes))
     .then((buf) => {
-      hornBuffer = buf;
+      chimeBuffer = buf;
     })
     .catch(() => {
       // Offline, blocked, missing, or a browser that cannot decode it. The
@@ -204,74 +208,69 @@ export function unlockAudio() {
     }
 
     // The gesture that unlocks the sound is also the moment to go and get it.
-    loadHorn(audioCtx);
+    loadChime(audioCtx);
   } catch {
     // No Web Audio, or a policy that refuses outright. The badge still counts.
   }
 }
 
 /**
- * A car horn, synthesised rather than shipped.
+ * The fallback chime, synthesised rather than shipped.
  *
- * ── Why a horn, and why it is still made of three numbers ───────────────────
+ * It used to be a car horn: two sawtooth tones a minor third apart through a
+ * lowpass — acoustically a decent horn, and the wrong thing to make somebody
+ * hear forty times a day. A horn is an alarm, and an alarm is what people
+ * switch off, which is the opposite of what a notification wants.
  *
- * This was a rising two-note chime, which is the sound every web app makes. A
- * horn is the sound of the thing being sold, and on a screen full of cars it is
- * recognised before it is understood.
+ * So it is a chime again, and the argument for having a synth at all is
+ * unchanged: it is the sound that cannot fail. No network, no cache entry and
+ * no decode, so the very first notification — the one that arrives while the
+ * mp3 is still downloading — is never silent.
  *
- * Still no audio file. An mp3 would be a network request, a cache entry and a
- * deploy asset for half a second of sound — and a horn is, acoustically, two
- * detuned tones and a filter. What makes it read as a HORN rather than a beep
- * is the interval: a real car horn is two notes a minor third apart sounding
- * together, which is why one tone alone sounds like an alarm clock.
+ * ── What makes it read as "look here" rather than "something is wrong" ──
  *
- * Sawtooth rather than sine, because a horn is a reed and a sine is a whistle.
- * The lowpass takes the top off it so a laptop speaker does not turn the
- * harmonics into fizz.
+ * A RISING pair. Two notes going up is an arrival; going down is a failure,
+ * which is why every error sound falls. A perfect fourth (A5 to D6) rather than
+ * a third: wide enough to be deliberate, consonant enough not to grate on the
+ * fiftieth time.
  *
- * Two blasts, short then slightly longer — the way somebody actually taps a
- * horn. One long note reads as a fault; two taps read as "look here".
+ * Triangle rather than sawtooth, because a chime is a struck bar and a sawtooth
+ * is a reed — and gentler on a laptop speaker, which turns sawtooth harmonics
+ * into fizz. The lowpass stays for the same reason, lower now.
  *
  * Silent when the context was never unlocked, which is the correct outcome for
  * a page nobody has touched — not a bug to work around.
  */
-function blast(ctx, at, length) {
-  // A minor third, the classic pairing: 440 Hz with 370 Hz under it.
-  const tones = [440, 370];
-
-  // One filter and one gain for the pair, so they sound like a single horn
-  // rather than two instruments that happen to agree.
+function blast(ctx, at, length, freq) {
   const filter = ctx.createBiquadFilter();
   filter.type = "lowpass";
-  filter.frequency.value = 2600;
+  filter.frequency.value = 2000;
 
   const vol = ctx.createGain();
 
-  /* The envelope IS the character. A horn starts almost instantly (a reed
-     under pressure), holds flat, and stops — no long tail. The ramps exist
-     because a square-edged gate on a tone is an audible click at both ends. */
+  /* The envelope IS the character. A struck bar starts instantly and DECAYS —
+     no flat hold, which is what made the horn sound like a horn. The ramps also
+     exist because a square-edged gate on a tone is an audible click. */
   vol.gain.setValueAtTime(0, at);
-  vol.gain.linearRampToValueAtTime(0.2, at + 0.012);
-  vol.gain.setValueAtTime(0.2, at + length - 0.03);
+  vol.gain.linearRampToValueAtTime(0.16, at + 0.008);
   vol.gain.exponentialRampToValueAtTime(0.0001, at + length);
 
   filter.connect(vol).connect(ctx.destination);
 
-  for (const freq of tones) {
-    const osc = ctx.createOscillator();
-    osc.type = "sawtooth";
-    osc.frequency.value = freq;
-    osc.connect(filter);
-    osc.start(at);
-    osc.stop(at + length + 0.02);
-  }
+  const osc = ctx.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.value = freq;
+  osc.connect(filter);
+  osc.start(at);
+  osc.stop(at + length + 0.02);
 }
 
 /** The two synthesised taps, scheduled from wherever the clock is NOW. */
 function synth(ctx) {
   const now = ctx.currentTime;
-  blast(ctx, now, 0.16);
-  blast(ctx, now + 0.24, 0.26);
+  // A5 then D6 — a perfect fourth up, the second ringing longer.
+  blast(ctx, now, 0.18, 880);
+  blast(ctx, now + 0.13, 0.32, 1174.66);
 }
 
 /**
@@ -282,22 +281,21 @@ function synth(ctx) {
  * making the first notification silent while 51 KB loads would trade a small
  * difference in timbre for the one failure this whole thing exists to avoid.
  */
-function honk(ctx) {
-  if (!hornBuffer) {
+function chime(ctx) {
+  if (!chimeBuffer) {
     synth(ctx);
     return;
   }
 
   const source = ctx.createBufferSource();
-  source.buffer = hornBuffer;
+  source.buffer = chimeBuffer;
 
-  // The file peaks at 0.327, so a little gain brings it up to roughly where
-  // the synthesised version sits rather than being noticeably quieter.
-  const vol = ctx.createGain();
-  vol.gain.value = 1.6;
-
-  source.connect(vol).connect(ctx.destination);
-  source.start(0, HORN_START, HORN_LENGTH);
+  /* Unity gain. The horn was lifted 1.6× because its peak had been MEASURED at
+     0.327; this file's peak is unmeasured, and multiplying an unknown is how a
+     notification becomes a fright. Turn it up once somebody has heard it and
+     said it is quiet. */
+  source.connect(ctx.destination);
+  source.start(0);
 }
 
 /* When the last horn sounded, so one event cannot produce two. */
@@ -318,7 +316,7 @@ export function ting() {
   lastHonk = now;
 
   /* ── The buzz comes first, and outside everything ──────────────────────
-     It used to live inside honk(), which meant it only happened when a sound
+     It used to live inside chime(), which meant it only happened when a sound
      was ALREADY about to play — so in every case where audio was impossible
      there was no cue at all. That is backwards: the moment audio cannot play
      is exactly the moment a buzz is the only thing left.
@@ -361,7 +359,7 @@ export function ting() {
        Scheduling from INSIDE the resolve means currentTime is real by then. */
     if (ctx.state === "suspended") {
       ctx.resume().then(
-        () => honk(ctx),
+        () => chime(ctx),
         () => {
           // Refused — no gesture, or an autoplay policy. Silence is the only
           // option and the notification itself has still arrived.
@@ -370,7 +368,7 @@ export function ting() {
       return;
     }
 
-    honk(ctx);
+    chime(ctx);
   } catch {
     // A blocked or unavailable AudioContext is not a reason to lose the badge.
   }

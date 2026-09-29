@@ -108,14 +108,56 @@ export async function subscribeToPush(prevState, formData) {
 
   const userAgent = String(formData.get('userAgent') ?? '').slice(0, 300) || null;
 
+  /* resolveAudience still runs, and not for the row it used to build: it is the
+     check that this person may subscribe at all, and it refuses somebody asking
+     to receive a showroom's notifications who does not belong to it. The ANSWER
+     is discarded — see below. */
   const who = await resolveAudience(formData);
   if (who.error) return bad(who.error);
 
-  const row = { audience: who.audience, vendor_id: who.vendorId, user_id: who.userId };
+  /* ── 'all', not the audience they happened to ask for ──────────────
+     The endpoint is the primary key, so a device could hold exactly one
+     audience — whichever dashboard was open when the person allowed
+     notifications. One phone, one hat, for ever.
 
-  const { error } = await getMarketplaceDb()
+     That is wrong about how these accounts are used: the same person is a buyer
+     on the public site and a salesperson in a showroom, on the same phone, and
+     filing it as 'buyer' meant it stayed silent through every message addressed
+     to their showroom. It is exactly what had happened here.
+
+     So a subscription now records the PERSON, and what they are entitled to is
+     resolved when a message is sent — through vendor_members and profiles.role,
+     the same questions every guard in the schema asks. A device therefore gains
+     a showroom's notifications when its owner joins one and loses them when the
+     membership goes, with nothing to remember to update.
+
+     See the ONE DEVICE, EVERY HAT section of schema.sql. */
+  const row = { audience: 'all', vendor_id: null, user_id: who.userId };
+
+  let { error } = await getMarketplaceDb()
     .from('push_subscriptions')
     .upsert({ ...row, endpoint, p256dh, auth, user_agent: userAgent }, { onConflict: 'endpoint' });
+
+  /* 23514 — the check constraint has not learned 'all' yet, because that
+     section of schema.sql has not been run here. Falling back to the audience
+     they asked for keeps subscribing working exactly as it did before, which is
+     better than refusing the permission a person has just granted. */
+  if (error?.code === '23514') {
+    ({ error } = await getMarketplaceDb()
+      .from('push_subscriptions')
+      .upsert(
+        {
+          audience: who.audience,
+          vendor_id: who.vendorId,
+          user_id: who.userId,
+          endpoint,
+          p256dh,
+          auth,
+          user_agent: userAgent,
+        },
+        { onConflict: 'endpoint' }
+      ));
+  }
 
   if (error) {
     console.warn('[push] subscribe failed:', error.message);

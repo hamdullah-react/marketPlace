@@ -6722,3 +6722,87 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  ONE DEVICE, EVERY HAT ITS OWNER WEARS
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  A push subscription used to be filed under ONE audience, chosen by whichever
+--  dashboard happened to be open when the person allowed notifications. The
+--  endpoint is the primary key, so a second audience could not be added beside
+--  it — it would overwrite the first.
+--
+--  That is wrong about how these accounts are actually used. One person is a
+--  buyer on the public site, a salesperson in a showroom, and sometimes staff;
+--  and the device in their pocket is the same device for all three. Filed as
+--  'buyer', it never received a single message addressed to their showroom —
+--  which is precisely what happened here: the only phone subscribed on this
+--  platform was registered as a buyer and stayed silent through every seller
+--  notification.
+--
+--  ── 'all' does not mean "everything" ───────────────────────────────────────
+--
+--  It means "whatever this PERSON is entitled to, decided when the message is
+--  sent". Not a wildcard: the send resolves the audience through
+--  vendor_members and profiles.role exactly as every guard in this schema does,
+--  so a device receives a showroom's messages because its owner is a member of
+--  that showroom — and stops the moment the membership is revoked.
+--
+--  That is the same argument §17 makes about roles: "vendor is not really a
+--  value of profiles.role — it is a MEMBERSHIP", and a membership copied onto
+--  another row is a membership that can be stale. Nothing is copied here.
+--
+--  ── The old rows still work ────────────────────────────────────────────────
+--
+--  'vendor', 'admin' and 'buyer' remain valid and are still matched exactly, so
+--  a device that subscribed before this change keeps receiving what it always
+--  did. New subscriptions are 'all'. Nothing has to be migrated, and a device
+--  moves over by simply allowing notifications again.
+
+alter table push_subscriptions drop constraint if exists push_subscriptions_audience_check;
+alter table push_subscriptions add constraint push_subscriptions_audience_check
+  check (audience in ('vendor', 'admin', 'buyer', 'all'));
+
+-- An 'all' row is addressed to a PERSON and to nothing else: no vendor_id,
+-- because which showrooms they belong to is a question asked at send time
+-- rather than an answer frozen here.
+alter table push_subscriptions drop constraint if exists push_subscriptions_audience_shape;
+alter table push_subscriptions add constraint push_subscriptions_audience_shape
+  check (
+    (audience = 'vendor' and vendor_id is not null) or
+    (audience = 'buyer'  and user_id is not null and vendor_id is null) or
+    (audience = 'admin'  and vendor_id is null) or
+    (audience = 'all'    and user_id is not null and vendor_id is null)
+  );
+
+-- The send reads "every device belonging to these people", so the user column
+-- stops being a detail and becomes the lookup. The index already exists; this
+-- is the partial one that keeps the common path off the legacy rows.
+create index if not exists push_subscriptions_all_idx
+  on push_subscriptions (user_id) where audience = 'all';
+
+-- ── Was it actually delivered? ──────────────────────────────────────────────
+--
+-- `last_used_at` has existed since the WEB PUSH section and nothing has ever
+-- written to it, which meant the honest answer to "are pushes arriving" was
+-- that nobody could tell. It is stamped on every successful send now, so a
+-- device that has never received anything is distinguishable from one that
+-- received something an hour ago — the difference between a delivery problem
+-- and a subscription problem, which is a day of guessing either way.
+--
+-- Deliberately only on SUCCESS. A push service accepting the request is not
+-- proof a phone displayed it, and this column does not claim to be: it says the
+-- message left here and was accepted, which is the last thing this server can
+-- honestly know.
+
+do $$
+declare
+  n int;
+  quiet int;
+begin
+  select count(*), count(*) filter (where last_used_at is null)
+    into n, quiet from push_subscriptions;
+  raise notice 'Web push: % device(s), % of which have never been delivered to.', n, quiet;
+end $$;
+
+notify pgrst, 'reload schema';
