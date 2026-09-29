@@ -88,24 +88,17 @@ export default function PushTrouble({ push, locale = "ar", compact = false }) {
         </button>
       </div>
 
-      {/* ── The gap between this and WhatsApp, named ─────────────────
-          Android gives an INSTALLED app a notification channel, an entry in the
-          app list and background wake-ups that survive the browser being swiped
-          away. The identical site in a tab gets none of that, and is the first
-          thing the system stops when it wants memory.
+      {/* ── What is NOT said here ──────────────────────
+          This panel used to end with "install the site to your home screen for
+          notifications that behave like a phone app". True, and removed.
 
-          Said here rather than in a help page because this is the moment
-          somebody is actually trying to make notifications work. Android only:
-          iPhone has its own sentence, and it is already shown instead of this
-          whole panel. */}
-      {!push.installed && typeof navigator !== "undefined" && /Android/.test(navigator.userAgent) ? (
-        <p className="mt-2 border-t border-red-200 pt-2 text-[11px] text-red-700/80 dark:border-red-900 dark:text-red-300/80">
-          {t(
-            "الموقع يعمل الآن داخل تبويب متصفح. للحصول على إشعارات مثل تطبيقات الجوال: القائمة (⋮) ← «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»، ثم افتحه من الأيقونة وفعّل الإشعارات من هناك.",
-            "This is running in a browser tab. For notifications that behave like a phone app: menu (⋮) → “Install app” or “Add to Home screen”, then open it from the icon and turn notifications on there."
-          )}
-        </p>
-      ) : null}
+          It is four steps through a menu, on a screen where somebody is already
+          stuck on a failure, and it is not the fix for the error above it — an
+          installed app whose device will not register with the push service
+          fails in exactly the same way. Offering it here turns one problem into
+          two, and the second one is longer.
+
+          Reset, then retry. That is the whole remedy this panel owes. */}
     </div>
   );
 }

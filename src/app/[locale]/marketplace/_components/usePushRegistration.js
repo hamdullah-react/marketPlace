@@ -19,7 +19,7 @@
  * Everything below was learned the hard way and the reasoning is kept with it.
  */
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { errorText } from "@/marketplace/lib/errors";
 import { ting, unlockAudio } from "../(seller)/_components/useLiveLeads";
 import { subscribeToPush, unsubscribeFromPush, sendTestPush } from "../_actions/notifications";
@@ -127,9 +127,58 @@ export function readPushState() {
   return Notification.permission; // "default" | "granted" | "denied"
 }
 
-/* No event to listen to: permission changes while the page is open are rare
-   and any press re-renders, which re-reads the snapshot. */
-const subscribeNoop = () => () => {};
+/* ── The permission is WATCHED, not sampled ──────────────────
+   This used to be a no-op subscribe, on the reasoning that permission rarely
+   changes while a page is open and any press re-reads it. That reasoning is
+   exactly wrong for the state that matters most.
+
+   Once a browser is set to BLOCKED, nothing this site does can re-open the
+   prompt — the only way back is the browser's own settings, which means
+   leaving the page, changing it there, and coming back. Without a watcher the
+   app never notices: it goes on saying "blocked" at somebody who has just
+   unblocked it, and the only cure is a reload they have no reason to perform.
+
+   navigator.permissions fires `change` on that flip. So the moment they allow
+   it, this re-renders — and the effect in the hook subscribes the device
+   without anybody having to find a button again. */
+const listeners = new Set();
+let watching = false;
+
+function watchPermission() {
+  if (watching || typeof navigator === "undefined" || !navigator.permissions?.query) return;
+  watching = true;
+
+  navigator.permissions
+    .query({ name: "notifications" })
+    .then((status) => {
+      status.onchange = () => {
+        for (const fn of listeners) fn();
+      };
+    })
+    .catch(() => {
+      /* Safari before 16 and some embedded browsers have no permissions API for
+         notifications. The state is still read correctly — it simply does not
+         update itself until the next render, which is where this started. */
+    });
+}
+
+function subscribePermission(onChange) {
+  listeners.add(onChange);
+  watchPermission();
+
+  /* Coming back to the tab is the OTHER moment it changes: on a phone, the
+     browser's site-settings screen is a different screen, not a different app,
+     so there is no permission event — only a tab becoming visible again. */
+  const onVisible = () => {
+    if (document.visibilityState === "visible") onChange();
+  };
+  document.addEventListener("visibilitychange", onVisible);
+
+  return () => {
+    listeners.delete(onChange);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
+}
 
 /** The states nothing can be pressed out of, with the reason for each. */
 export function blockedMessage(state, t) {
@@ -157,13 +206,13 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
-  const state = useSyncExternalStore(subscribeNoop, readPushState, () => "unknown");
+  const state = useSyncExternalStore(subscribePermission, readPushState, () => "unknown");
 
   /* Read the same way as `state`, and for the same reason: `display-mode` is
      browser state, not React state, and the server cannot know it. A server
      snapshot of `false` means the first paint says "a tab" — which is what an
      unknown should say — rather than hydrating into a mismatch. */
-  const installed = useSyncExternalStore(subscribeNoop, isInstalled, () => false);
+  const installed = useSyncExternalStore(subscribePermission, isInstalled, () => false);
 
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -239,6 +288,7 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
   );
 
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const hasKeyRef = useRef(Boolean(key));
 
   /**
    * ── The server actions are AWAITED, not dispatched into a transition ──────
@@ -441,6 +491,35 @@ export function usePushRegistration({ locale = "ar", audience = "vendor", vendor
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audience, key, locale, vendorId, done, report]);
+
+  /* ── They allowed it in the browser's settings. Finish the job. ─────
+     The flip from denied to granted happens on a SETTINGS screen, not on this
+     page, and it grants permission without subscribing anything — so a person
+     who has just done the hard part lands back on a dashboard that still
+     receives nothing, with no sign that anything more is required. That is the
+     single most likely place to give up, because from the outside it looks like
+     following the instructions did not work.
+
+     No prompt is spent here: permission is already granted, so this is only
+     the service worker and the server row. One attempt per mount, tracked by a
+     ref rather than state so a retry cannot re-render its way into a loop. */
+  const autoTried = useRef(false);
+
+  useEffect(() => {
+    if (autoTried.current) return;
+    if (!settled || busy || !hasKeyRef.current) return;
+    if (state !== "granted" || isRegistered) return;
+
+    autoTried.current = true;
+
+    /* Deferred by a tick rather than called here. `enable` writes state on its
+       first line, and a synchronous setState inside an effect body cascades
+       renders — the rule react-hooks/set-state-in-effect exists to catch. A
+       timer puts the whole thing on the next turn of the loop, which is also
+       where an async browser API belongs. */
+    const timer = setTimeout(enable, 0);
+    return () => clearTimeout(timer);
+  }, [settled, busy, state, isRegistered, enable]);
 
   const disable = useCallback(async () => {
     setBusy(true);
