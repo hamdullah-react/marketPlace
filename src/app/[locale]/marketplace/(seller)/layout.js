@@ -4,6 +4,7 @@ import { getShellVendor } from './_apicalls/shellApi';
 import { getNotifications } from '@/marketplace/db/queries/notifications';
 import { unreadCounts } from '@/marketplace/db/queries/messages';
 import SellerShell from './_components/SellerShell';
+import SellerThemeStyle from './_components/SellerThemeStyle';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -64,38 +65,51 @@ export default async function SellerLayout({ children, params }) {
   const messages = await unreadCounts('vendor', vendor.id).catch(() => ({ total: 0 }));
 
   return (
-    <SellerShell
-      locale={locale}
-      vendorPromise={getShellVendor(locale)}
-      /* NOT awaited, for the same reason as the shell vendor above: a layout
-         sits over every page's boundaries, so anything it waits for holds the
-         whole dashboard. The bell resolves inside its own Suspense. */
-      notificationsPromise={getNotifications({ audience: 'vendor', vendorId: vendor.id }).catch(
-        () => ({ items: [], unread: 0 })
-      )}
-      /* The verdict, computed ONCE, here. The header chip reads it and
-         /seller/subscription reads it again from the same session, so the
-         countdown and the page it opens cannot tell a seller two things — which
-         is the rule the blocked screen was rewritten to obey. */
-      access={vendor.access}
-      messages={{ total: messages.total ?? 0 }}
-    >
-      {/* ── The banners are GONE from here, on purpose ───────────────
-          Two of them used to sit at the top of every page in the dashboard —
-          above the listings, above the leads, above the media library — for as
-          long as they applied. Two lines of amber over a screen somebody opened
-          to do something else is not a warning; it is a tax on every other task,
-          and it stops being read by about the second day.
+    <>
+      {/* ── The showroom's own colours ───────────────────────
+          In the LAYOUT rather than in a page, so one <style> covers every
+          screen under it and the colours do not flicker on navigation. Next
+          hoists a <style> from a Server Component into <head>.
 
-          What is persistent instead is the countdown in the header, which is
-          always on screen and changes colour as the date approaches. It links to
-          /seller/subscription, where the full warning lives along with the
-          reason, the renewal control and the bank details — so the notice is one
-          press away rather than in the way. See that page and AccessCountdown.
+          Awaited, unlike the vendor and the notifications below — and it is the
+          one thing here that should be. A dashboard that paints in the platform
+          green and then snaps to the showroom's colour a moment later is worse
+          than one that waits a single narrow select on a primary key. */}
+      <SellerThemeStyle vendorId={vendor.id} />
 
-          The blocked screen is unaffected: a showroom that is actually out is
-          redirected by requireVendor() above and never reaches this layout. */}
-      {children}
-    </SellerShell>
+      <SellerShell
+        locale={locale}
+        vendorPromise={getShellVendor(locale)}
+        /* NOT awaited, for the same reason as the shell vendor above: a layout
+           sits over every page's boundaries, so anything it waits for holds the
+           whole dashboard. The bell resolves inside its own Suspense. */
+        notificationsPromise={getNotifications({ audience: 'vendor', vendorId: vendor.id }).catch(
+          () => ({ items: [], unread: 0 })
+        )}
+        /* The verdict, computed ONCE, here. The header chip reads it and
+           /seller/subscription reads it again from the same session, so the
+           countdown and the page it opens cannot tell a seller two things — which
+           is the rule the blocked screen was rewritten to obey. */
+        access={vendor.access}
+        messages={{ total: messages.total ?? 0 }}
+      >
+        {/* ── The banners are GONE from here, on purpose ───────────────
+            Two of them used to sit at the top of every page in the dashboard —
+            above the listings, above the leads, above the media library — for as
+            long as they applied. Two lines of amber over a screen somebody opened
+            to do something else is not a warning; it is a tax on every other task,
+            and it stops being read by about the second day.
+
+            What is persistent instead is the countdown in the header, which is
+            always on screen and changes colour as the date approaches. It links to
+            /seller/subscription, where the full warning lives along with the
+            reason, the renewal control and the bank details — so the notice is one
+            press away rather than in the way. See that page and AccessCountdown.
+
+            The blocked screen is unaffected: a showroom that is actually out is
+            redirected by requireVendor() above and never reaches this layout. */}
+          {children}
+      </SellerShell>
+    </>
   );
 }

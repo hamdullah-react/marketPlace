@@ -18,17 +18,18 @@ import { useState, useMemo, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import {
   Store, MapPin, Briefcase, Languages, Database, AlertTriangle,
-  Loader2, Check, Download, Trash2, Plus, Upload, RotateCcw,
+  Loader2, Check, Download, Trash2, Plus, Upload, RotateCcw, Palette,
 } from "lucide-react";
 import {
   saveStoreProfile, saveContact, saveBusiness, saveLocalization,
-  createBackup, deleteBackup, deleteAllData, restoreBackup, reactivateStore,
+  createBackup, deleteBackup, deleteAllData, restoreBackup, reactivateStore, saveAppearance,
 } from "../_actions/settings";
 import ImagePicker from "./ImagePicker";
 import SocialLinksEditor from "./SocialLinksEditor";
 import { PLATFORM_KEYS as SOCIAL_PLATFORM_KEYS } from "@/marketplace/lib/social";
 import { CURRENCIES } from "@/marketplace/lib/currency";
 import BilingualField from "./BilingualField";
+import ThemeField from "@/marketplace/ui/ThemeField";
 import { useActionResult } from "./useActionResult";
 import { errorText } from "@/marketplace/lib/errors";
 import {
@@ -151,6 +152,7 @@ const TABS = [
   { id: "contact", icon: MapPin, ar: "التواصل والعنوان", en: "Contact & address" },
   { id: "business", icon: Briefcase, ar: "الأعمال والسياسات", en: "Business & policies" },
   { id: "localization", icon: Languages, ar: "اللغة والتفضيلات", en: "Language & preferences" },
+  { id: "appearance", icon: Palette, ar: "المظهر", en: "Appearance" },
   { id: "data", icon: Database, ar: "البيانات", en: "Data" },
 ];
 
@@ -232,6 +234,7 @@ export default function SettingsForm({
   const x = useActionResult(deleteAllData, INITIAL, { onSuccess: () => router.refresh() });
   const r = useActionResult(restoreBackup, INITIAL, { onSuccess: () => router.refresh() });
   const a = useActionResult(reactivateStore, INITIAL, { onSuccess: () => router.refresh() });
+  const th = useActionResult(saveAppearance, INITIAL, { onSuccess: () => router.refresh() });
 
 
   const vid = <input type="hidden" name="vendorId" value={vendor?.id ?? ""} />;
@@ -497,6 +500,44 @@ export default function SettingsForm({
               ar={pol.terms?.ar} en={pol.terms?.en} />
 
             <SaveBar state={b.result} pending={b.pending} />
+          </form>
+        ) : null}
+
+        {/* ── Appearance ────────────────────────────────────
+            The showroom's own colours, for ITS DASHBOARD. The sentence under
+            the heading says so plainly, because the obvious assumption about a
+            theme editor on a store-settings page is that it repaints the
+            storefront — and a seller who picks their brand colour expecting
+            buyers to see it has been misled by the screen, not by the docs.
+
+            `showBadges` is off: those five pills are painted on the public car
+            card, which this theme deliberately cannot reach, so the controls
+            would be a setting with no effect.
+
+            `previewSelector` points at the same wrapper the saved CSS is scoped
+            to, so "preview on the whole page" shows exactly the pixels that
+            will change. */}
+        {tab === "appearance" ? (
+          <form key={stamp} action={th.formAction} className={`${card} space-y-5`}>
+            {vid}
+            <div>
+              <h2 className={sectionTitle}>{t("مظهر لوحة التحكم", "Dashboard appearance")}</h2>
+              <p className={hint}>
+                {t(
+                  "الألوان هنا تخصّ لوحة تحكمك وحدها — ما تراه أنت وفريقك. صفحة معرضك وصفحات السوق تبقى على هوية المنصة لكل المشترين.",
+                  "These colours apply to your dashboard only — what you and your team see. Your showroom page and the rest of the marketplace keep the platform’s look for every buyer."
+                )}
+              </p>
+            </div>
+
+            <ThemeField
+              locale={locale}
+              value={vendor?.theme ?? null}
+              showBadges={false}
+              previewSelector='[data-mk-theme="seller"]'
+            />
+
+            <SaveBar state={th.result} pending={th.pending} />
           </form>
         ) : null}
 

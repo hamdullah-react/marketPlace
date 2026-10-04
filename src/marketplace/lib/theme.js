@@ -416,8 +416,31 @@ const RADIUS_SCALE = {
  * nothing to the page. The selectors match the ones in globals.css — `:root,
  * .light` for the light values and `.dark` for the dark ones — and land after
  * it in the document, which is what lets them win without !important.
+ *
+ * ── `scope`: the same theme, applied to one SUBTREE ────────────────
+ *
+ * A showroom themes its own dashboard, and must not be able to repaint the
+ * marketplace around it — the public site is the platform's, and a buyer
+ * comparing two showrooms should not find the page changing colour under them.
+ * So the vendor's theme is emitted against a selector on the dashboard's own
+ * wrapper instead of against `:root`.
+ *
+ * It works because a custom property cascades from the ELEMENT it is declared
+ * on. `:root` sets the variables on <html>; a scoped block sets them again on
+ * the dashboard wrapper, and for that wrapper and everything inside it the
+ * nearer declaration is the one that applies. Specificity never enters into it
+ * — the two rules target different elements — so a vendor theme cannot be
+ * defeated by the platform's, and cannot escape the subtree either.
+ *
+ * The dark block is nested rather than scoped on its own: `.dark` lives on
+ * <html>, far above the wrapper, so the pair has to read "inside a dark
+ * document, inside this subtree".
+ *
+ * @param value  what is stored — site_settings.theme, or vendors.theme
+ * @param scope  a CSS selector for the subtree, e.g. '[data-mk-theme="seller"]'.
+ *               Omitted means the whole document, which is the platform's.
  */
-export function themeCss(value) {
+export function themeCss(value, { scope = null } = {}) {
   const theme = normalizeTheme(value);
   if (isDefaultTheme(theme)) return '';
 
@@ -488,7 +511,24 @@ export function themeCss(value) {
     );
   }
 
-  if (theme.bgLight !== THEME_DEFAULTS.bgLight) light.push(`--app-bg:${c.bgLight}`);
+  if (theme.bgLight !== THEME_DEFAULTS.bgLight) {
+    light.push(`--app-bg:${c.bgLight}`);
+    /**
+     * The same value again, under the name Tailwind's `bg-background` reads.
+     *
+     * globals.css declares `--color-background: var(--app-bg)` on :root, and a
+     * var() reference is resolved on the element that DECLARES it — once, at
+     * :root — and the resolved value is what inherits. So redefining --app-bg
+     * further down the tree moves everything that reads --app-bg directly and
+     * leaves --color-background pointing at the old colour.
+     *
+     * Invisible while the theme was only ever emitted at :root, because there
+     * both declarations sit on the same element. It is exactly what a scoped
+     * theme breaks, and the fix is to state the value rather than the
+     * indirection. Harmlessly redundant in the unscoped case.
+     */
+    light.push(`--color-background:${c.bgLight}`);
+  }
   if (theme.bgDark !== THEME_DEFAULTS.bgDark) light.push(`--app-bg-dark:${c.bgDark}`);
 
   if (theme.radius !== THEME_DEFAULTS.radius) {
@@ -515,7 +555,14 @@ export function themeCss(value) {
   }
 
   const blocks = [];
-  if (light.length) blocks.push(`:root,.light{${light.join(';')}}`);
-  if (dark.length) blocks.push(`.dark{${dark.join(';')}}`);
+  /* Unscoped, these are exactly the selectors globals.css uses, arriving later
+     in the document — which is what lets them win without !important. Scoped,
+     they move onto the subtree's wrapper, where they win by being declared on a
+     nearer element rather than by weight. */
+  const base = scope || ':root,.light';
+  const night = scope ? `.dark ${scope}` : '.dark';
+
+  if (light.length) blocks.push(`${base}{${light.join(';')}}`);
+  if (dark.length) blocks.push(`${night}{${dark.join(';')}}`);
   return blocks.join('');
 }

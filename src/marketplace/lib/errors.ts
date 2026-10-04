@@ -381,6 +381,10 @@ export const ERRORS = {
   },
   ACCESS_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
   // ── messages ──
+  APPEARANCE_NOT_MIGRATED: {
+    ar: 'تخصيص المظهر غير متاح على هذه النسخة بعد.',
+    en: 'Dashboard appearance is not available on this installation yet.',
+  },
   MESSAGES_NOT_MIGRATED: {
     ar: 'المحادثات غير متاحة على هذه النسخة بعد.',
     en: 'Messaging is not available on this installation yet.',

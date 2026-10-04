@@ -39,7 +39,7 @@ import { formatPrice } from "@/marketplace/lib/listing";
 import { CURRENCIES } from "@/marketplace/lib/currency";
 import LanguagesTable from "./LanguagesTable";
 import PhoneCountriesField from "./PhoneCountriesField";
-import ThemeField from "./ThemeField";
+import ThemeField from "@/marketplace/ui/ThemeField";
 
 const INITIAL = { ok: false, error: null };
 

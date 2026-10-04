@@ -18,16 +18,26 @@ const SELECT = `
 `;
 
 /**
- * The showroom's link list (§29), asked for separately.
+ * The columns added after the first release, asked for separately.
  *
- * On a database where §29 has not been run this select fails with 42703, and
- * the Settings page going blank over one column would be the wrong trade — so
- * the read falls back and the editor simply starts from the legacy `social`
- * object. Retried every call, never latched off after the first miss: a flag
- * that outlives the failure is how a fixed database goes on behaving as though
- * it were still broken.
+ * `social_links` is the showroom's link list (§29); `theme` is its dashboard
+ * theme (A SHOWROOM'S OWN DASHBOARD THEME). Both arrive with a section of
+ * schema.sql that a given database may not have run yet, and on one that has
+ * not this select fails with 42703 — the Settings page going blank over one
+ * column would be the wrong trade, so the read falls back to the columns that
+ * have always existed. The links editor then starts from the legacy `social`
+ * object and the theme editor starts from the default look, which is what both
+ * did before those columns existed.
+ *
+ * They share a tier rather than having one each. Two fallbacks would mean four
+ * states to reason about to save a page that is only ever briefly in any of
+ * them, and the cure for all of them is the same: re-run schema.sql.
+ *
+ * Retried every call, never latched off after the first miss: a flag that
+ * outlives the failure is how a fixed database goes on behaving as though it
+ * were still broken.
  */
-const SELECT_LINKS = `${SELECT}, social_links`;
+const SELECT_LINKS = `${SELECT}, social_links, theme`;
 
 let warnedAboutLinks = false;
 
@@ -59,8 +69,9 @@ export async function getVendorSettings(vendorId: string) {
     if (!warnedAboutLinks) {
       warnedAboutLinks = true;
       console.warn(
-        '[settings] vendors.social_links is missing. The links editor falls back to the old eight. ' +
-          'Run src/marketplace/db/schema.sql §29 on this database.'
+        '[settings] vendors.social_links or vendors.theme is missing. The links editor falls back ' +
+          'to the old eight and the appearance editor to the default look. ' +
+          'Re-run src/marketplace/db/schema.sql on this database.'
       );
     }
     ({ data, error } = await read(SELECT));

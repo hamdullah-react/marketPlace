@@ -418,7 +418,17 @@ export default function SellerShell({
   const collapsibleCtx = { isActive, t, locale, live, reason, isAr };
 
   return (
-    <SidebarProvider dir={isAr ? "rtl" : "ltr"} className="marketplace-root">
+    /* data-mk-theme is what SellerThemeStyle's CSS hangs on. It sits HERE, on
+       the dashboard's outermost element, because a custom property cascades
+       from the element it is declared on — so the showroom's colours reach
+       every pixel of the dashboard and stop at its edge. Moving it inwards
+       would leave the sidebar on the platform's palette; moving it outwards
+       would let a seller repaint the marketplace. */
+    <SidebarProvider
+      dir={isAr ? "rtl" : "ltr"}
+      className="marketplace-root"
+      data-mk-theme="seller"
+    >
       {/* On a phone, opening a page closes the panel over it. */}
       <SidebarAutoClose />
       {/* data-print-hide: the sidebar is screen chrome, and a printed receipt

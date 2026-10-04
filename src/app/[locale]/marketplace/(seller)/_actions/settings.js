@@ -20,6 +20,7 @@ import { parseSocialLinks, legacySocialObject } from '@/marketplace/lib/social';
 import { isAllowedPhone } from '@/marketplace/lib/phone';
 import { cleanCurrency } from '@/marketplace/lib/currency';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
+import { normalizeTheme, isDefaultTheme } from '@/marketplace/lib/theme';
 
 const BUCKET = SHARED_BUCKET;
 
@@ -689,5 +690,74 @@ export async function deleteAllData(prevState, formData) {
     };
   } catch (err) {
     return { ok: false, error: 'DELETE_FAILED', detail: err.message, token: stamp() };
+  }
+}
+
+/**
+ * Appearance — the showroom's own dashboard theme.
+ *
+ * ── What this can and cannot repaint ────────────────────────────────────────
+ *
+ * The dashboard, and only the dashboard. The value is rendered against a
+ * selector on the dashboard's wrapper rather than against `:root`, so the
+ * variables cascade into that subtree and cannot reach the public marketplace
+ * around it — see themeCss's `scope` argument and SellerThemeStyle. The
+ * containment is structural: there is no path from this column to a buyer's
+ * page, so it does not depend on anybody remembering the rule.
+ *
+ * ── Its own column, and a whole-value write ─────────────────────────────────
+ *
+ * `vendors.theme`, not a key inside `vendors.settings`. Every write to
+ * `settings` is a read-modify-merge because a form posts only the fields it
+ * renders, and a theme is a dozen values edited by one screen — merging it into
+ * the preferences blob would put a seller's currency one bad merge away from
+ * being dropped by the appearance form.
+ *
+ * So this replaces the column outright, which is safe precisely because it is
+ * the only thing in it.
+ *
+ * ── null is "the built-in look" ─────────────────────────────────────────────
+ *
+ * Same convention as the platform's: isDefaultTheme means nothing needs to be
+ * stored, so Reset writes null rather than a row full of the defaults. That is
+ * what lets themeCss return an empty string and add zero bytes to the page.
+ */
+export async function saveAppearance(prevState, formData) {
+  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null);
+  if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
+
+  /* Parsed defensively, then normalised. The field is JSON built by a client
+     component, so a malformed one is a bug rather than an attack — but
+     normalizeTheme is what guarantees only known keys with validated values
+     reach the column, whichever it is. */
+  let sent = {};
+  try {
+    sent = JSON.parse(str(formData, 'theme') || '{}');
+  } catch {
+    return { ok: false, error: 'SAVE_FAILED', errors: {}, token: stamp() };
+  }
+
+  const theme = normalizeTheme(sent);
+
+  try {
+    await updateVendor(vendorId, { theme: isDefaultTheme(theme) ? null : theme });
+
+    /* The whole dashboard, because the <style> block that carries this lives in
+       the seller LAYOUT — every page under it renders with the old colours
+       until the layout is rebuilt. */
+    revalidatePath('/[locale]/marketplace/seller', 'layout');
+
+    return { ok: true, error: null, errors: {}, token: stamp(), saved: 'appearance' };
+  } catch (err) {
+    /* 42703 — the column is missing because the schema has not been re-run.
+       Said plainly rather than as a Postgres error, because the person reading
+       it is a showroom owner who picked a colour. */
+    const missing = /theme/.test(err?.message ?? '') && /column/i.test(err?.message ?? '');
+    return {
+      ok: false,
+      error: missing ? 'APPEARANCE_NOT_MIGRATED' : err.message,
+      errors: {},
+      token: stamp(),
+    };
   }
 }

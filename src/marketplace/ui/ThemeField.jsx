@@ -1,7 +1,28 @@
 "use client";
 
 /**
- * Admin → Settings → Appearance.
+ * The Appearance editor — used by Admin → Settings and by Seller → Settings.
+ *
+ * ── Why it lives in marketplace/ui ───────────────────────────────
+ *
+ * It started under (admin)/_components and is now opened by two dashboards that
+ * store their theme in different columns. It takes a value and posts a hidden
+ * JSON field — it has never known who was going to save it — so sharing it cost
+ * nothing but a move, and the alternative was a second copy that would drift
+ * the first time a knob was added.
+ *
+ * The two differences between the callers are props:
+ *
+ *   previewSelector  where "preview on the whole page" writes. The platform's
+ *                    theme is the document, so the admin leaves it unset and it
+ *                    goes on <html>. A showroom's theme is its dashboard, so
+ *                    the seller passes the dashboard's wrapper — a preview
+ *                    that spilled onto the public header would be showing a
+ *                    change that cannot happen when it is saved.
+ *   showBadges       the five car-card badges. A showroom's dashboard is tables
+ *                    and forms; those pills are painted on the PUBLIC card,
+ *                    which this theme deliberately cannot reach. Offering the
+ *                    controls there would be offering a setting with no effect.
  *
  * Five controls — brand colour, accent, the two page backgrounds, corner
  * roundness, shadow strength — posted as one JSON field. Everything else in the
@@ -151,7 +172,12 @@ function Steps({ label, hint, steps, value, onChange, isAr }) {
   );
 }
 
-export default function ThemeField({ locale = "ar", value = null }) {
+export default function ThemeField({
+  locale = "ar",
+  value = null,
+  previewSelector = null,
+  showBadges = true,
+}) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
@@ -172,7 +198,15 @@ export default function ThemeField({ locale = "ar", value = null }) {
    */
   const applied = useRef([]);
   useEffect(() => {
-    const root = document.documentElement;
+    /* The element the preview paints. <html> for the platform's theme, the
+       dashboard wrapper for a showroom's — the same element its saved CSS is
+       scoped to, so the preview and the result cover the same pixels.
+
+       Falls back to <html> when the selector matches nothing, which is the
+       honest outcome for a preview: showing it somewhere is better than a
+       switch that appears to do nothing. */
+    const root =
+      (previewSelector && document.querySelector(previewSelector)) || document.documentElement;
 
     const clear = () => {
       for (const name of applied.current) root.style.removeProperty(name);
@@ -187,7 +221,7 @@ export default function ThemeField({ locale = "ar", value = null }) {
 
     return clear;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, JSON.stringify(vars)]);
+  }, [live, previewSelector, JSON.stringify(vars)]);
 
   const isDefault = Object.keys(THEME_DEFAULTS).every((k) => theme[k] === THEME_DEFAULTS[k]);
   const matches = (preset) =>
@@ -301,81 +335,83 @@ export default function ThemeField({ locale = "ar", value = null }) {
           brand colour and the two deal pills track the accent, so changing the
           brand does not leave a green badge on a blue site. Setting a colour
           here opts that one badge out of it. */}
-      <div className="space-y-2">
-        <Label className="text-sm">{t("شارات العروض", "Promotion badges")}</Label>
-        <p className="text-xs text-muted-foreground">
-          {t(
-            "خمس شارات تظهر على بطاقة السيارة. اللون الثاني للنص والأيقونة معاً.",
-            "The five badges a car card can show. The second colour paints the text and its icon."
-          )}
-        </p>
+      {showBadges ? (
+        <div className="space-y-2">
+          <Label className="text-sm">{t("شارات العروض", "Promotion badges")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "خمس شارات تظهر على بطاقة السيارة. اللون الثاني للنص والأيقونة معاً.",
+              "The five badges a car card can show. The second colour paints the text and its icon."
+            )}
+          </p>
 
-        <div className="space-y-2 rounded-lg border p-3">
-          {BADGE_SLOTS.map((slot) => {
-            const pair = colours.badges[slot.key];
-            const custom = theme.badges?.[slot.key] ?? null;
+          <div className="space-y-2 rounded-lg border p-3">
+            {BADGE_SLOTS.map((slot) => {
+              const pair = colours.badges[slot.key];
+              const custom = theme.badges?.[slot.key] ?? null;
 
-            const setPart = (part) => (next) =>
-              setTheme((prev) => ({
-                ...prev,
-                badges: {
-                  ...prev.badges,
-                  [slot.key]: { ...(prev.badges?.[slot.key] ?? {}), [part]: next },
-                },
-              }));
+              const setPart = (part) => (next) =>
+                setTheme((prev) => ({
+                  ...prev,
+                  badges: {
+                    ...prev.badges,
+                    [slot.key]: { ...(prev.badges?.[slot.key] ?? {}), [part]: next },
+                  },
+                }));
 
-            const follow = () =>
-              setTheme((prev) => {
-                const rest = { ...prev.badges };
-                delete rest[slot.key];
-                return { ...prev, badges: rest };
-              });
+              const follow = () =>
+                setTheme((prev) => {
+                  const rest = { ...prev.badges };
+                  delete rest[slot.key];
+                  return { ...prev, badges: rest };
+                });
 
-            return (
-              <div key={slot.key} className="flex flex-wrap items-center gap-2">
-                {/* The badge itself, painted with what is currently chosen. */}
-                <span
-                  className="flex min-w-20 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold shadow-sm"
-                  style={{ background: pair.bg, color: pair.fg }}
-                >
-                  {t(slot.ar, slot.en)}
-                </span>
-
-                <input
-                  type="color"
-                  value={pair.bg}
-                  onChange={(e) => setPart("bg")(e.target.value)}
-                  aria-label={`${t(slot.ar, slot.en)} — ${t("الخلفية", "background")}`}
-                  title={t("الخلفية", "Background")}
-                  className="h-7 w-9 shrink-0 cursor-pointer rounded border bg-transparent p-0.5"
-                />
-                <input
-                  type="color"
-                  value={pair.fg}
-                  onChange={(e) => setPart("fg")(e.target.value)}
-                  aria-label={`${t(slot.ar, slot.en)} — ${t("النص والأيقونة", "text and icon")}`}
-                  title={t("النص والأيقونة", "Text and icon")}
-                  className="h-7 w-9 shrink-0 cursor-pointer rounded border bg-transparent p-0.5"
-                />
-
-                {custom ? (
-                  <button
-                    type="button"
-                    onClick={follow}
-                    className="text-[11px] text-muted-foreground hover:text-brand-primary"
+              return (
+                <div key={slot.key} className="flex flex-wrap items-center gap-2">
+                  {/* The badge itself, painted with what is currently chosen. */}
+                  <span
+                    className="flex min-w-20 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold shadow-sm"
+                    style={{ background: pair.bg, color: pair.fg }}
                   >
-                    {t("اتبع الثيم", "Follow the theme")}
-                  </button>
-                ) : (
-                  <span className="text-[11px] text-muted-foreground">
-                    {t("يتبع الثيم", "Follows the theme")}
+                    {t(slot.ar, slot.en)}
                   </span>
-                )}
-              </div>
-            );
-          })}
+
+                  <input
+                    type="color"
+                    value={pair.bg}
+                    onChange={(e) => setPart("bg")(e.target.value)}
+                    aria-label={`${t(slot.ar, slot.en)} — ${t("الخلفية", "background")}`}
+                    title={t("الخلفية", "Background")}
+                    className="h-7 w-9 shrink-0 cursor-pointer rounded border bg-transparent p-0.5"
+                  />
+                  <input
+                    type="color"
+                    value={pair.fg}
+                    onChange={(e) => setPart("fg")(e.target.value)}
+                    aria-label={`${t(slot.ar, slot.en)} — ${t("النص والأيقونة", "text and icon")}`}
+                    title={t("النص والأيقونة", "Text and icon")}
+                    className="h-7 w-9 shrink-0 cursor-pointer rounded border bg-transparent p-0.5"
+                  />
+
+                  {custom ? (
+                    <button
+                      type="button"
+                      onClick={follow}
+                      className="text-[11px] text-muted-foreground hover:text-brand-primary"
+                    >
+                      {t("اتبع الثيم", "Follow the theme")}
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">
+                      {t("يتبع الثيم", "Follows the theme")}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* ── Shape ───────────────────────────────────────────────────────── */}
       <Steps

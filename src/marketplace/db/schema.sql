@@ -5942,16 +5942,40 @@ create policy notifications_buyer_read on notifications
 -- be shown their own devices. For a buyer it becomes the ADDRESS rather than a
 -- detail, so the shape check gains the same three arms.
 
+-- ── 'all' is listed here, and it belongs to a LATER section ──────────
+--
+-- ONE DEVICE, EVERY HAT ITS OWNER WEARS — near the end of this file — widens
+-- both of these to admit `audience = 'all'`. This section runs BEFORE it and
+-- used to list only three values, which made the file NOT re-runnable the
+-- moment a device actually registered as 'all':
+--
+--   ERROR: 23514: check constraint "push_subscriptions_audience_check" of
+--   relation "push_subscriptions" is violated by some row
+--
+-- Measured, not theorised: four rows on this database, one of them the phone
+-- the whole web-push investigation was about. The run died here, hundreds of
+-- lines before the section that would have made those rows legal again.
+--
+-- This is the general hazard in a single re-runnable file: a constraint
+-- NARROWED by an early section and WIDENED by a late one is a landmine armed
+-- by ordinary use of the feature. The rule is that an earlier definition may
+-- never be stricter than a later one, so both lists below carry 'all' even
+-- though nothing has introduced it yet at this point in the file.
+--
+-- It costs nothing to allow a value here that the application cannot yet
+-- produce, and it costs a failed migration not to.
+
 alter table push_subscriptions drop constraint if exists push_subscriptions_audience_check;
 alter table push_subscriptions add constraint push_subscriptions_audience_check
-  check (audience in ('vendor', 'admin', 'buyer'));
+  check (audience in ('vendor', 'admin', 'buyer', 'all'));
 
 alter table push_subscriptions drop constraint if exists push_subscriptions_audience_shape;
 alter table push_subscriptions add constraint push_subscriptions_audience_shape
   check (
     (audience = 'vendor' and vendor_id is not null) or
     (audience = 'buyer'  and user_id is not null and vendor_id is null) or
-    (audience = 'admin'  and vendor_id is null)
+    (audience = 'admin'  and vendor_id is null) or
+    (audience = 'all'    and user_id is not null and vendor_id is null)
   );
 
 create index if not exists push_subscriptions_buyer_idx
@@ -6803,6 +6827,58 @@ begin
   select count(*), count(*) filter (where last_used_at is null)
     into n, quiet from push_subscriptions;
   raise notice 'Web push: % device(s), % of which have never been delivered to.', n, quiet;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  A SHOWROOM'S OWN DASHBOARD THEME
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  The APPEARANCE section gave an admin `site_settings.theme` — one brand
+--  colour, an accent, two page backgrounds, a corner radius and a shadow
+--  strength, with the rest of the palette derived from the brand colour by
+--  src/marketplace/lib/theme.js. This is the same object, per showroom.
+--
+--  ── It paints the DASHBOARD, and nothing else ──────────────────────────────
+--
+--  This is the whole design, and the reason it is a separate column rather than
+--  a flag on the one that already exists.
+--
+--  The public marketplace is the PLATFORM's. A buyer comparing three showrooms
+--  moves between their pages in one session, and a site that changed colour
+--  under them at every step would read as three different sites — it would also
+--  hand every seller a lever over how the platform looks to people who are not
+--  their customers yet. Storefront identity already has its own, bounded
+--  controls: a logo, a banner, an About page, social links.
+--
+--  So this theme is emitted against a selector on the dashboard's own wrapper
+--  instead of against `:root` (see themeCss's `scope` argument, and
+--  SellerThemeStyle). A custom property cascades from the element it is
+--  declared on, so the variables apply to that subtree and cannot reach the
+--  document around it. The containment is structural, not a rule somebody has
+--  to remember.
+--
+--  ── Why not vendors.settings ───────────────────────────────────────────────
+--
+--  `settings` is the preferences blob — language, currency, timezone, the
+--  notification toggles — and every write to it is a read-modify-merge, because
+--  a form posts only the fields it renders. A theme is a dozen values edited by
+--  one screen and read on every dashboard request, and burying it in that blob
+--  would mean the appearance form could drop a currency on a bad merge.
+--
+--  Its own column, like the platform's, and `null` means the built-in look.
+--  normalizeTheme() never throws, so a malformed object degrades to the default
+--  rather than taking the stylesheet down with it.
+
+alter table vendors add column if not exists theme jsonb;
+
+do $$
+declare
+  n int;
+begin
+  select count(*) into n from vendors where theme is not null;
+  raise notice 'Vendor themes: % showroom(s) have customised their dashboard.', n;
 end $$;
 
 notify pgrst, 'reload schema';
