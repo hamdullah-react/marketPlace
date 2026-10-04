@@ -543,10 +543,22 @@
     --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
 
-    /* Scrollbar */
-    --scrollbar-track: rgba(113, 48, 138, 0.05);
-    --scrollbar-thumb: #0B6B3A;
-    --scrollbar-thumb-hover: #095A30;
+    /* ── Scrollbar ─────────────────────────────────────────
+       These were three literals, and the thumb was the brand green written out
+       by hand — so Appearance could repaint the whole app and leave a green
+       scrollbar down the side of a blue site. The theme never touched them
+       because they never referred to anything it sets.
+
+       The track was worse: rgba(113, 48, 138) is PURPLE, left over from a brand
+       this app no longer has. It has been tinting every scrollbar track on the
+       site at 5% ever since, which is faint enough that nobody caught it.
+
+       Now they follow the brand colour. themeCss() also emits these three
+       explicitly — see the note there about var() being resolved on the element
+       that declares it, which is what a scoped theme breaks. */
+    --scrollbar-track: rgba(var(--brand-rgb), 0.05);
+    --scrollbar-thumb: var(--brand-primary);
+    --scrollbar-thumb-hover: var(--brand-dark);
 
     /* Radius */
     --radius: 0.5rem;
@@ -1037,7 +1049,7 @@
   /* Custom scrollbar for search modal */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: #0B6B3A transparent;
+    scrollbar-color: var(--brand-primary) transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -1049,14 +1061,14 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #0B6B3A;
+    background: var(--brand-primary);
     border-radius: 20px;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #06170E;
+    background: var(--brand-ink);
     border: 2px solid transparent;
     background-clip: content-box;
   }

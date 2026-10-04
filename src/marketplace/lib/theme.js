@@ -447,6 +447,9 @@ export function themeCss(value, { scope = null } = {}) {
   const c = derive(theme);
   const light = [];
   const dark = [];
+  /* Kept apart from `light` as well as being pushed into it: the root block at
+     the end needs these three on their own. */
+  const scrollbar = [];
 
   if (theme.primary !== THEME_DEFAULTS.primary) {
     light.push(
@@ -485,6 +488,29 @@ export function themeCss(value, { scope = null } = {}) {
       `--ring:${hslChannels(c.onDark)}`,
       `--primary-foreground:${hslChannels(c.ink)}`
     );
+  }
+
+  if (theme.primary !== THEME_DEFAULTS.primary) {
+    /**
+     * The scrollbar, which the theme used to miss entirely.
+     *
+     * globals.css now derives these from the brand colour, so an UNSCOPED
+     * theme would already move them — `--scrollbar-thumb: var(--brand-primary)`
+     * resolves on :root, which is the same element the theme writes to.
+     *
+     * A SCOPED theme does not, and for the reason stated above `--color-
+     * background`: a var() reference is resolved once, on the element that
+     * declares it. The dashboard wrapper redefines `--brand-primary`, and
+     * `--scrollbar-thumb` goes on pointing at the value :root resolved. So the
+     * values are stated rather than referred to. Redundant unscoped, necessary
+     * scoped, and cheap either way.
+     */
+    scrollbar.push(
+      `--scrollbar-track:rgba(${c.rgb}, 0.05)`,
+      `--scrollbar-thumb:${c.primary}`,
+      `--scrollbar-thumb-hover:${c.dark}`
+    );
+    light.push(...scrollbar);
   }
 
   if (theme.gold !== THEME_DEFAULTS.gold) {
@@ -564,5 +590,36 @@ export function themeCss(value, { scope = null } = {}) {
 
   if (light.length) blocks.push(`${base}{${light.join(';')}}`);
   if (dark.length) blocks.push(`${night}{${dark.join(';')}}`);
+
+  /**
+   * ── The one thing a subtree cannot paint: the PAGE scrollbar ──────
+   *
+   * Everything else about a scoped theme works because a custom property
+   * cascades from the element it is declared on. The document scrollbar is the
+   * exception: it belongs to the viewport, is drawn from the variables on the
+   * ROOT element, and no declaration on a wrapper several levels down can reach
+   * it. A dashboard themed deep red with a green bar down its right-hand edge
+   * is exactly the "you did not detect the scrollbar" case.
+   *
+   * So the scrollbar trio — and only that trio — is repeated at the root,
+   * behind `:has(scope)`: "the document that CONTAINS this subtree". Three
+   * things that buys:
+   *
+   *   · it only applies on pages where the subtree is present, so a showroom's
+   *     colours still cannot reach the public marketplace — the page has to
+   *     contain a seller dashboard for the rule to match at all;
+   *   · `:root:has(…)` is specificity (0,2,0) against the platform theme's
+   *     `:root` (0,1,0), so it wins on weight rather than on which <style> Next
+   *     happened to hoist into <head> last;
+   *   · inner scroll panes are covered by it too, since :root is their
+   *     ancestor — no second rule needed.
+   *
+   * Where `:has` is unsupported the rule is dropped whole and the scrollbar
+   * keeps the platform's colour, which is the right way for this to degrade.
+   */
+  if (scope && scrollbar.length) {
+    blocks.push(`:root:has(${scope}){${scrollbar.join(';')}}`);
+  }
+
   return blocks.join('');
 }
