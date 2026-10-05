@@ -13,6 +13,7 @@ import { getLiveListingCards } from '@/marketplace/db/queries/listings';
 import { getVendorOffers } from '@/marketplace/db/queries/seller';
 import { getCardSpecs } from '@/marketplace/db/queries/specs';
 import { normalizeListing, localized, formatPrice } from '@/marketplace/lib/listing';
+import { SITE_URL } from '@/marketplace/lib/sitePages';
 import { shapeOffer } from '@/marketplace/lib/offer';
 import ListingCard from '../../../_components/ListingCard';
 
@@ -36,6 +37,25 @@ import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleto
  * the shell cannot be prerendered without blocking. Same reason, same fix as
  * listing/[slug]: route-segment-config/instant.md, "Disabling instant".
  */
+/**
+ * The host these previews print.
+ *
+ * Both the search-result mock and the share-card mock showed a literal
+ * `alromaihcars.com` — a different site's domain — so the whole point of the
+ * preview (judge it instantly, because it looks like the thing) was showing the
+ * seller what their page would look like somewhere it will never appear.
+ *
+ * Derived from the same base URL the real metadata is built from, so the mock
+ * and the page it mocks can never disagree.
+ */
+const SITE_HOST = (() => {
+  try {
+    return new URL(SITE_URL).host;
+  } catch {
+    return 'market-place-rose.vercel.app';
+  }
+})();
+
 export const instant = false;
 
 /**
@@ -1327,7 +1347,7 @@ export default async function VendorPage({ params, searchParams }) {
                     it instantly from something that looks like the thing. */}
                 <div className="rounded-lg border p-4">
                   <p className="truncate text-xs text-muted-foreground" dir="ltr">
-                    alromaihcars.com › marketplace › vendors › {vendor.slug}
+                    {SITE_HOST} › marketplace › vendors › {vendor.slug}
                   </p>
                   <p className="mt-1 truncate text-lg text-[#1a0dab] dark:text-[#8ab4f8]">
                     {localized(vendor.meta_title, locale) || name}
@@ -1448,7 +1468,7 @@ export default async function VendorPage({ params, searchParams }) {
                           ''}
                       </p>
                       <p className="mt-1 truncate text-xs text-muted-foreground" dir="ltr">
-                        alromaihcars.com
+                        {SITE_HOST}
                       </p>
                     </div>
                   </div>

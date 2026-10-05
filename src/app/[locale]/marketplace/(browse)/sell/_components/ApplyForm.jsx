@@ -91,11 +91,11 @@ export default function ApplyForm({ locale = "ar", email = "", phone = "", city 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className={row}>
               <Label htmlFor="nameAr">{t("اسم المعرض (عربي)", "Showroom name (Arabic)")}</Label>
-              <Input id="nameAr" name="nameAr" dir="rtl" placeholder="معرض الرميح" />
+              <Input id="nameAr" name="nameAr" dir="rtl" placeholder="معرض النخبة للسيارات" />
             </div>
             <div className={row}>
               <Label htmlFor="nameEn">{t("اسم المعرض (إنجليزي)", "Showroom name (English)")}</Label>
-              <Input id="nameEn" name="nameEn" dir="ltr" placeholder="Alromaih Motors" />
+              <Input id="nameEn" name="nameEn" dir="ltr" placeholder="Elite Motors" />
             </div>
           </div>
           {fieldError("nameAr") ? (

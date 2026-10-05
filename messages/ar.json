@@ -49,7 +49,7 @@
       "contactUs": {
         "callUs": "+966 123 456 789",
         "whatsApp": "+966 123 323",
-        "email": "alromaih@gmail.com"
+        "email": "info@sauda.app"
       },
       "companyTitle": "الشركة",
       "companyDetails": {
@@ -76,9 +76,9 @@
       "whatsApp": "واتساب",
       "whatsAppNumber": "323 123 966+",
       "emailAddress": "عنوان البريد الإلكتروني",
-      "email": "alromaih@gmail.com",
+      "email": "info@sauda.app",
 
-      "bottomFooter": "الرميح. جميع الحقوق محفوظة.",
+      "bottomFooter": "سودة. جميع الحقوق محفوظة.",
       "termsAndCondition": "الشروط والأحكام"
     },
     
@@ -217,7 +217,7 @@
     "signOut": "تسجيل الخروج",
     "createAccount": "إنشاء حساب جديد",
     "welcomeBack": "مرحباً بعودتك!",
-    "welcomeToAlromaih": "مرحباً بك في الرميح!",
+    "welcome": "مرحباً بك في سودة!",
     "signInDescription": "اختر طريقة تسجيل الدخول",
     "signUpDescription": "اختر طريقة إنشاء الحساب",
     "enterEmail": "أدخل بريدك الإلكتروني",

@@ -319,7 +319,7 @@ export default function SettingsForm({
 
             <Pair id="name" labelText={t("اسم المتجر", "Store name")}
               ar={vendor?.name?.ar} en={vendor?.name?.en}
-              phAr="مركز الرميح لقطع الغيار" phEn="Alromaih Parts Center" />
+              phAr="مركز النخبة لقطع الغيار" phEn="Elite Parts Centre" />
             <Err state={p.result} name="nameAr" />
 
             <Pair id="bio" textarea rows={4} labelText={t("نبذة عن المتجر", "About the store")}

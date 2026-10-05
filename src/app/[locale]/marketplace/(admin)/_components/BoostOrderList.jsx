@@ -26,7 +26,7 @@
 
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GripVertical, ChevronUp, ChevronDown, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { GripVertical, ChevronUp, ChevronDown, Loader2, CheckCircle2, AlertCircle, ImageOff} from "lucide-react";
 import { useActionResult } from "../../(seller)/_components/useActionResult";
 import { reorderFeatured } from "../admin/_actions/boosts";
 import BoostRowActions from "./BoostRowActions";
@@ -154,13 +154,30 @@ export default function BoostOrderList({ locale = "ar", rows = [] }) {
               />
             </span>
 
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={row.image || "/alromaih/placeholder-car.png"}
-              alt=""
-              loading="lazy"
-              className="h-11 w-14 shrink-0 rounded-md border object-cover"
-            />
+            {/* ── A car with no photo ──────────────────────────────
+                This fell back to `/alromaih/placeholder-car.png`, which has
+                never existed in this repository — so every promotion without a
+                photo has been requesting a 404 and drawing the browser's broken
+                image. It was invisible precisely because a broken image looks
+                like a grey box, which is what a placeholder looks like.
+
+                The rest of the app answers this with an icon rather than a file
+                (see ListingFold), so this does too. Nothing to fetch, nothing
+                to 404, and it reads as "no photo" rather than "something
+                failed". */}
+            {row.image ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={row.image}
+                alt=""
+                loading="lazy"
+                className="h-11 w-14 shrink-0 rounded-md border object-cover"
+              />
+            ) : (
+              <span className="flex h-11 w-14 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                <ImageOff className="h-4 w-4" aria-hidden="true" />
+              </span>
+            )}
 
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-brand-primary">{row.title}</span>

@@ -40,7 +40,7 @@ export function getMarketplaceAuthAdmin() {
     // person, and leaving either on makes it try to write cookies it has no
     // business writing.
     auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { 'x-client-info': 'alromaih-marketplace-auth' } },
+    global: { headers: { 'x-client-info': 'sauda-marketplace-auth' } },
   });
 
   return _admin;

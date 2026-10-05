@@ -59,10 +59,10 @@ const WORDS = {
     price: 'Price',
     sar: 'SAR',
     vat: 'VAT included',
-    contact: 'Contact the seller on Alromaih Market',
+    contact: 'Contact the seller on SAUDA',
     cars: 'cars for sale',
     used: 'used cars',
-    market: 'Alromaih Market',
+    market: 'SAUDA',
   },
 };
 

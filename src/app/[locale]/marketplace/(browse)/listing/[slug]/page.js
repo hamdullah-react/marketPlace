@@ -136,7 +136,7 @@ export async function generateMetadata({ params }) {
  * carry absolute URLs — a relative one identifies nothing to a crawler that
  * fetched the page from somewhere else.
  */
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alromaihcars.com';
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app';
 
 /**
  * Render one JSON-LD node.

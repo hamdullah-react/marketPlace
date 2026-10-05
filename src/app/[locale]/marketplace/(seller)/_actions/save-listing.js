@@ -65,7 +65,7 @@ const HANDLED_BY_NAME = ['condition'];
  * English page declares itself an alternate of it, which is what stops the two
  * competing as duplicates.
  */
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alromaihcars.com';
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app';
 
 const STATE_FOR_INTENT = {
   draft: 'draft',

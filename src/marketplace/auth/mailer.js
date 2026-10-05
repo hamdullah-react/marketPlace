@@ -54,7 +54,12 @@ export function mailerConfig() {
   const port = parseInt(read('PORT') || '587', 10);
   const user = read('USER');
   const pass = read('PASSWORD');
-  const from = read('FROM') || 'info@alromaihcars.com';
+  /* Resend's pre-verified test sender, which needs no DNS of its own. It only
+     delivers to the provider account's own address, so it is a FALLBACK and
+     never the intended From — MARKETPLACE_SMTP_FROM is. It is here so a
+     missing variable degrades to "mail that reaches the operator" rather than
+     to a 550 naming a domain this platform does not own. */
+  const from = read('FROM') || 'onboarding@resend.dev';
 
   // Port 465 is implicit TLS; everything else starts plain and upgrades with
   // STARTTLS. Deriving it from the port means one less variable to get wrong,
@@ -190,8 +195,25 @@ const EXPIRY = {
 
 const BRAND = '#0B6B3A';
 
+/**
+ * The line at the foot of every email.
+ *
+ * It used to be the literal string `alromaihcars.com` — a DIFFERENT site's
+ * domain, printed under a Sauda code, which is the kind of mismatch that makes
+ * a legitimate email look like a phishing attempt. It now follows wherever this
+ * marketplace is actually deployed, and the host alone is shown because a
+ * footer is a signature rather than a link.
+ */
+const SITE_HOST = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app').host;
+  } catch {
+    return 'market-place-rose.vercel.app';
+  }
+})();
+
 /** Used when Admin → Settings could not be read. */
-const DEFAULT_BRAND = { ar: 'سوق الرميح', en: 'Sauda' };
+const DEFAULT_BRAND = { ar: 'سودة', en: 'SAUDA' };
 
 const escapeHtml = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -246,7 +268,7 @@ function codeHtml({ code, locale, purpose, minutes, brandName = null, logoUrl = 
     </div>
   </div>
 
-  <p style="max-width:520px;margin:16px auto 32px;text-align:center;font-size:11px;color:#b0b0b0;">alromaihcars.com</p>
+  <p style="max-width:520px;margin:16px auto 32px;text-align:center;font-size:11px;color:#b0b0b0;">${SITE_HOST}</p>
 </body>
 </html>`;
 }
@@ -362,7 +384,7 @@ export async function sendBoostRequestEmail({ to, request }) {
     </div>
   </div>
 
-  <p style="max-width:560px;margin:16px auto 32px;text-align:center;font-size:11px;color:#b0b0b0;">alromaihcars.com</p>
+  <p style="max-width:560px;margin:16px auto 32px;text-align:center;font-size:11px;color:#b0b0b0;">${SITE_HOST}</p>
 </body>
 </html>`;
 

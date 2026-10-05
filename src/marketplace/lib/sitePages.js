@@ -10,7 +10,7 @@
  * and by the admin forms (placeholders and the Google preview).
  */
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alromaihcars.com').replace(/\/+$/, '');
+export const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app').replace(/\/+$/, '');
 
 /** Cache tags for the `use cache` readers in db/queries/site.js. */
 export const SITE_TAGS = {

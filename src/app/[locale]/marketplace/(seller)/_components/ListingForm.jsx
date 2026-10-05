@@ -116,7 +116,7 @@ const CONDITIONS = [
 ];
 
 /** Shown in the preview's URL line. Matches the action's own fallback. */
-const SITE_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL || "https://www.alromaihcars.com";
+const SITE_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL || "https://market-place-rose.vercel.app";
 
 const TABS = [
   { id: "car", icon: Car, ar: "السيارة", en: "The car", fields: ["brandId", "modelId", "yearId", "city", "vendorId"] },

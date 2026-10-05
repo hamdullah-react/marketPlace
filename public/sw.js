@@ -88,7 +88,7 @@ self.addEventListener("push", (event) => {
     /* A tag collapses repeats: four requests arriving together become one
        entry that updates, rather than four the seller has to dismiss. Grouped
        by KIND, so a new lead never hides a payment confirmation. */
-    tag: payload.tag || payload.kind || "alromaih",
+    tag: payload.tag || payload.kind || "sauda",
     renotify: Boolean(payload.tag || payload.kind),
 
     /* ── Android alerts on VIBRATION as much as on sound ──────────────────

@@ -333,7 +333,7 @@ export default function AuthForm({ mode = "signin", locale = "ar", next = "", no
                   name="fullName"
                   type="text"
                   autoComplete="name"
-                  placeholder={t("محمد الرميح", "Mohammed Alromaih")}
+                  placeholder={t("محمد عبدالله", "Mohammed Abdullah")}
                   required
                 />
               </div>

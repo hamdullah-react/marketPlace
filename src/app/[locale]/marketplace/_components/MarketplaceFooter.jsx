@@ -16,19 +16,18 @@ import {
 import { getSiteSettings } from "@/marketplace/db/queries/site";
 import { socialLinksOf } from "@/marketplace/lib/social";
 
-const SOCIAL = [
-  { href: "https://x.com/Alromaihcars", src: "/images/Twitter.svg", label: "X" },
-  { href: "https://www.facebook.com/alromaihcars", src: "/images/Facebook.svg", label: "Facebook" },
-  { href: "https://www.youtube.com/@alromaihcar", src: "/images/Youtube.svg", label: "YouTube" },
-  { href: "https://www.instagram.com/alromaihcars/", src: "/images/Instagram.svg", label: "Instagram" },
-  { href: "https://www.tiktok.com/@alromaihcars", src: "/images/Tiktok.svg", label: "TikTok" },
-];
-
-const PAYMENTS = [
-  { src: "/icons/Visa.svg", label: "Visa" },
-  { src: "/icons/Mastercard.svg", label: "MasterCard" },
-  { src: "/icons/Mada.svg", label: "Mada" },
-];
+/**
+ * The social fallback, used only when Admin → Settings has no list of its own.
+ *
+ * It held five accounts belonging to a DIFFERENT company — a dealership this
+ * marketplace sits beside but is not. Every visitor who clicked one left Sauda
+ * for somebody else's brand, which is worse than a footer with no icons in it.
+ *
+ * Empty rather than removed: `socialLinksOf()` still reads the admin's real
+ * list, and the day Sauda has accounts they are typed into Settings rather than
+ * committed here. A hardcoded list is a list that goes stale in a deploy.
+ */
+const SOCIAL = [];
 
 const COLUMNS = [
   {
@@ -222,26 +221,19 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
           ))}
         </div>
 
-        {/* ── Payments ────────────────────────────────────────────────── */}
-        <div className="mt-6 flex flex-row items-center justify-between gap-3 border-t border-gray-100 pt-5 dark:border-gray-800 sm:mt-10 sm:gap-4 sm:pt-8">
-          <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 sm:text-xs">
-            {t("طرق الدفع المقبولة", "Accepted payment methods")}
-          </p>
-          <div className="flex shrink-0 items-center gap-3 sm:gap-6">
-            {PAYMENTS.map((p) => (
-              <Image
-                key={p.label}
-                src={p.src}
-                alt={p.label}
-                width={45}
-                height={30}
-                style={{ width: "auto" }}
-                className="h-5 object-contain sm:h-[30px]"
-                loading="lazy"
-              />
-            ))}
-          </div>
-        </div>
+        {/* ── The payment marks are GONE, and should never come back ──
+            Visa, Mastercard and Mada sat here under "Accepted payment methods".
+            Two things were wrong with that, and the first is the serious one:
+
+            · THIS PLATFORM TAKES NO ONLINE PAYMENT. A buyer sends an enquiry
+              and pays the showroom directly — schema.sql says so in as many
+              words ("the platform never touches the buyer's money", VENDOR
+              BILLING). A card row promised a checkout that does not exist, on
+              the page a hesitant buyer reads last.
+            · Those are trademarks, displayed under scheme rules that apply to
+              merchants who actually accept the card.
+
+            The row below it — the legal bar — now closes the footer. */}
       </div>
 
       {/* ── Legal bar ─────────────────────────────────────────────────── */}

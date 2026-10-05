@@ -31,7 +31,7 @@ export function getMarketplaceDb(): MarketplaceDb {
   _db = createClient<Database>(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: 'public' },
-    global: { headers: { 'x-client-info': 'alromaih-marketplace' } },
+    global: { headers: { 'x-client-info': 'sauda-marketplace' } },
   });
 
   return _db;

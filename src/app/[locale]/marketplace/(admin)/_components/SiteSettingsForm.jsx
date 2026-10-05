@@ -138,7 +138,7 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
               id="name" label={t("اسم التطبيق", "App name")} required
               mode={mode} locale={locale} maxLength={80}
               ar={row?.name?.ar ?? ""} en={row?.name?.en ?? ""}
-              phAr="سوق الرميح" phEn="Sauda"
+              phAr="سودة" phEn="SAUDA"
               onChange={setName}
             />
             <BilingualField
@@ -387,7 +387,7 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
               />
               <Field id="twitter-handle" label={t("حساب X (تويتر)", "X (Twitter) handle")}>
                 <Input
-                  id="twitter-handle" name="twitterHandle" dir="ltr" placeholder="@alromaihcars"
+                  id="twitter-handle" name="twitterHandle" dir="ltr" placeholder="@sauda"
                   defaultValue={row?.twitter_handle ? `@${row.twitter_handle}` : ""}
                 />
               </Field>

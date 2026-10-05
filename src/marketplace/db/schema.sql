@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
---  ALROMAIH MARKETPLACE — COMPLETE SCHEMA
+--  SAUDA MARKETPLACE — COMPLETE SCHEMA
 --
 --  ONE FILE. There is no second migration file and there never should be —
 --  everything lives here, and this is the only .sql you run besides reset.sql.
@@ -4550,7 +4550,7 @@ create table if not exists site_settings (
 insert into site_settings (id, name, tagline)
 values (
   true,
-  '{"ar": "سوق الرميح", "en": "Alromaih Marketplace"}',
+  '{"ar": "سودة", "en": "SAUDA"}',
   '{"ar": "سيارات جديدة ومستعملة من معارض موثوقة، بأسعار واضحة وتواصل مباشر مع البائع.", "en": "New and used cars from verified showrooms — clear pricing, and a direct line to the seller."}'
 )
 on conflict (id) do nothing;
@@ -4698,8 +4698,19 @@ alter table site_settings drop constraint if exists site_settings_default_locale
 alter table site_settings add constraint site_settings_default_locale_check
   check (default_locale in ('ar', 'en', 'both'));
 
--- Seeded ONCE, with the links the footer used to hard-code, at the moment the
--- column is added — so a re-run never brings back a link an admin deleted.
+-- ── Added empty, and that is deliberate ──────────────────────────
+--
+-- This used to seed five accounts, copied from what the footer hard-coded — and
+-- every one of them belonged to a DIFFERENT company, a dealership this
+-- marketplace sits beside but is not. Running the schema on a fresh database
+-- planted somebody else's brand in Sauda's footer, and every visitor who
+-- clicked one left the platform.
+--
+-- The column is still created by a guarded block rather than a plain `add
+-- column if not exists`, because the guard is what makes "added once" true: a
+-- re-run must never bring back a link an admin deleted. There is simply nothing
+-- to put in it now. Sauda's own accounts are typed into Admin → Settings, which
+-- is where a value that changes without a deploy belongs.
 do $$
 begin
   if not exists (
@@ -4707,13 +4718,6 @@ begin
     where table_schema = 'public' and table_name = 'site_settings' and column_name = 'social_links'
   ) then
     alter table site_settings add column social_links jsonb not null default '[]'::jsonb;
-    update site_settings set social_links = '[
-      {"key": "x",         "url": "https://x.com/Alromaihcars"},
-      {"key": "facebook",  "url": "https://www.facebook.com/alromaihcars"},
-      {"key": "youtube",   "url": "https://www.youtube.com/@alromaihcar"},
-      {"key": "instagram", "url": "https://www.instagram.com/alromaihcars/"},
-      {"key": "tiktok",    "url": "https://www.tiktok.com/@alromaihcars"}
-    ]'::jsonb;
   end if;
 end $$;
 

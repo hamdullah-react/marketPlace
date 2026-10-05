@@ -50,7 +50,7 @@
     "contactUs": {
       "callUs": "+966 123 456 789",
       "whatsApp": "+966 123 323",
-      "email": "alromaih@gmail.com"
+      "email": "info@sauda.app"
     },
     "companyTitle": "Company",
     "companyDetails": {
@@ -78,9 +78,9 @@
       "whatsApp": "WhatsApp",
       "whatsAppNumber": "+966 123 323",
       "emailAddress": "Email Address",
-      "email": "alromaih@gmail.com",
+      "email": "info@sauda.app",
     
-    "bottomFooter": "alromaih. All rights reserved.",
+    "bottomFooter": "SAUDA. All rights reserved.",
     "termsAndCondition": "Terms and Condition"
   },
   
@@ -219,7 +219,7 @@
     "signOut": "Sign Out",
     "createAccount": "Create Account",
     "welcomeBack": "Welcome Back!",
-    "welcomeToAlromaih": "Welcome to Alromaih!",
+    "welcome": "Welcome to SAUDA!",
     "signInDescription": "Choose how you want to sign in",
     "signUpDescription": "Choose how you want to sign up",
     "enterEmail": "Enter your email address",
