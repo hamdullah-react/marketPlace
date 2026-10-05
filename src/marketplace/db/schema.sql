@@ -6885,4 +6885,191 @@ begin
   raise notice 'Vendor themes: % showroom(s) have customised their dashboard.', n;
 end $$;
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  A LISTING MUST POINT AT ITS OWN SHOWROOM'S CATALOG
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  §30 gave every showroom its own catalog rows and §30.6 moved every existing
+--  listing onto its own showroom's copies. This is the same repair, kept for
+--  the rows that got out AFTER that ran.
+--
+--  ── How one got out ───────────────────────────────────────────────────────
+--
+--  The seller dashboard read its catalog unscoped for staff —
+--  `viewer?.isStaff ? null : vendorId`, in both the listing form and the
+--  Catalog tab. With four showrooms installed that is four private catalogs
+--  stacked together: "BYD" four times, identical in name, logo and slug,
+--  differing only in which showroom owns the row. An admin adding a car on
+--  behalf of one showroom had no way to tell them apart and picked another
+--  showroom's.
+--
+--  Measured here: one listing, byd-seal-7-2027-premium-5dac7a0f, belonging to
+--  abdulwahid-jan and carrying riaz-khan's brand and model.
+--
+--  The application no longer offers the choice — both reads are scoped to the
+--  showroom the dashboard is acting as — so this is a repair, not a guard.
+--
+--  ── Why it is worth repairing rather than leaving ─────────────────────────
+--
+--  The wrong row is invisible to the showroom that is using it: it is not in
+--  their catalog, so they cannot rename it, retire it or see it on the Catalog
+--  tab. Worse, vendor_catalog_rows() has a "rows my listings already use"
+--  branch — there so a row cannot vanish under a car that needs it — which
+--  quietly pins the other showroom's row into this one's catalog for as long
+--  as the listing exists.
+--
+--  ── The rule ──────────────────────────────────────────────────────────────
+--
+--  Where a listing references a catalog row owned by a DIFFERENT showroom, and
+--  its own showroom owns an equivalent (same slug, or same value for a year),
+--  it is moved onto that one. Parents first, so a model is matched within the
+--  brand the line above has just corrected and a trim within that model —
+--  which is also what stops a same-named model from a different brand being
+--  matched by slug alone.
+--
+--  Where the showroom owns NO equivalent, the listing is left exactly as it
+--  is and counted in the notice. Clearing the column instead would take a car
+--  that currently reads correctly and blank its brand, which is a worse state
+--  than the one being fixed.
+--
+--  Platform-owned rows (created_by_vendor_id null) are deliberately not
+--  touched: those are shared by design, and a listing pointing at one is not
+--  the fault this repairs.
+--
+--  Idempotent: the second run finds nothing left whose owner disagrees.
+-- ════════════════════════════════════════════════════════════════════════════
+
+do $$
+declare
+  moved_brand int; moved_model int; moved_trim int; moved_year int;
+  moved_colour int; moved_variant int; moved_spec int; stranded int; moved_inner int;
+begin
+  -- ── brands ──
+  update listings l set brand_id = mine.id
+  from car_brands wrong, car_brands mine
+  where l.brand_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id;
+  get diagnostics moved_brand = row_count;
+
+  -- ── models, within the brand just corrected ──
+  update listings l set model_id = mine.id
+  from car_models wrong, car_models mine
+  where l.model_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id
+    and mine.brand_id = l.brand_id;
+  get diagnostics moved_model = row_count;
+
+  -- ── trims, within the model just corrected ──
+  update listings l set trim_id = mine.id
+  from car_trims wrong, car_trims mine
+  where l.trim_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id
+    and mine.model_id = l.model_id;
+  get diagnostics moved_trim = row_count;
+
+  -- ── years, matched on the number rather than a slug ──
+  update listings l set year_id = mine.id
+  from car_years wrong, car_years mine
+  where l.year_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and mine.value = wrong.value
+    and mine.created_by_vendor_id = l.vendor_id;
+  get diagnostics moved_year = row_count;
+
+  -- ── colours, both of the listing's two ──
+  update listings l set color_id = mine.id
+  from car_colors wrong, car_colors mine
+  where l.color_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and wrong.slug is not null and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id;
+  get diagnostics moved_colour = row_count;
+
+  update listings l set interior_color_id = mine.id
+  from car_colors wrong, car_colors mine
+  where l.interior_color_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and wrong.slug is not null and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id;
+  -- Counted together with the main colour: they are the same column twice, and
+  -- a notice reporting only the first would under-state what was repaired.
+  get diagnostics moved_inner = row_count;
+  moved_colour := moved_colour + moved_inner;
+
+  -- ── a colour variant's own colour ──
+  -- listing_variants is unique (listing_id, color_id), so a variant is only
+  -- moved when the listing does not already have one on the target colour.
+  -- The alternative is a duplicate-key error that aborts the whole repair over
+  -- one row that is already, in effect, correct.
+  update listing_variants v set color_id = mine.id
+  from listings l, car_colors wrong, car_colors mine
+  where l.id = v.listing_id
+    and v.color_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and wrong.slug is not null and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id
+    and not exists (
+      select 1 from listing_variants x
+      where x.listing_id = v.listing_id and x.color_id = mine.id
+    );
+  get diagnostics moved_variant = row_count;
+
+  -- ── spec values, onto the showroom's own definition ──
+  -- Same uniqueness argument as the variants above.
+  update listing_specs s set attribute_id = mine.id
+  from listings l, spec_attributes wrong, spec_attributes mine
+  where l.id = s.listing_id
+    and s.attribute_id = wrong.id
+    and wrong.created_by_vendor_id is not null
+    and wrong.created_by_vendor_id <> l.vendor_id
+    and mine.slug = wrong.slug
+    and mine.created_by_vendor_id = l.vendor_id
+    and not exists (
+      select 1 from listing_specs x
+      where x.listing_id = s.listing_id and x.attribute_id = mine.id
+    );
+  get diagnostics moved_spec = row_count;
+
+  -- What is left: a listing still on another showroom's row because its own
+  -- showroom has no equivalent to move it to. Named rather than silently
+  -- tolerated — the fix is to install the missing row in that showroom's
+  -- catalog and re-run this file.
+  select count(*) into stranded
+  from listings l
+  left join car_brands b on b.id = l.brand_id
+  left join car_models m on m.id = l.model_id
+  left join car_trims  t on t.id = l.trim_id
+  where (b.created_by_vendor_id is not null and b.created_by_vendor_id <> l.vendor_id)
+     or (m.created_by_vendor_id is not null and m.created_by_vendor_id <> l.vendor_id)
+     or (t.created_by_vendor_id is not null and t.created_by_vendor_id <> l.vendor_id);
+
+  if moved_brand + moved_model + moved_trim + moved_year
+     + moved_colour + moved_variant + moved_spec > 0 then
+    raise notice
+      'Catalog ownership: moved % brand, % model, % trim, % year, % colour, % variant and % spec reference(s) onto the listing''s own showroom.',
+      moved_brand, moved_model, moved_trim, moved_year, moved_colour, moved_variant, moved_spec;
+  else
+    raise notice 'Catalog ownership: every listing already points at its own showroom''s catalog.';
+  end if;
+
+  if stranded > 0 then
+    raise warning
+      'Catalog ownership: % listing(s) still reference another showroom''s brand, model or trim because their own showroom has no row with that slug. Install it in their catalog and re-run this file. To see them: select l.slug, l.vendor_id from listings l join car_brands b on b.id = l.brand_id where b.created_by_vendor_id is not null and b.created_by_vendor_id <> l.vendor_id;',
+      stranded;
+  end if;
+end $$;
+
 notify pgrst, 'reload schema';

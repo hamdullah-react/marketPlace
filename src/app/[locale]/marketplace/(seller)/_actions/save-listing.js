@@ -9,6 +9,7 @@ import { listingStem, slugify } from '@/marketplace/lib/slug';
 import { i18n } from '@/marketplace/lib/listing';
 import { listingSeo, keywordList } from '@/marketplace/lib/seo';
 import { routing } from '@/i18n/routing';
+import { getSiteLanguages } from '@/marketplace/db/queries/site';
 
 /**
  * Creates or updates a car listing. One action for both — the only difference
@@ -56,14 +57,27 @@ const RESERVED_ATTRIBUTE_KEYS = ['year', 'mileage_km', 'trim'];
  */
 const HANDLED_BY_NAME = ['condition'];
 
-/** Where each footer choice lands the listing. */
 /**
  * Where a canonical URL points when the seller does not supply one.
  *
  * The listing's own page, absolute — a canonical has to be, or it is ignored.
- * The Arabic path is the canonical one because ar is the default locale; the
- * English page declares itself an alternate of it, which is what stops the two
- * competing as duplicates.
+ * One locale has to be chosen as the original, and the other declares itself an
+ * alternate of it; that is what stops the two competing as duplicates.
+ *
+ * ── Which locale, and why it is no longer written here ──────────────────────
+ *
+ * This said "the Arabic path is the canonical one because ar is the default
+ * locale", and wrote the segment `/ar/` into the URL literally.
+ * The premise stopped being true the moment an admin set the site default to
+ * English in Settings -> Languages: every listing saved after that still
+ * declared the ARABIC page the original, so each English listing page told
+ * search engines it was a duplicate of a page in a language the site no longer
+ * leads with.
+ *
+ * `site_languages.is_default` is the column that records the answer, and
+ * getSiteLanguages() already reads it behind a cache measured in hours — the
+ * same value the proxy redirects `/` to. Reading it means the canonical follows
+ * the setting instead of contradicting it.
  */
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app';
 
@@ -610,6 +624,24 @@ export async function saveListing(prevState, formData) {
 
     let listingId = raw.listingId;
     let slug;
+    /**
+     * The state actually WRITTEN, which is not always payload.state.
+     *
+     * An edit to a listing that is already live keeps it live even when the
+     * seller picks "For review" (see nextState below), but both returns used to
+     * report payload.state — so the result said `pending_review` about a row
+     * the database holds as `live`. The caller now uses this to decide whether
+     * to offer a "View listing" link, and a link offered for a listing that is
+     * not public is a 404, so the answer has to be the one on disk.
+     */
+    let savedState = payload.state;
+
+    /* The locale a canonical URL names. One cached read of the column the
+       admin's Languages setting writes — see the note on SITE_URL. Falls back
+       to next-intl's configured default if the table is unreachable, which is
+       the same answer this line gave before it was a setting at all. */
+    const canonicalLocale =
+      (await getSiteLanguages().catch(() => null))?.defaultLocale ?? routing.defaultLocale;
 
     if (listingId) {
       // ── update ──
@@ -638,6 +670,7 @@ export async function saveListing(prevState, formData) {
       // an explicit Draft takes it back down.
       const nextState =
         current.state === 'live' && raw.intent !== 'draft' ? 'live' : payload.state;
+      savedState = nextState;
       /**
        * KEEP the existing slug on an edit.
        *
@@ -661,7 +694,7 @@ export async function saveListing(prevState, formData) {
           slug,
           // Follows the slug. A renamed listing whose canonical still pointed
           // at the old URL would be telling search engines to index a 404.
-          canonical_url: raw.canonicalUrl || `${SITE_URL}/ar/marketplace/listing/${slug}`,
+          canonical_url: raw.canonicalUrl || `${SITE_URL}/${canonicalLocale}/marketplace/listing/${slug}`,
         })
         .eq('id', listingId)
         // Scoped again, deliberately. See the read above.
@@ -691,7 +724,7 @@ export async function saveListing(prevState, formData) {
         .from('listings')
         .update({
           slug,
-          canonical_url: raw.canonicalUrl || `${SITE_URL}/ar/marketplace/listing/${slug}`,
+          canonical_url: raw.canonicalUrl || `${SITE_URL}/${canonicalLocale}/marketplace/listing/${slug}`,
         })
         .eq('id', listingId);
       if (slugError) return { ok: false, errors: {}, values: raw, error: slugError.message };
@@ -708,7 +741,7 @@ export async function saveListing(prevState, formData) {
         errors: {},
         values: null,
         error: `Listing saved, but specs/colours failed: ${err.message}`,
-        listing: { id: listingId, slug, state: payload.state },
+        listing: { id: listingId, slug, state: savedState },
       };
     }
 
@@ -738,7 +771,7 @@ export async function saveListing(prevState, formData) {
       errors: {},
       values: null,
       error: null,
-      listing: { id: listingId, slug, state: payload.state, updated: !!raw.listingId },
+      listing: { id: listingId, slug, state: savedState, updated: !!raw.listingId },
     };
   } catch (err) {
     return { ok: false, errors: {}, values: raw, error: err.message };

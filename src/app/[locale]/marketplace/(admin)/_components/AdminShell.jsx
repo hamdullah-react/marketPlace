@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
+import DarkModeToggle from "../../_components/DarkModeToggle";
 import NotificationBell from "../../_components/NotificationBell";
 import MessagesDrawer from "@/marketplace/ui/MessagesDrawer";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
@@ -265,6 +266,10 @@ export default function AdminShell({
                 currency={currency}
               />
               <LanguageSwitcher />
+              {/* The dashboard has no public header, so this is the only place
+                  an admin can turn the lights down — same reasoning as the
+                  language switch beside it. */}
+              <DarkModeToggle locale={locale} />
             </div>
           </div>
         </header>

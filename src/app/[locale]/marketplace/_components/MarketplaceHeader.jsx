@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import LanguageSwitcher from "./LanguageSwitcher";
+import DarkModeToggle from "./DarkModeToggle";
 import NotificationBell from "./NotificationBell";
 import { syncSavedCount, useSavedCount } from "./savedStore";
 import { signOut } from "../(auth)/_actions/auth";
@@ -638,6 +639,12 @@ export default function MarketplaceHeader({
 
                 {/* Hidden when the admin has only one language switched on. */}
                 {!languages || languages.length > 1 ? <LanguageSwitcher /> : null}
+
+                {/* Night mode. Beside the language switch because they are the
+                    same KIND of control — neither is about the page you are on,
+                    both change how the whole site is presented to you, and both
+                    are expected at the trailing edge of a header. */}
+                <DarkModeToggle locale={locale} />
 
                 {/* ── Profile ─────────────────────────────────────────── */}
                 <div className="relative" ref={profileRef}>

@@ -22,19 +22,47 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
     /**
      * Which catalog the dropdowns offer.
      *
-     * The seller's own, so a new showroom sees empty pickers until it installs
-     * a template — otherwise the Catalog tab says "nothing installed" while
-     * Add a car offers a hundred brands, and the two disagree about the same
-     * question.
+     * The catalog of the showroom this listing is BEING FILED UNDER — which is
+     * `activeVendorId`, for staff exactly as for a seller.
      *
-     * Staff get everything, because staff list cars on behalf of showrooms and
-     * moderate listings from every one of them.
+     * ── Why staff are no longer an exception ────────────────────────────────
+     *
+     * This read `viewer?.isStaff ? null : …`, on the reasoning that staff list
+     * cars on behalf of showrooms and moderate every one of them, so they
+     * should see everything. That is right about MODERATION and wrong about
+     * this form, and the difference matters because §30 of schema.sql gave
+     * every showroom its own catalog rows.
+     *
+     * With four showrooms installed, an unscoped list is four private copies of
+     * the same catalog stacked together: the brand picker offered "BYD" four
+     * times, "Changan" four times, "Chery" four times, with nothing on screen
+     * to tell them apart — they have the same name, the same logo and the same
+     * slug, and differ only in which showroom owns the row.
+     *
+     * Unusable is the visible half. The silent half is worse: three of those
+     * four are rows this showroom does not own, and picking one files the car
+     * against ANOTHER showroom's brand. The listing then carries a brand_id
+     * outside its own catalog — invisible on its Catalog tab, impossible to
+     * rename or retire, and resurrected by vendor_catalog_rows()'s "rows my
+     * listings already use" branch, which exists to stop a row vanishing under
+     * a car and would now pin a stranger's row into this showroom's catalog for
+     * good.
+     *
+     * Scoping to the active showroom makes the picker show one BYD: theirs. A
+     * staff member still works on behalf of any showroom — they choose which
+     * with the vendor picker, which is what sets activeVendorId — and they now
+     * get that showroom's catalog rather than everybody's at once.
      *
      * Resolved BEFORE the reads below, since all five of them need it.
      */
     const viewer = await getViewer();
     const vendors = await getVendorOptions();
-    const scope = viewer?.isStaff ? null : (vendorId || vendors[0]?.id || null);
+    const activeVendorId = vendorId || vendors[0]?.id || null;
+    /* Falls back to unscoped only when there is no showroom to scope TO — a
+       staff account belonging to none. Null means "no filter", which is the
+       old behaviour and the safe direction to fail in for a form whose pickers
+       can each create their own entry inline. */
+    const scope = activeVendorId;
 
     const [brands, years, colors] = await Promise.all([
       getBrands(scope),
@@ -58,7 +86,8 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
     let optionKinds = [];
     try { optionKinds = await getKindsWithOptions(); } catch { optionKinds = []; }
 
-    const activeVendorId = vendorId || vendors[0]?.id || null;
+    // activeVendorId is resolved at the top of the function now, because the
+    // catalog scope is derived from it rather than being a separate decision.
 
     // Spec definitions are shared reference data — one fetch, grouped ready
     // for the accordions. Absent table must not take down the whole form.

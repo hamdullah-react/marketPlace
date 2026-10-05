@@ -43,6 +43,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 import { RotateCcw, Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -51,41 +52,79 @@ import {
   normalizeTheme, normalizeHex, derive,
 } from "@/marketplace/lib/theme";
 
-/* Ready-made palettes. The brand green first, so "put it back" is a click
-   rather than a hex an admin has to have written down. */
+/**
+ * Ready-made palettes. The brand green first, so "put it back" is a click
+ * rather than a hex an admin has to have written down.
+ *
+ * ── A preset may set the SHAPE, not only the colours ────────────────────────
+ *
+ * `radius` and `shadow` are optional here. Most palettes leave them out,
+ * because changing the brand colour should not quietly flatten every card —
+ * somebody choosing "Blue" asked for blue.
+ *
+ * "Simple" is the exception, and it is the reason the fields exist. A plain
+ * office-software look is not a colour: it is a blue, square-ish corners and no
+ * shadow at all, together. Offering it as a swatch that only recoloured things
+ * would leave an admin to find the Corners and Shadow sliders themselves and
+ * guess which notch was meant — so the preset carries all four.
+ */
 const PRESETS = [
   { ar: "الأخضر (الافتراضي)", en: "Green (default)", ...THEME_DEFAULTS },
   { ar: "أزرق", en: "Blue", primary: "#1D4ED8", gold: "#D4AF37", bgLight: "#EAF0FB", bgDark: "#0A0F1B" },
   { ar: "بنفسجي", en: "Purple", primary: "#6D28D9", gold: "#D4AF37", bgLight: "#F1EBFB", bgDark: "#120B1E" },
   { ar: "عنابي", en: "Crimson", primary: "#A81E3C", gold: "#D4AF37", bgLight: "#FBECEF", bgDark: "#1A0A0E" },
   { ar: "فحمي", en: "Charcoal", primary: "#334155", gold: "#C69749", bgLight: "#EEF1F4", bgDark: "#0C0F13" },
+  {
+    /**
+     * The flat, neutral, office-software look — the one people mean by "like
+     * Windows" or "like Microsoft 365".
+     *
+     * Every value is doing a specific job:
+     *
+     *   primary  #0F6CBD, Fluent 2's own communication blue. Not #1D4ED8 from
+     *            the Blue preset above, which is a vivid web blue; this one is
+     *            duller on purpose and is what reads as a tool rather than a
+     *            brand.
+     *   gold     #EAA300, Fluent's marigold, for the offer badges. The brass
+     *            #D4AF37 the other palettes use is a luxury-retail accent and
+     *            fights a neutral grey shell.
+     *   bgLight  #F5F5F5 — the neutral page grey, so white cards read as raised
+     *            against it with no shadow needed. A white page with flat white
+     *            cards has no visible structure at all, which is the trap when
+     *            shadows are turned off.
+     *   bgDark   #1F1F1F, the matching dark neutral.
+     *   radius   0.5 → `rounded-xl` lands near 6px instead of 12px. Flat and
+     *            round together reads as a soft toy; flat wants tight corners.
+     *   shadow   0, flat. This is the one that does most of the work.
+     */
+    ar: "بسيط (مايكروسوفت)", en: "Simple (Microsoft)",
+    primary: "#0F6CBD", gold: "#EAA300",
+    bgLight: "#F5F5F5", bgDark: "#1F1F1F",
+    radius: 0.5, shadow: 0,
+  },
 ];
 
-/** The CSS variables a theme sets, as a React style object. */
-function styleVars(theme) {
+/**
+ * The CSS variables a theme sets, as a React style object.
+ *
+ * ── Why it takes `dark` ─────────────────────────────────────────────────────
+ *
+ * These go on an element as INLINE styles, and an inline style beats every
+ * rule in the stylesheet — including `.dark`. So a preview that always wrote
+ * the light values pushed the light palette onto a dark page: an admin viewing
+ * the dashboard at night pressed "preview" and got a half-lit hybrid that no
+ * saved theme could ever produce. Since the whole point of the switch is to
+ * show the real thing before saving, it has to write whichever half of the
+ * theme the page is currently showing.
+ */
+function styleVars(theme, { dark = false } = {}) {
   const c = derive(theme);
-  const vars = {
-    "--brand-primary": c.primary,
-    "--brand-dark": c.dark,
-    "--brand-light": c.light,
-    "--brand-on-dark": c.onDark,
-    "--brand-ink": c.ink,
-    "--brand-rgb": c.rgb,
-    "--gold": c.gold,
-    "--gold-light": c.goldLight,
-    "--app-bg": c.bgLight,
-    "--app-bg-dark": c.bgDark,
-    "--color-primary": c.primary,
-    "--color-primary-hover": c.dark,
-    "--color-primary-muted": c.light,
-    "--color-accent": c.primary,
-    "--color-ring": c.primary,
-    /* shadcn's own tokens, as HSL channels — what every plain <Button> reads. */
-    "--primary": c.hsl,
-    "--ring": c.hsl,
-    "--shadow-strength": String(theme.shadow),
-    /* The lit surfaces, so the preview panel and the whole-page preview show
-       the tinted buttons and cards rather than the stylesheet's greens. */
+
+  /* Read by BOTH halves of the stylesheet: the light rules take --surface-from
+     and the dark ones take --surface-dark-from, so the whole family travels
+     whichever mode the preview is painting. Leaving the dark ones out meant a
+     preview in dark mode showed the SAVED surfaces under the new brand. */
+  const surfaces = {
     "--surface-from": c.surface.from,
     "--surface-to": c.surface.to,
     "--surface-header-from": c.surface.headerFrom,
@@ -100,7 +139,66 @@ function styleVars(theme) {
     "--surface-dark-hover-to": c.surface.darkHoverTo,
     "--surface-dark-card-from": c.surface.darkCardFrom,
     "--surface-dark-card-to": c.surface.darkCardTo,
+    "--gold": c.gold,
+    "--gold-light": c.goldLight,
+    "--app-bg": c.bgLight,
+    "--app-bg-dark": c.bgDark,
+    "--brand-ink": c.ink,
+    "--shadow-strength": String(theme.shadow),
   };
+
+  /* The half that depends on which mode is on screen. Every name here is one
+     the stylesheet redefines under .dark, so writing the wrong half inline is
+     exactly what produced the half-lit hybrid described above. */
+  const mode = dark
+    ? {
+        "--brand-primary": c.onDark,
+        "--brand-dark": c.onDarkHover,
+        "--brand-light": c.darkTint,
+        "--brand-on-dark": c.onDark,
+        "--brand-rgb": c.rgbOnDark,
+        "--color-background": c.bgDark,
+        "--color-primary": c.onDark,
+        "--color-primary-hover": c.onDarkHover,
+        "--color-primary-muted": c.darkTint,
+        "--color-accent": c.onDark,
+        "--color-ring": c.onDark,
+        "--primary": c.hslOnDark,
+        "--ring": c.hslOnDark,
+        "--sidebar": c.sidebar.darkBg,
+        "--sidebar-foreground": c.sidebar.darkFg,
+        "--sidebar-primary": c.onDark,
+        "--sidebar-primary-foreground": c.ink,
+        "--sidebar-accent": c.sidebar.darkAccent,
+        "--sidebar-accent-foreground": c.onDark,
+        "--sidebar-border": c.sidebar.darkBorder,
+        "--sidebar-ring": c.onDark,
+      }
+    : {
+        "--brand-primary": c.primary,
+        "--brand-dark": c.dark,
+        "--brand-light": c.light,
+        "--brand-on-dark": c.onDark,
+        "--brand-rgb": c.rgb,
+        "--color-primary": c.primary,
+        "--color-primary-hover": c.dark,
+        "--color-primary-muted": c.light,
+        "--color-accent": c.primary,
+        "--color-ring": c.primary,
+        /* shadcn own tokens, as HSL channels — every plain <Button> reads these. */
+        "--primary": c.hsl,
+        "--ring": c.hsl,
+        "--sidebar": c.sidebar.bg,
+        "--sidebar-foreground": c.sidebar.fg,
+        "--sidebar-primary": c.primary,
+        "--sidebar-primary-foreground": "#ffffff",
+        "--sidebar-accent": c.sidebar.accent,
+        "--sidebar-accent-foreground": c.sidebar.accentFg,
+        "--sidebar-border": c.sidebar.border,
+        "--sidebar-ring": c.primary,
+      };
+
+  const vars = { ...surfaces, ...mode };
 
   for (const slot of BADGE_SLOTS) {
     vars[`--badge-${slot.key}-bg`] = c.badges[slot.key].bg;
@@ -186,7 +284,11 @@ export default function ThemeField({
 
   const set = (key) => (next) => setTheme((prev) => ({ ...prev, [key]: next }));
   const colours = derive(theme);
-  const vars = styleVars(theme);
+  /* Which half of the theme the preview must write. See styleVars(): an
+     inline style beats `.dark`, so writing the light palette while the page is
+     dark produced a hybrid no saved theme could ever match. */
+  const { resolvedTheme } = useTheme();
+  const vars = styleVars(theme, { dark: resolvedTheme === "dark" });
 
   /**
    * The whole dashboard, temporarily.
@@ -224,8 +326,20 @@ export default function ThemeField({
   }, [live, previewSelector, JSON.stringify(vars)]);
 
   const isDefault = Object.keys(THEME_DEFAULTS).every((k) => theme[k] === THEME_DEFAULTS[k]);
+  /**
+   * Whether this preset is what is currently set.
+   *
+   * The shape is compared too, but only where the preset states it. Without
+   * that, "Simple" stayed ticked after somebody moved the Shadow slider back
+   * to Default — the colours still matched, and the tick is the only thing
+   * telling them which palette they are on.
+   */
   const matches = (preset) =>
-    preset.primary === theme.primary && preset.bgLight === theme.bgLight && preset.gold === theme.gold;
+    preset.primary === theme.primary &&
+    preset.bgLight === theme.bgLight &&
+    preset.gold === theme.gold &&
+    (preset.radius == null || preset.radius === theme.radius) &&
+    (preset.shadow == null || preset.shadow === theme.shadow);
 
   return (
     <div className="space-y-5">
@@ -248,6 +362,14 @@ export default function ThemeField({
                   gold: preset.gold,
                   bgLight: preset.bgLight,
                   bgDark: preset.bgDark,
+                  /* Only when the preset states them. A palette that is just a
+                     colour must leave the corners and the shadows where the
+                     admin set them — see the note on PRESETS. Spreading the
+                     preset wholesale is what this avoids: the first one is
+                     built from THEME_DEFAULTS and carries a `badges` key,
+                     which would wipe every badge override. */
+                  ...(preset.radius != null ? { radius: preset.radius } : {}),
+                  ...(preset.shadow != null ? { shadow: preset.shadow } : {}),
                 }))
               }
               className={`flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors ${

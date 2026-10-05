@@ -57,6 +57,46 @@ const INITIAL = { ok: false, errors: {}, values: null, error: null };
  * seller "submitted for review" when the listing went live, or vice versa, is
  * the kind of small lie that erodes trust in the whole dashboard.
  */
+/**
+ * A stored state → which of the three buttons should be lit when the form opens.
+ *
+ * `listing_state` has eight values and this control has three, so the map is
+ * not one-to-one and the gaps are the interesting part:
+ *
+ *   draft           → Draft.
+ *   pending_review  → For review. It is already in the queue.
+ *   live            → Publish. Anything else would offer to take a car that is
+ *                     selling off the market as the DEFAULT action.
+ *   rejected        → For review, because the way out of a rejection is to fix
+ *                     the listing and send it back.
+ *   paused,         → Publish. These are states the Listings table moves a car
+ *   sold_out,         into and out of directly; the form has no button for them,
+ *   expired,          and `publish` is the one that means "it belongs on the
+ *   removed           site", which is what a seller reopening the editor to
+ *                     change a price intends. Saving does not force the move:
+ *                     save-listing only promotes a row whose intent says so.
+ */
+const STATE_TO_INTENT = {
+  draft: 'draft',
+  pending_review: 'review',
+  rejected: 'review',
+  live: 'publish',
+  paused: 'publish',
+  sold_out: 'publish',
+  expired: 'publish',
+  removed: 'publish',
+};
+
+/**
+ * Which listing states the PUBLIC page will actually serve.
+ *
+ * getListingBySlug() filters `.eq('state', 'live')`, so every other state is a
+ * 404 on /marketplace/listing/<slug> — including the two this form produces
+ * most often, draft and pending_review. Anything offering to open that page has
+ * to check this first; see the save confirmation below.
+ */
+const PUBLICLY_VIEWABLE = new Set(['live']);
+
 const INTENTS = [
   {
     id: "draft", icon: FileText,
@@ -239,10 +279,122 @@ const MEDIA_BUCKETS = [
   { id: "interior", ar: "صور داخلية", en: "Interior", hintAr: "المقصورة، المقاعد، الشاشة، العداد", hintEn: "Cabin, seats, screen, cluster" },
 ];
 
-export default function ListingForm({
+/**
+ * A fresh form after every save, with the result kept above it.
+ *
+ * ── Why the confirmation cannot live inside the form ────────────────────────
+ *
+ * The form's own success state comes from useActionState, which belongs to the
+ * component INSTANCE — so a panel rendered on it survives everything short of
+ * an unmount. router.refresh() re-runs the server component without unmounting
+ * anything, and clicking "Add a car" in the sidebar navigates to the route
+ * already on screen, which React reconciles in place. Both left the last
+ * saved car on screen with no way back to a blank form.
+ *
+ * useActionState has no reset, by design: in React you discard a component's
+ * state by giving it a different key. So the form is keyed, and a save bumps
+ * the key — which clears the action state, every field, the photos, the colour
+ * variants and the tab in one step, rather than by remembering to reset nine
+ * things.
+ *
+ * What was saved is held HERE, outside the thing being remounted, and drawn as
+ * a banner above the new form. The seller sees what happened and is already
+ * able to add the next car, which is the normal case after adding one.
+ */
+function SavedBanner({ listing, locale, onDismiss }) {
+  const isAr = locale === "ar";
+  const t = (ar, en) => (isAr ? ar : en);
+  const live = PUBLICLY_VIEWABLE.has(listing.state);
+
+  return (
+    <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/40">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-green-800 dark:text-green-300">
+        <Check className="h-4 w-4 shrink-0" />
+        <span className="font-medium">
+          {/* Three outcomes, because there are three. This said "Submitted for
+              review" for anything that was not a draft, so a seller who chose
+              Publish and whose car went live was told it was waiting for
+              staff — the exact lie the note on INTENTS says not to tell. */}
+          {listing.state === "draft"
+            ? t("تم حفظ المسودة", "Draft saved")
+            : listing.state === "live"
+              ? t("تم نشر الإعلان", "Listing published")
+              : t("تم إرسال الإعلان للمراجعة", "Submitted for review")}
+        </span>
+
+        {/* Only when the page is actually there. The public listing page is
+            served by getListingBySlug(), which filters on state = 'live', so a
+            draft and a queued listing are both 404s. */}
+        {live ? (
+          <Link
+            href={`/${locale}/marketplace/listing/${listing.slug}`}
+            className="underline underline-offset-2 hover:no-underline"
+          >
+            {t("عرض الإعلان", "View listing")}
+          </Link>
+        ) : null}
+
+        <Link
+          href={`/${locale}/marketplace/seller/listings`}
+          className="underline underline-offset-2 hover:no-underline"
+        >
+          {t("إعلاناتي", "My listings")}
+        </Link>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className={`${isAr ? "mr-auto" : "ml-auto"} text-xs opacity-70 hover:opacity-100`}
+        >
+          {t("إخفاء", "Dismiss")}
+        </button>
+      </div>
+
+      {/* The address is worth showing — it is the slug the seller may want to
+          change — but printing it alone read as "here is your listing's
+          address", and for a draft that address is a 404 until staff approve
+          it. The sentence in front of it does that work. */}
+      <p className="mt-2 text-xs text-green-800/80 dark:text-green-300/80">
+        {live ? t("رابط الإعلان:", "Listing URL:") : t("سيكون رابط الإعلان بعد النشر:", "Its URL once published:")}{" "}
+        <code className="rounded bg-white/70 px-1.5 py-0.5 dark:bg-black/30">
+          /marketplace/listing/{listing.slug}
+        </code>
+      </p>
+    </div>
+  );
+}
+
+export default function ListingForm(props) {
+  const router = useRouter();
+  const [instance, setInstance] = useState(0);
+  const [saved, setSaved] = useState(null);
+
+  return (
+    <>
+      {saved ? (
+        <SavedBanner listing={saved} locale={props.locale} onDismiss={() => setSaved(null)} />
+      ) : null}
+
+      <ListingFormInstance
+        {...props}
+        key={instance}
+        onSaved={(listing) => {
+          setSaved(listing);
+          /* A new instance: see above. */
+          setInstance((n) => n + 1);
+          /* So the fresh form opens on a catalog that includes anything this
+             save created inline — a brand or a colour added from a picker. */
+          router.refresh();
+        }}
+      />
+    </>
+  );
+}
+
+function ListingFormInstance({
   locale, vendors, brands: initialBrands, years: initialYears, colors: initialColors,
   attributeGroups = {}, optionKinds = [], assets = [], specGroups = [], existing = null,
-  defaultVendorId = null, fieldMode = 'both',
+  defaultVendorId = null, fieldMode = 'both', onSaved = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -316,7 +468,10 @@ export default function ListingForm({
   }, [state, isEdit, router]);
 
   const [tab, setTab] = useState("car");
-  const [vendorId, setVendorId] = useState(existing?.vendor_id || defaultVendorId || "");
+  /* Not settable here any more — the showroom comes from the dashboard's
+     "Acting as" context, which arrives as defaultVendorId. See the Seller
+     section below. */
+  const vendorId = existing?.vendor_id || defaultVendorId || "";
 
   /**
    * Catalog lists are state, not props, because a seller can create an entry
@@ -391,7 +546,22 @@ export default function ListingForm({
    * action as "publish this". Three named choices make the outcome legible
    * before the click rather than after it.
    */
-  const [intent, setIntent] = useState(existing?.state === "draft" || !existing ? "review" : "review");
+  /**
+   * Which outcome is selected when the form opens.
+   *
+   * This read `existing?.state === "draft" || !existing ? "review" : "review"`
+   * — both arms of the ternary returning the same string, so the condition was
+   * dead and the answer was always "For review". Opening a LIVE car to correct
+   * its price showed "For review" as the chosen action, and a draft showed it
+   * too: the control could not represent the state the listing was actually in,
+   * which is the whole job of a three-way selector.
+   *
+   * A new listing still defaults to review — a first-time seller submitting for
+   * approval is the normal path, and it is the safe one.
+   */
+  const [intent, setIntent] = useState(
+    () => (existing ? STATE_TO_INTENT[existing.state] ?? "review" : "review")
+  );
 
   // One flat list with a `category` per photo, not two arrays — the listing
   // still stores a single ordered media[], so the save shape is unchanged and
@@ -795,43 +965,36 @@ export default function ListingForm({
   const Next = isAr ? ChevronLeft : ChevronRight;
   const Prev = isAr ? ChevronRight : ChevronLeft;
 
-  // ── Success (create only — see `saved` above) ──────────────────────────────
-  if (state.ok && state.listing && !isEdit) {
-    return (
-      <div className={`${card} text-center`}>
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 dark:bg-green-950">
-          <Check className="h-7 w-7 text-green-600" />
-        </div>
-        <h2 className="mt-4 text-lg font-bold text-brand-primary">
-          {state.listing.updated
-            ? t("تم تحديث الإعلان", "Listing updated")
-            : state.listing.state === "draft"
-              ? t("تم حفظ المسودة", "Draft saved")
-              : t("تم إرسال الإعلان للمراجعة", "Submitted for review")}
-        </h2>
-        {state.error ? (
-          <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">{errorText(state.error, locale)}</p>
-        ) : null}
-        <code className="mt-4 inline-block rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-600 dark:bg-[#262626] dark:text-gray-300">
-          /marketplace/listing/{state.listing.slug}
-        </code>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link href={`/${locale}/marketplace/listing/${state.listing.slug}`}
-            className="raised-solid rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-medium text-white">
-            {t("عرض الإعلان", "View listing")}
-          </Link>
-          <Link href={`/${locale}/marketplace/seller/listings`}
-            className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium transition-colors hover:border-brand-primary dark:border-gray-600">
-            {t("إعلاناتي", "My listings")}
-          </Link>
-          <button onClick={() => router.refresh()}
-            className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium transition-colors hover:border-brand-primary dark:border-gray-600">
-            {t("إضافة آخر", "Add another")}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  /**
+   * ── A create REPORTS itself, and the form starts again ────────────────────
+   *
+   * This used to `return` a confirmation panel IN PLACE OF the whole form, and
+   * that panel could not be dismissed. It renders on `state.ok`, which belongs
+   * to this component instance, so nothing short of unmounting cleared it:
+   * router.refresh() re-runs the server component without unmounting anything,
+   * and clicking "Add a car" in the sidebar is a navigation to the route
+   * already on screen, which React reconciles in place. A seller who saved a
+   * car and pressed Add was shown the car they had just saved, for ever.
+   *
+   * So the result is handed UP instead. The wrapper records it, draws a banner
+   * above the form, and remounts this component with a new key — which resets
+   * the action state, every field, the media list, the variants and the tab in
+   * one step. Pressing Add now gives a blank form because a blank form is
+   * literally what gets mounted, rather than because something remembered to
+   * clear nine pieces of state.
+   *
+   * Reported from an effect, not during render: it is a message to another
+   * component, and React may render this one more than once per commit. The
+   * ref makes it exactly once per saved listing.
+   */
+  const reported = useRef(null);
+  useEffect(() => {
+    if (isEdit || !state.ok || !state.listing) return;
+    if (reported.current === state.listing.id) return;
+    reported.current = state.listing.id;
+    onSaved?.(state.listing);
+  }, [isEdit, state.ok, state.listing, onSaved]);
+
 
   return (
     <PairCtx.Provider value={pairCtx}>
@@ -845,12 +1008,18 @@ export default function ListingForm({
           <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">
             <Check className="h-4 w-4 shrink-0" />
             <span className="font-medium">{t("تم حفظ التغييرات", "Changes saved")}</span>
-            <Link
-              href={`/${locale}/marketplace/listing/${state.listing?.slug ?? existing?.slug}`}
-              className="underline underline-offset-2 hover:no-underline"
-            >
-              {t("عرض الإعلان", "View listing")}
-            </Link>
+            {/* Same 404 guard as the create confirmation. The state comes from
+                the action's own result — which now reports the row as WRITTEN,
+                so a live listing edited with "For review" selected still
+                offers the link, because save-listing leaves it live. */}
+            {PUBLICLY_VIEWABLE.has(state.listing?.state ?? existing?.state) ? (
+              <Link
+                href={`/${locale}/marketplace/listing/${state.listing?.slug ?? existing?.slug}`}
+                className="underline underline-offset-2 hover:no-underline"
+              >
+                {t("عرض الإعلان", "View listing")}
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={() => setSaved(false)}
@@ -940,38 +1109,41 @@ export default function ListingForm({
           {/* ── Tab: the car ─────────────────────────────────────────────── */}
           <div hidden={tab !== "car"} role="tabpanel">
             {/* ── Seller ───────────────────────────────────────────────
-                One showroom is the normal case, and a picker with a single
-                option is not a choice — it is a control that looks like a
-                decision and has none. So the showroom is simply stated, and
-                its id travels in a hidden input.
+                STATED, never picked. The showroom a listing belongs to is not
+                a field on the listing — it is the context the whole dashboard
+                is already in, chosen with the "Acting as" picker on the
+                dashboard and carried in the URL as ?vendor=.
 
-                A picker survives only for staff and for anyone who belongs
-                to more than one showroom. `vendors` is already the
-                session-scoped list from getVendorOptions(), so the options
-                can only ever be the caller's own — and save-listing.js
-                re-derives the vendor from the session regardless, which is
-                what makes posting somebody else's id do nothing at all. */}
+                This used to be a <Select> whenever `vendors` held more than
+                one, which is never true for a seller — getVendorOptions()
+                returns only their own showrooms — and always true for staff.
+                So the one person who saw it was an admin, inside a dashboard
+                whose sidebar already named the showroom they were acting as,
+                being asked the same question a second time with a different
+                answer available. Two controls for one piece of state, one of
+                them per-form, is how a car ends up filed under the wrong
+                showroom.
+
+                Nothing is lost for staff: the dashboard picker still moves
+                them between showrooms, and this follows it.
+
+                The id still travels in a hidden input because the action reads
+                it — but it is not authority. vendorForAction() re-derives the
+                showroom from the SESSION and ignores an id the caller does not
+                belong to, so this input is a convenience for staff and not a
+                hole for anybody else. */}
             <div className={section}>
               <h2 className={sectionTitle}>{t("البائع", "Seller")}</h2>
 
               <input type="hidden" name="vendorId" value={vendorId} />
 
-              {vendors.length > 1 ? (
-                <Select value={vendorId || undefined} onValueChange={setVendorId}>
-                  <SelectTrigger className="h-11" aria-label={t("اختر المعرض", "Select a showroom")}>
-                    <SelectValue placeholder={t("اختر المعرض", "Select a showroom")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>{name(v)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="flex h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-800 dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
-                  {vendors[0] ? name(vendors[0]) : t("معرضك", "Your showroom")}
-                </p>
-              )}
+              <p className="flex h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-800 dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
+                {vendors.find((v) => v.id === vendorId)
+                  ? name(vendors.find((v) => v.id === vendorId))
+                  : vendors[0]
+                    ? name(vendors[0])
+                    : t("معرضك", "Your showroom")}
+              </p>
               <FieldError message={err("vendorId")} />
             </div>
 

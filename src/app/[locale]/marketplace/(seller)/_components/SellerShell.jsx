@@ -46,6 +46,7 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import LanguageSwitcher from "../../_components/LanguageSwitcher";
+import DarkModeToggle from "../../_components/DarkModeToggle";
 import NotificationBell from "../../_components/NotificationBell";
 import AccessCountdown from "./AccessCountdown";
 import MessagesDrawer from "@/marketplace/ui/MessagesDrawer";
@@ -538,6 +539,10 @@ export default function SellerShell({
                 />
               </Suspense>
               <LanguageSwitcher />
+              {/* Same argument as the language switch above it: there is no
+                  public header over the dashboard, so without this there is no
+                  way to leave dark mode from inside the seller area. */}
+              <DarkModeToggle locale={locale} />
             </div>
           </div>
         </header>

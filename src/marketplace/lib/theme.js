@@ -151,6 +151,23 @@ function hslChannels(hex) {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+/**
+ * The same colour, `delta` lighter (or darker, negative).
+ *
+ * Dark mode needs the PRESSED state of a colour to be LIGHTER than its resting
+ * state, which is the opposite of light mode — on a near-black ground, "more
+ * ink" is invisible and "more light" is what reads as pressed. That is why
+ * globals.css pairs `--brand-primary: #4CC08A` with `--brand-dark: #7FD4A8`,
+ * a variable whose name says darker and whose value is lighter. Keeping the
+ * relationship here means any brand colour an admin picks gets the same pair.
+ */
+function lift(hex, delta, fallback) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return fallback;
+  const { l } = rgbToHsl(rgb);
+  return recolour(hex, { l: clamp(l + delta, 0, 1), fallback });
+}
+
 /** `hex` laid over white at `weight` (0 = white, 1 = the colour itself). */
 function over(hex, weight, fallback) {
   const rgb = hexToRgb(hex);
@@ -355,6 +372,11 @@ export function derive(theme) {
     /* Dark mode cannot reuse the brand colour: #0B6B3A on near-black is
        unreadable, so the hue is lifted to a fixed readable lightness. */
     onDark: onDarkShade(t.primary),
+    /* The pressed state ON a dark ground — lighter, not darker. See lift(). */
+    onDarkHover: lift(onDarkShade(t.primary), 0.12, '#7FD4A8'),
+    /* What `--brand-light` means on a dark ground: not a pale wash but a dim
+       panel of the brand hue, the colour an active nav row is filled with. */
+    darkTint: darkSurface(t.primary, 0.13, '#12301F'),
     /* The near-black dark surfaces sit on — the brand hue rather than a
        neutral, so a dark card reads as part of the theme. */
     ink: recolour(t.primary, { l: 0.06, s: (s) => Math.min(s, 0.6), fallback: '#06170E' }),
@@ -388,9 +410,51 @@ export function derive(theme) {
       darkCardFrom: darkSurface(t.primary, 0.16, '#163925'),
       darkCardTo: darkSurface(t.primary, 0.105, '#0e2517'),
     },
+    /**
+     * The dashboard sidebar.
+     *
+     * ── Why this is a group of its own and not more `surface` entries ────────
+     *
+     * The sidebar is the one part of both dashboards that is painted by a
+     * SEPARATE token family — shadcn's `--sidebar*`, which `bg-sidebar`,
+     * `text-sidebar-foreground` and `data-[active]` all resolve through. Those
+     * eight variables were hardcoded neutral greys in globals.css and were
+     * never emitted here, so an admin could repaint every button, card and
+     * badge in the app and the navigation down the left-hand side would stay
+     * the same grey — with a BLUE focus ring, from shadcn's own default, on a
+     * site with no blue in it anywhere.
+     *
+     * Two of them are worth naming:
+     *
+     *   accent  is the fill behind the hovered and the CURRENT nav row, so it
+     *           is the one that tells a seller which page they are on. A tint
+     *           of the brand rather than grey is what makes that read as the
+     *           theme rather than as an accident.
+     *   ring    is the focus outline. Brand, not blue — a keyboard user tabbing
+     *           the navigation is the last person who should be shown a colour
+     *           from a palette the site does not use.
+     *
+     * The light values are tints of the brand over white and the dark ones are
+     * the same hue taken down, reusing darkSurface() so a sidebar and the cards
+     * beside it are lit from the same source rather than drifting apart.
+     */
+    sidebar: {
+      bg: over(t.primary, 0.045, '#fafafa'),
+      fg: recolour(t.primary, { l: 0.22, s: (s) => Math.min(s, 0.35), fallback: '#3f3f46' }),
+      accent: over(t.primary, 0.12, '#f4f4f5'),
+      accentFg: recolour(t.primary, { l: 0.2, fallback: '#18181b' }),
+      border: over(t.primary, 0.14, '#e5e7eb'),
+      darkBg: darkSurface(t.primary, 0.1, '#111827'),
+      darkFg: over(onDarkShade(t.primary), 0.35, '#f4f4f5'),
+      darkAccent: darkSurface(t.primary, 0.17, '#1f2937'),
+      darkBorder: darkSurface(t.primary, 0.24, '#374151'),
+    },
     rgb: rgbTriplet(t.primary) ?? '11, 107, 58',
+    /* The lifted shade's channels, for the dark half of both of the above. */
+    rgbOnDark: rgbTriplet(onDarkShade(t.primary)) ?? '76, 192, 138',
     /* The same colour as HSL channels, for shadcn's `hsl(var(--primary))`. */
     hsl: hslChannels(t.primary) ?? '149 81% 23%',
+    hslOnDark: hslChannels(onDarkShade(t.primary)) ?? '149 46% 53%',
     /* Every badge's final pair, admin override over derived default. */
     badges: badgeColours(t),
   };
@@ -486,7 +550,51 @@ export function themeCss(value, { scope = null } = {}) {
          does — the brand colour itself is unreadable on near-black. */
       `--primary:${hslChannels(c.onDark)}`,
       `--ring:${hslChannels(c.onDark)}`,
-      `--primary-foreground:${hslChannels(c.ink)}`
+      `--primary-foreground:${hslChannels(c.ink)}`,
+
+      /**
+       * ── The brand tokens AGAIN, for dark mode ──────────────────────
+       *
+       * globals.css does not merely leave these alone in `.dark`; it REDEFINES
+       * them — `--brand-primary: #4CC08A`, `--brand-dark: #7FD4A8`, and a
+       * matching `--brand-rgb`. That is correct for the built-in green and it
+       * is why dark mode is not monochrome.
+       *
+       * It also meant a themed site lost its theme after sunset. A purple
+       * marketplace went GREEN in dark mode, because the light block emitted
+       * here was overridden by a `.dark` rule that names the old brand colour
+       * literally. Nothing about the admin's choice reached dark mode at all.
+       *
+       * So the same family is restated against the theme's own hue. The
+       * relationships are the ones the stylesheet already establishes:
+       * `--brand-primary` and `--brand-on-dark` collapse to one value, because
+       * on a dark ground there is only one readable answer to "the brand
+       * colour"; and `--brand-dark`, the pressed state, is LIGHTER than it —
+       * see lift().
+       */
+      `--brand-primary:${c.onDark}`,
+      `--brand-on-dark:${c.onDark}`,
+      `--brand-dark:${c.onDarkHover}`,
+      `--brand-light:${c.darkTint}`,
+      `--brand-rgb:${rgbTriplet(c.onDark) ?? c.rgb}`,
+      `--brand-ink:${c.ink}`,
+
+      /**
+       * The `--color-*` aliases, which `.dark` sets to FLAT WHITE.
+       *
+       * `--color-primary: #ffffff`, `--color-accent: #ffffff`,
+       * `--color-ring: #ffffff` — a deliberate dodge from when the brand was a
+       * purple that no amount of lightening kept recognisable, and the reason
+       * every themed control went white at night however carefully its colour
+       * had been chosen. The lifted shade is readable on near-black by
+       * construction (onDarkShade keeps raising it until it is), so there is
+       * nothing left for the dodge to protect against.
+       */
+      `--color-primary:${c.onDark}`,
+      `--color-primary-hover:${c.onDarkHover}`,
+      `--color-primary-muted:${c.darkTint}`,
+      `--color-accent:${c.onDark}`,
+      `--color-ring:${c.onDark}`
     );
   }
 
@@ -535,6 +643,48 @@ export function themeCss(value, { scope = null } = {}) {
       `--surface-dark-card-from:${s.darkCardFrom}`,
       `--surface-dark-card-to:${s.darkCardTo}`
     );
+
+    /**
+     * ── The sidebar, which the theme used to miss entirely ────────────
+     *
+     * Both dashboards' navigation is shadcn's Sidebar, and it is painted from
+     * its OWN token family rather than from the brand ones — `bg-sidebar`,
+     * `text-sidebar-foreground`, `border-sidebar-border`, and the
+     * `data-[active]` fill that marks the current page. None of the eight was
+     * ever emitted here, so the admin could recolour the entire app and the
+     * navigation stayed shadcn's stock grey.
+     *
+     * Values, not references. globals.css declares these as `hsl(…)` literals
+     * rather than as `var(--brand-…)`, so there is no indirection to re-point:
+     * the colours have to be stated. That is also what makes the scoped case
+     * work — see the `--color-background` note below for why a var() reference
+     * declared at :root cannot be moved by redefining its target further down
+     * the tree.
+     */
+    const sb = c.sidebar;
+    light.push(
+      `--sidebar:${sb.bg}`,
+      `--sidebar-foreground:${sb.fg}`,
+      `--sidebar-primary:${c.primary}`,
+      `--sidebar-primary-foreground:#ffffff`,
+      `--sidebar-accent:${sb.accent}`,
+      `--sidebar-accent-foreground:${sb.accentFg}`,
+      `--sidebar-border:${sb.border}`,
+      /* Brand, not shadcn's blue. The stock value is hsl(217 91% 60%), which
+         is the only blue on an otherwise green site and shows up the moment
+         somebody tabs into the navigation. */
+      `--sidebar-ring:${c.primary}`
+    );
+    dark.push(
+      `--sidebar:${sb.darkBg}`,
+      `--sidebar-foreground:${sb.darkFg}`,
+      `--sidebar-primary:${c.onDark}`,
+      `--sidebar-primary-foreground:${c.ink}`,
+      `--sidebar-accent:${sb.darkAccent}`,
+      `--sidebar-accent-foreground:${c.onDark}`,
+      `--sidebar-border:${sb.darkBorder}`,
+      `--sidebar-ring:${c.onDark}`
+    );
   }
 
   if (theme.bgLight !== THEME_DEFAULTS.bgLight) {
@@ -555,7 +705,22 @@ export function themeCss(value, { scope = null } = {}) {
      */
     light.push(`--color-background:${c.bgLight}`);
   }
-  if (theme.bgDark !== THEME_DEFAULTS.bgDark) light.push(`--app-bg-dark:${c.bgDark}`);
+  if (theme.bgDark !== THEME_DEFAULTS.bgDark) {
+    light.push(`--app-bg-dark:${c.bgDark}`);
+    /**
+     * The same value under the name the PAGE actually reads.
+     *
+     * `body` is painted with `var(--color-background)`, and `.dark` sets that
+     * to a literal `#0f0f0f`. So "Dark page background" in Appearance moved
+     * `--app-bg-dark` — which the stylesheet reads in a handful of places —
+     * and left the body itself the stock near-black. The control appeared to
+     * do almost nothing, which is worse than not offering it.
+     *
+     * In the dark block rather than beside `--app-bg`, because this is the
+     * dark half of the pair and `:root` must keep the light one.
+     */
+    dark.push(`--color-background:${c.bgDark}`);
+  }
 
   if (theme.radius !== THEME_DEFAULTS.radius) {
     for (const [name, rem] of Object.entries(RADIUS_SCALE)) {

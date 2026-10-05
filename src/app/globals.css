@@ -1634,7 +1634,23 @@
 }
 
 @layer base {
-  /* Sidebar Variables - All Themes */
+  /**
+   * ── DEAD. Measured, not assumed. ──────────────────────────────────────
+   *
+   * These are the shadcn v0 spelling: bare HSL channels, read by
+   * tailwind.config.mjs as `hsl(var(--sidebar-background))`. The app also has
+   * the Tailwind 4 spelling further down this file — `--sidebar: hsl(0 0% 98%)`
+   * plus an `@theme inline` block — and BOTH generate a `bg-sidebar` utility.
+   *
+   * The v4 one wins. Injecting `<div class="bg-sidebar">` into a rendered page
+   * and reading its computed background gives rgb(250, 250, 250), which is
+   * `--sidebar`; `--sidebar-background` resolves to the string `0 0% 98%` and
+   * is used by nothing.
+   *
+   * Left in place because removing it means touching tailwind.config.mjs to
+   * match, and it costs eight lines. Do not edit these expecting the sidebar to
+   * change — edit the `:root` / `.dark` pair below, or Appearance.
+   */
   :root, .light {
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -1799,35 +1815,86 @@ input[cmdk-input]:focus-visible {
   outline-offset: 0;
 }
 
-.dark .text-brand-primary {
-  color: #ffffff !important;
-}
+/* ─────────────────────────────────────────────────────────────────────────
+   DARK MODE AND THE BRAND COLOUR
 
+   These two rules used to read:
+
+     .dark .text-brand-primary { color: #ffffff !important; }
+     .dark .bg-brand-primary   { background-color: #ffffff !important;
+                                 color: #0f0f0f !important; }
+
+   which is what made dark mode unusable as a THEMED mode. Every brand-coloured
+   button, heading and link in both dashboards turned flat white, and no
+   Appearance setting could move it — `!important` on a literal beats any
+   variable. A deep-red marketplace and a purple one were the same monochrome
+   grey after sunset.
+
+   The guard was also unnecessary for TEXT. `.text-brand-primary` resolves
+   through `var(--brand-primary)` (tailwind.config.mjs), and the `.dark` block
+   above already re-points that variable at the lifted, readable shade — green
+   #4CC08A by default, and whatever the admin's hue lifts to otherwise, since
+   themeCss() now emits the dark half of the brand family too. So the text case
+   is deleted outright: the variable already says the right thing.
+
+   The BACKGROUND case is real and is kept. On a dark ground `--brand-primary`
+   is a LIGHT colour, and most call sites are written `bg-brand-primary
+   text-white` — white on a pale mint, about 1.9:1, which is unreadable. So the
+   fill follows the theme and the ink is forced to the brand's near-black.
+
+   No `!important` is needed to win that: `.dark .bg-brand-primary` is a
+   two-class selector and `.text-white` in the markup is one, so this takes it
+   on specificity rather than by force — which leaves a component free to opt
+   out with a more specific rule of its own.
+   ───────────────────────────────────────────────────────────────────────── */
 .dark .bg-brand-primary {
-  background-color: #ffffff !important;
-  color: #0f0f0f !important;
+  background-color: var(--brand-on-dark);
+  color: var(--brand-ink);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   THE DASHBOARD SIDEBAR
+
+   shadcn's own token family. `bg-sidebar`, `text-sidebar-foreground`,
+   `border-sidebar-border` and the `data-[active]` fill on a nav row all resolve
+   through these, which is why recolouring the brand never moved the navigation:
+   it is painted from here, not from `--brand-*`. themeCss() now emits all eight
+   against the admin's hue, so these are the DEFAULT look only — the stock greys
+   the app shipped with, which is exactly what an untouched Appearance should
+   still give.
+
+   Two were not defaults but bugs, and are fixed here rather than only in the
+   theme — they are wrong on an unthemed site too:
+
+     --sidebar-ring     was hsl(217 91% 60%), shadcn's BLUE. The focus outline
+                        on the navigation was the one blue thing on a green
+                        site, visible the moment anybody used the keyboard.
+     --sidebar-primary  was hsl(224 76% 48%) in dark mode — a second, different
+                        blue, for the same reason.
+
+   Both now follow the brand tokens, which `.dark` already re-points at the
+   readable lifted shade.
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(240 5.3% 26.1%);
-  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary: var(--brand-primary);
   --sidebar-primary-foreground: hsl(0 0% 98%);
   --sidebar-accent: hsl(240 4.8% 95.9%);
   --sidebar-accent-foreground: hsl(240 5.9% 10%);
   --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --sidebar-ring: var(--brand-primary);
 }
 
 .dark {
   --sidebar: hsl(240 5.9% 10%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-primary: var(--brand-on-dark);
+  --sidebar-primary-foreground: var(--brand-ink);
   --sidebar-accent: hsl(240 3.7% 15.9%);
   --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
   --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --sidebar-ring: var(--brand-on-dark);
 }
 
 @theme inline {

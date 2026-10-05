@@ -6,7 +6,6 @@ import { getVendorOptions } from '@/marketplace/db/queries/seller';
 import { getVendorSettings } from '@/marketplace/db/queries/settings';
 import { getVendorMedia } from '@/marketplace/db/queries/media';
 import { ENTITIES, ENTITY_KEYS } from '@/marketplace/lib/catalog-entities';
-import { getViewer } from '@/marketplace/auth/session';
 
 /**
  * Everything the catalog page reads, in one place.
@@ -83,15 +82,31 @@ export async function getCatalogPageData(searchParams = {}, { vendorId } = {}) {
   const entity = ENTITIES[entityKey];
 
   /**
-   * Which catalog this page is showing.
+   * Which catalog this page is showing: the catalog of the showroom the
+   * dashboard is ACTING AS, for staff exactly as for a seller.
    *
-   * A seller sees only what they installed or created, which is what makes a
-   * new showroom open to an empty Catalog tab instead of a hundred brands
-   * somebody else chose. Staff see everything — administering the shared
-   * catalog is the job.
+   * ── Staff are no longer an exception ────────────────────────────────────
+   *
+   * This read `viewer?.isStaff ? null : vendorId`, so that staff "see
+   * everything — administering the shared catalog is the job". That sentence
+   * describes a catalog that no longer exists: §30 of schema.sql gave every
+   * showroom its OWN rows, so there is no shared catalog left to administer
+   * from here.
+   *
+   * What an unscoped read actually produced was four private catalogs stacked
+   * on top of each other — "BYD" four times, "Changan" four times, identical
+   * in name, logo and slug and differing only in which showroom owns the row.
+   * Unusable as a list, and actively misleading as an editor: renaming one of
+   * the four edits one showroom's row and leaves the other three alone, with
+   * nothing on screen to say which.
+   *
+   * Staff still reach any showroom's catalog — they choose which with the
+   * "Acting as" picker on the dashboard, which is what sets `vendor` in the
+   * URL and therefore `vendorId` here. One showroom at a time, named.
+   *
+   * The platform-wide view belongs to Admin, not to the seller dashboard.
    */
-  const viewer = await getViewer();
-  const scope = viewer?.isStaff ? null : vendorId;
+  const scope = vendorId;
 
   const [list, parents, kinds, categories, settings, assets] = await Promise.all([
     listEntity(entityKey, {
