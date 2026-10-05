@@ -54,11 +54,24 @@ export function mailerConfig() {
   const port = parseInt(read('PORT') || '587', 10);
   const user = read('USER');
   const pass = read('PASSWORD');
-  /* Resend's pre-verified test sender, which needs no DNS of its own. It only
-     delivers to the provider account's own address, so it is a FALLBACK and
-     never the intended From — MARKETPLACE_SMTP_FROM is. It is here so a
-     missing variable degrades to "mail that reaches the operator" rather than
-     to a 550 naming a domain this platform does not own. */
+  /**
+   * Resend's pre-verified test sender, which needs no DNS of its own.
+   *
+   * MEASURED, because the restriction is the whole point of it:
+   *
+   *   onboarding@resend.dev → the account owner's address      ACCEPTED
+   *   onboarding@resend.dev → any other address                550, "You can
+   *       only send testing emails to your own email address"
+   *
+   * So this is a FALLBACK and can never be the intended From: it mails the
+   * operator and silently refuses every real signup, which is the most
+   * confusing failure available — it works perfectly while you test it on
+   * yourself. MARKETPLACE_SMTP_FROM is the real setting, and it needs a domain
+   * whose DNS this platform controls.
+   *
+   * It is here only so a MISSING variable degrades to "mail that reaches the
+   * operator" rather than to a 550 naming a domain this platform does not own.
+   */
   const from = read('FROM') || 'onboarding@resend.dev';
 
   // Port 465 is implicit TLS; everything else starts plain and upgrades with

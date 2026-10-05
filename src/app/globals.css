@@ -2078,3 +2078,199 @@ input[cmdk-input]:focus-visible {
   margin-bottom: 1.5em;
   font-size: 0.8125rem;
 }
+
+/* ============================================================================
+   THE SIGN-IN BACKDROP
+   ============================================================================
+
+   The auth pages were `bg-white` / `dark:bg-[#0f0f0f]`: the only screens on the
+   marketplace that ignored the theme entirely. An admin could repaint the whole
+   app from Appearance and sign-in would still be a white rectangle — which is
+   also the first page a new seller ever sees.
+
+   ── Every colour here is DERIVED, not written ──────────────────────────────
+
+   Not one hex below. The washes are `color-mix()` over `--brand-primary`,
+   `--gold` and `--brand-dark`, so changing the brand colour in Admin →
+   Appearance moves this page with the rest of the app, and a showroom-blue
+   install gets a blue sign-in without anybody editing CSS.
+
+   `color-mix` rather than `rgba(var(--brand-rgb), …)` for one reason that
+   matters: `--gold` is stored as a hex and has no rgb triplet, so an alpha of
+   it is not expressible the old way. Mixing works on ANY colour value, which
+   means a future accent needs no second variable.
+
+   `in oklab` rather than srgb: a gradient fading green → transparent in sRGB
+   passes through a grey that reads as dirt. Oklab is perceptually even, so the
+   wash stays the colour it started as the whole way out.
+
+   ── One element, five layers ───────────────────────────────────────────────
+
+   Radial gradients compose in a single `background-image`, so the whole effect
+   is one painted element with no extra DOM, no images and nothing to download.
+   Three washes for colour, a hairline grid for texture, and the themed paper
+   underneath.
+
+   The grid is what stops it reading as a blurry phone wallpaper: a faint
+   straight edge gives the eye something to measure the softness against.
+   ========================================================================== */
+
+.auth-aurora {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--app-bg);
+  background-image:
+    /* The hairline mesh, over everything so it catches the light washes. */
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--brand-primary) 7%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--brand-primary) 7%, transparent) 1px,
+      transparent 1px
+    ),
+    /* Brand, from the top corner — the largest and the one that sets the mood. */
+    radial-gradient(
+      72rem 50rem at 4% 2%,
+      color-mix(in oklab, var(--brand-primary) 30%, transparent),
+      transparent 62%
+    ),
+    /* The accent, opposite it, so the page has two temperatures rather than
+       one flat tint. Reaching further down the right edge than the brand does
+       on the left — symmetry here would read as a letterbox. */
+    radial-gradient(
+      54rem 46rem at 102% 16%,
+      color-mix(in oklab, var(--gold) 24%, transparent),
+      transparent 62%
+    ),
+    /* Deep brand from below, which is what keeps the card from floating on
+       nothing at the bottom of a tall screen.
+
+       Centred at 102% rather than 112%, and WIDE — 88rem against the 70rem of
+       the top wash. The first attempt put it at 112% and it was almost entirely
+       off-screen: on a 900px viewport the page faded to bare paper under the
+       card, which on the signup form (the taller of the two) read as a
+       half-finished page. Verified by screenshot, not by eye on the numbers. */
+    radial-gradient(
+      88rem 44rem at 50% 102%,
+      color-mix(in oklab, var(--brand-dark) 30%, transparent),
+      transparent 62%
+    );
+  background-size: 38px 38px, 38px 38px, auto, auto, auto;
+  /* Deliberately NOT `background-attachment: fixed`. iOS has treated fixed
+     attachment as scroll for years, so it buys nothing there, and this page is
+     one centred card on a min-height screen — there is no scrolling for a
+     parallax to be visible during. It would cost a repaint and look broken on
+     the device most sign-ins happen on. */
+}
+
+/* Dark mode is NOT the same picture dimmed.
+   Near-black swallows a mid-tone, so the washes use the lifted brand shade the
+   rest of the app uses on dark (`--brand-on-dark`) and are given more of it —
+   at the light-mode alphas they simply disappear. The mesh drops to almost
+   nothing, because a grid that reads on white is a cage on black. */
+.dark .auth-aurora {
+  background-color: var(--app-bg-dark);
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--brand-on-dark) 4%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--brand-on-dark) 4%, transparent) 1px,
+      transparent 1px
+    ),
+    radial-gradient(
+      72rem 50rem at 4% 2%,
+      color-mix(in oklab, var(--brand-on-dark) 22%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      54rem 46rem at 102% 16%,
+      color-mix(in oklab, var(--gold) 15%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      88rem 44rem at 50% 102%,
+      color-mix(in oklab, var(--brand-primary) 24%, transparent),
+      transparent 62%
+    );
+}
+
+/* ── The drifting light ──────────────────────────────────────────────────────
+
+   One slow pass of brand light across the page, behind everything.
+
+   `transform` only — never `background-position`, which repaints the five
+   gradients above on every frame. A translated layer is composited on the GPU
+   and costs the same whether it moves or not.
+
+   OFF by default and switched on only inside `prefers-reduced-motion:
+   no-preference`. The usual mistake is the other way round — animate, then try
+   to cancel it — which leaves the element built, promoted and painted for
+   somebody who asked for stillness. */
+.auth-aurora::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    38rem 38rem at 50% 50%,
+    color-mix(in oklab, var(--brand-primary) 14%, transparent),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-aurora::before {
+    opacity: 1;
+    animation: auth-drift 34s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes auth-drift {
+  from { transform: translate3d(-8%, -6%, 0) scale(1); }
+  to   { transform: translate3d(8%, 6%, 0) scale(1.12); }
+}
+
+/* ── The card has to stay legible on top of all that ────────────────────────
+
+   A soft halo directly behind the form, so its white edge meets a lightened
+   wash rather than whatever colour the aurora happens to put there. Without it
+   the card's corners read as torn out of the background on a saturated theme.
+
+   `blur` on a plain radial costs little because it never moves; the drifting
+   layer above is deliberately unblurred for the same reason. */
+.auth-halo {
+  position: relative;
+}
+
+.auth-halo::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem -2rem;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, white 70%, transparent),
+    transparent
+  );
+  filter: blur(28px);
+}
+
+.dark .auth-halo::before {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, black 62%, transparent),
+    transparent
+  );
+}
