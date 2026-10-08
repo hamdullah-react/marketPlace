@@ -184,10 +184,31 @@ export default function BackgroundStudio({
                 <figcaption className="text-xs font-medium text-muted-foreground">
                   {t("بعد التنظيف", "Cleaned up")}
                 </figcaption>
-                <div className="flex aspect-[4/3] w-full items-center justify-center rounded-lg border bg-muted/40">
+                {/* A checkerboard, because the result is TRANSPARENT and a
+                    vendor needs to see that rather than wonder why the car is
+                    on a grey square. It is also the convention every image
+                    editor uses, so it needs no label.
+
+                    object-contain and a drop-shadow, which is exactly what the
+                    listing card does with this image — so the preview is the
+                    card's rendering rather than an approximation of it. */}
+                <div
+                  className="flex aspect-[4/3] w-full items-center justify-center rounded-lg border p-3"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(45deg, rgba(0,0,0,.06) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.06) 75%)," +
+                      "linear-gradient(45deg, rgba(0,0,0,.06) 25%, transparent 25%, transparent 75%, rgba(0,0,0,.06) 75%)",
+                    backgroundSize: "16px 16px",
+                    backgroundPosition: "0 0, 8px 8px",
+                  }}
+                >
                   {result ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={result.url} alt="" className="h-full w-full rounded-lg object-cover" />
+                    <img
+                      src={result.url}
+                      alt=""
+                      className="h-full w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)]"
+                    />
                   ) : busy ? (
                     <div className="flex flex-col items-center gap-2 px-6 text-center">
                       <Loader2 className="h-5 w-5 animate-spin text-brand-primary" />
