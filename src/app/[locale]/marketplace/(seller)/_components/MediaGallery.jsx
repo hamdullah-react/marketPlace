@@ -22,7 +22,7 @@
 
 import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "react";
 import {
-  Upload, Trash2, Check, Loader2, ImageIcon, AlertCircle, X,
+  Upload, Trash2, Check, Loader2, ImageIcon, AlertCircle, X, Sparkles,
   FolderPlus, Folder, Pencil, Eye, FolderInput, ExternalLink,
   MoreVertical, Scissors, Copy,
 } from "lucide-react";
@@ -32,6 +32,7 @@ import {
   moveMediaToFolder, copyMediaToFolder, listMediaFolders,
 } from "../_actions/media";
 import { subscribeMedia, getMediaVersion, getServerMediaVersion } from "./mediaStore";
+import BackgroundStudio from "./BackgroundStudio";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -169,6 +170,10 @@ export default function MediaGallery({
   const [errors, setErrors] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  /* Which photo the background dialog is open on, or null. One dialog for
+     the whole grid rather than one per tile: it holds a 42 MB model and a
+     canvas, and twenty mounted copies of that is twenty of each. */
+  const [studioAsset, setStudioAsset] = useState(null);
   const inputRef = useRef(null);
 
   /* Files this gallery uploaded or copied itself, since it mounted. */
@@ -1028,6 +1033,23 @@ export default function MediaGallery({
                         </DropdownMenu>
                       ) : null}
 
+                      {/* Offered only on photographs. An icon or a logo has a
+                          transparent background already, and a document has a
+                          background that IS the content — running a salient
+                          object detector over a service book would cut the
+                          page out of the page. */}
+                      {asset.kind === "photo" ? (
+                        <button
+                          type="button"
+                          onClick={() => setStudioAsset(asset)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-black/5 dark:bg-black/70 dark:hover:bg-white/10"
+                          aria-label={t("تنظيف الخلفية", "Clean up background")}
+                          title={t("تنظيف الخلفية", "Clean up background")}
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-brand-primary" />
+                        </button>
+                      ) : null}
+
                       <button
                         type="button"
                         onClick={() => remove(asset)}
@@ -1139,6 +1161,23 @@ export default function MediaGallery({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* The result goes through the SAME upload() the drop zone uses, so it
+          lands in the folder that is currently open, under the same kind, and
+          appears in the grid by the path everything else already takes. The
+          original is not touched — this adds a photo, it does not replace
+          one. */}
+      <BackgroundStudio
+        /* Keyed on the photo: a different asset mounts a different dialog,
+           which is what resets the preview, the error and the progress
+           without an effect clearing three fields by hand. */
+        key={studioAsset?.id ?? "none"}
+        asset={studioAsset}
+        open={!!studioAsset}
+        onOpenChange={(next) => { if (!next) setStudioAsset(null); }}
+        onSave={(file) => upload([file])}
+        locale={locale}
+      />
     </div>
   );
 }

@@ -9,8 +9,9 @@
  */
 
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
+import { ImagePlus, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import BackgroundStudio from "../../(seller)/_components/BackgroundStudio";
 import { errorText } from "@/marketplace/lib/errors";
 
 const BOXES = {
@@ -41,6 +42,17 @@ export default function SiteImageField({
   shape = "square",
   cover = false,
   onChange,
+  /**
+   * Whether this field holds a PHOTOGRAPH, and so whether "clean up the
+   * background" is offered on it.
+   *
+   * Opt-in rather than on by default, because most of what goes through this
+   * component is not a photograph: a logo and a favicon already have
+   * transparency, and running a salient-object detector over a wordmark would
+   * cut the letters out of the lockup. A hero slide or a blog cover is the
+   * case this is for.
+   */
+  photo = false,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -49,6 +61,7 @@ export default function SiteImageField({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const input = useRef(null);
+  const [studio, setStudio] = useState(false);
 
   // Follow the server when the stored value changes (see ImagePicker).
   const [lastValue, setLastValue] = useState(value ?? "");
@@ -111,6 +124,12 @@ export default function SiteImageField({
           <Upload className="h-3.5 w-3.5" />
           {url ? t("تغيير", "Change") : t("رفع", "Upload")}
         </Button>
+        {url && photo ? (
+          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setStudio(true)} className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-brand-primary" />
+            {t("نظّف الخلفية", "Clean up background")}
+          </Button>
+        ) : null}
         {url ? (
           <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => set("")} className="gap-1.5 text-red-600 hover:text-red-700">
             <Trash2 className="h-3.5 w-3.5" />
@@ -118,6 +137,20 @@ export default function SiteImageField({
           </Button>
         ) : null}
       </div>
+
+      {/* The cleaned-up version is uploaded as a NEW object and this field is
+          pointed at it. The original stays in storage untouched, so "replace"
+          here only ever means "this form now references a different file". */}
+      {photo ? (
+        <BackgroundStudio
+          key={url || "none"}
+          asset={url ? { id: url, url, filename: "image" } : null}
+          open={studio}
+          onOpenChange={setStudio}
+          onSave={async (file) => set(await uploadSiteImage(file, folder))}
+          locale={locale}
+        />
+      ) : null}
 
       {error ? (
         <p className="mt-1 text-xs text-red-600">{errorText(error, locale)}</p>

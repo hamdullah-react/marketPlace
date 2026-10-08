@@ -133,6 +133,7 @@ export default function BlogBannerForm({ locale = "ar", row = null, mode = "both
           <SiteImageField
             locale={locale}
             name="imageUrl"
+            photo
             value={row?.image_url ?? ""}
             folder="blog"
             shape="wide"

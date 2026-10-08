@@ -364,6 +364,7 @@ export default function BlogPostForm({ locale = "ar", post = null, mode = "both"
             <SiteImageField
               locale={locale}
               name="coverUrl"
+              photo
               value={post?.cover_url ?? ""}
               folder="blog"
               shape="wide"
@@ -378,6 +379,7 @@ export default function BlogPostForm({ locale = "ar", post = null, mode = "both"
             <SiteImageField
               locale={locale}
               name="bannerUrl"
+              photo
               value={post?.banner_url ?? ""}
               folder="blog"
               shape="wide"
@@ -504,6 +506,7 @@ export default function BlogPostForm({ locale = "ar", post = null, mode = "both"
           <SiteImageField
             locale={locale}
             name="ogImageUrl"
+            photo
             value={post?.og_image_url ?? ""}
             folder="blog"
             shape="wide"
@@ -567,6 +570,7 @@ export default function BlogPostForm({ locale = "ar", post = null, mode = "both"
               <SiteImageField
                 locale={locale}
                 name="twitterImageUrl"
+                photo
                 value={post?.twitter_image_url ?? ""}
                 folder="blog"
                 shape="wide"

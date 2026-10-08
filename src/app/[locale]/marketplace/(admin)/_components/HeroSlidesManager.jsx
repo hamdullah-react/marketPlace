@@ -360,6 +360,7 @@ function SlideDialog({ locale, slide, onClose, mode = "both" }) {
           <SiteImageField
             locale={locale}
             name="imageUrl"
+            photo
             value={image}
             onChange={setImage}
             folder="hero"
