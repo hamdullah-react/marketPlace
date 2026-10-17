@@ -465,23 +465,33 @@ async function AboveTheFold({ slug, locale, t }) {
           nothing at all when a listing has no specs — see SpecSheet. */}
       <SpecSheet sheet={specSheet} keySpecs={keySpecs} locale={locale} />
 
-      {/* ── The showroom's own questions about THIS car ────────────────
+      {/* ── The showroom's OWN questions about THIS car ────────────────
           Placed under the spec sheet and above "similar cars": it answers
           what somebody asks after reading the specs and before deciding to
           look elsewhere, which is exactly where the objection lives.
 
-          Where the showroom has written none — which is most cars — five
-          answers built from this car's own row stand in, so the section is
-          never empty and never says anything untrue of the car in front of
-          the reader. Those carry no FAQPage markup: identical text on every
-          car page is boilerplate structured data. See lib/faq.js. */}
-      <FaqSection
-        faqs={faqs}
-        locale={locale}
-        title={t('أسئلة عن هذه السيارة', 'Questions about this car')}
-        className="mt-8 sm:mt-10"
-        structured={!faqsFallback}
-      />
+          ── The fallback is NOT shown here ──────────────────────────────
+
+          It used to be: five answers built from the car's own row, so the
+          section was never empty. On a catalogue of any size that reads as
+          what it is — the same five questions, word for word, under every
+          car — and a reader who meets it twice stops reading it at all. It
+          also has nothing to say that the page has not already said: the VAT
+          line is beside the price, availability is on the badge.
+
+          So a car shows questions only where the showroom wrote them. The
+          fallbacks still exist and are still offered inside the seller's FAQ
+          tab as a starting point — which is where five ready-made questions
+          help somebody, rather than being published on their behalf. */}
+      {!faqsFallback ? (
+        <FaqSection
+          faqs={faqs}
+          locale={locale}
+          title={t('أسئلة عن هذه السيارة', 'Questions about this car')}
+          className="mt-8 sm:mt-10"
+          structured
+        />
+      ) : null}
     </>
   );
 }
