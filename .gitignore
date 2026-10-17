@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the example, which carries NO values and is the only record of
+# which variables this app needs. A repo whose env vars are documented only in
+# somebody's .env.local is a repo that cannot be deployed by anyone else.
+!.env.example
 
 # vercel
 .vercel

@@ -24,7 +24,31 @@ import { formatDate, pickDoc, pickText, readingMinutes } from '../_lib/text';
  */
 export async function generateStaticParams() {
   const slugs = await listBlogSlugs();
-  return slugs.slice(0, 50).map(({ slug }) => ({ slug }));
+  const params = slugs.slice(0, 50).map(({ slug }) => ({ slug }));
+
+  /**
+   * A blog with no articles is a BUILD ERROR, not an empty build.
+   *
+   *   Error: When using Cache Components, all `generateStaticParams`
+   *   functions must return at least one result.
+   *
+   * Next needs one real param to render at build time so it can prove the
+   * route does not reach for cookies(), headers() or searchParams outside a
+   * cached scope. Given none, it has nothing to check and refuses — which
+   * means a deployment against a fresh database cannot build at all, however
+   * correct the code is. That is exactly how the first deploy onto the
+   * self-hosted Supabase failed.
+   *
+   * The placeholder is the documented answer for "the values are not known at
+   * build time" (generate-static-params.md, "With Cache Components"), and the
+   * page below already calls notFound() for a slug that resolves to nothing —
+   * so the one prerendered path is a 404 page, which is the truth about
+   * /blog/placeholder on a site with no articles.
+   *
+   * The same guard is already on listing/[slug] and brands/[slug], for the
+   * same reason. This route was the one that was missed.
+   */
+  return params.length ? params : [{ slug: 'placeholder' }];
 }
 
 /**

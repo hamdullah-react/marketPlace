@@ -5,6 +5,47 @@ import createNextIntlPlugin from 'next-intl/plugin';
 // parent repo, so nothing inside the copied tree had to change.
 const withNextIntl = createNextIntlPlugin();
 
+/**
+ * The storage host, from whichever Supabase the app is pointed at.
+ *
+ * This was the hosted project's hostname, typed in. next/image refuses any
+ * host not on this list, so the day the app is pointed at a different Supabase
+ * — self-hosted, staging, anything — every uploaded photo 400s through the
+ * optimiser while the database, the auth and the uploads themselves all work
+ * perfectly. The failure looks like broken images and nothing in the server
+ * log says why.
+ *
+ * Derived instead, so the allowlist cannot disagree with the connection.
+ * Next loads the .env files before it evaluates this file, so the value is
+ * here at build time; on a host like Coolify or Vercel it comes from the
+ * project's own environment, which is where it should come from.
+ *
+ * Protocol and port are taken from the URL as well: a self-hosted instance
+ * reached over http://host:8000 is an ordinary case while a domain is being
+ * set up, and hardcoding 'https' would reject it.
+ */
+function marketplaceStorageHost() {
+  const raw =
+    process.env.NEXT_PUBLIC_MARKETPLACE_SUPABASE_URL || process.env.MARKETPLACE_SUPABASE_URL;
+  if (!raw) return [];
+
+  try {
+    const u = new URL(raw);
+    return [
+      {
+        protocol: u.protocol.replace(':', ''),
+        hostname: u.hostname,
+        ...(u.port ? { port: u.port } : {}),
+        pathname: '/storage/v1/object/public/**',
+      },
+    ];
+  } catch {
+    // A malformed URL must not take the build down over an image host; the
+    // app's own env check reports it in a sentence somebody can act on.
+    return [];
+  }
+}
+
 const nextConfig = {
   // Both carried over from the parent repo deliberately.
   //
@@ -34,8 +75,21 @@ const nextConfig = {
   //
   // Route handlers (listing photos, /api/marketplace/upload) are unaffected;
   // this governs server actions only.
-  serverActions: {
-    bodySizeLimit: '24mb',
+  //
+  // UNDER experimental, which is where Next reads it from — it sat at the top
+  // level and the build said so on every run:
+  //
+  //   ⚠ Invalid next.config.mjs options detected:
+  //   ⚠   Unrecognized key(s) in object: 'serverActions'
+  //
+  // An unrecognised key is ignored, so the limit was never 24 MB: it was the
+  // 1 MB default, and the careful "that file is over 8MB" messages in the
+  // actions were unreachable because the framework rejected the request before
+  // the action ran.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '24mb',
+    },
   },
 
   // ── React Compiler, ON ─────────────────────────────────────────────────
@@ -65,8 +119,15 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
-      // Where the marketplace's own uploads live — DB2's storage bucket. This
-      // is the one host this app cannot work without.
+      // Where the marketplace's own uploads live — whichever Supabase this
+      // deployment points at. The one host this app cannot work without.
+      ...marketplaceStorageHost(),
+      /* The ORIGINAL hosted project, kept on purpose while the move to the
+         self-hosted instance settles: every `media_assets.url` and every entry
+         in `listings.media` holds an absolute URL that was written against
+         this host, so they go on resolving here until those rows are rewritten.
+         Delete this line once they have been — an allowlisted host is a
+         standing permission to optimise and serve anything from it. */
       { protocol: 'https', hostname: 'cwfojlepmzamhgeejugr.supabase.co', pathname: '/storage/v1/object/public/**' },
       // The dealership CDN. Kept because catalog rows (brand logos, template
       // imagery) still point at it; a listing photo does not.
