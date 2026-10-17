@@ -144,6 +144,62 @@ export async function getColors(vendorId = null) {
   return data ?? [];
 }
 
+/**
+ * The colours and years ONE MODEL offers — and only those.
+ *
+ * ── A colour belongs to a model, exactly as a trim does ─────────────────────
+ *
+ * Brand → model → trim is a chain of ownership: a trim belongs to one model
+ * and appears nowhere else, which is why picking a model is what fills the
+ * trim list. Colour and year now work the same way. The 2026 Camry offers the
+ * colours somebody recorded against the 2026 Camry, and nothing else.
+ *
+ * `model_colors` / `model_years` are the link rows rather than a `model_id`
+ * column on the colour itself, and that is an implementation detail with one
+ * visible consequence worth stating: the same colour ROW can be attached to
+ * two models when a seller wants that, so renaming it renames it in both
+ * places. What a seller sees is still one palette per model.
+ *
+ * ── An unlinked colour is in NO model's list ────────────────────────────────
+ *
+ * This is the whole point and it is worth being blunt about: there is no
+ * "shared" tier. A colour attached to nothing is offered nowhere, the way a
+ * trim with no model would be. The listing form's create button is how the
+ * list gets filled — adding a colour while a model is selected attaches it to
+ * that model, which is the only way colours are added from the form.
+ *
+ * ── The ids, not the exclusions ─────────────────────────────────────────────
+ *
+ * The caller holds the full catalog and keeps only what is named here. An
+ * empty answer therefore means an empty picker, which is the honest state for
+ * a model nobody has recorded a palette for yet.
+ */
+async function linkedIds(table: string, column: string, modelId: string) {
+  const { data, error } = await getMarketplaceDb()
+    .from(table)
+    .select(column)
+    .eq('model_id', modelId);
+
+  /* A missing table means the section of schema.sql that creates it has not
+     been run yet. `null` is distinct from `[]` here — it means "no answer",
+     and the caller leaves the list unfiltered rather than showing the seller
+     an empty picker they cannot explain. */
+  if (error) return null;
+
+  return (data as LooseRow[]).map((row) => row[column] as string);
+}
+
+/** What the listing form shows once a model is chosen. */
+export async function getModelPalette(modelId: string | null) {
+  if (!modelId) return { colors: null, years: null };
+
+  const [colors, years] = await Promise.all([
+    linkedIds('model_colors', 'color_id', modelId),
+    linkedIds('model_years', 'year_id', modelId),
+  ]);
+  return { colors, years };
+}
+
 /** Resolves the four catalog ids to names, for building a listing slug stem. */
 export async function getCatalogNames({
   brandId,

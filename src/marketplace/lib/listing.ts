@@ -144,6 +144,49 @@ const t = (row: ListingRow | null | undefined, field: string, locale: string): s
  * rather than "undefined", and so the app still works on a database where the
  * CURRENCY section of schema.sql has not been run yet.
  */
+/**
+ * Which language did somebody just type in?
+ *
+ * Used by every "type a name and add it" path in the dashboard. Those used to
+ * write the same string into BOTH sides of the {ar, en} pair — a no-op ternary
+ * that read as a decision — so a seller typing "تويوتا" created a row whose
+ * English name was "تويوتا", and one typing "Toyota" created an Arabic name of
+ * "Toyota". Every list then showed the wrong script to half the users, and the
+ * only fix was editing the row by hand on the Catalog page.
+ *
+ * ── Arabic is decided by the SCRIPT, not by the interface ─────────────────
+ *
+ * The dashboard's own language says nothing about what was typed into it: an
+ * Arabic-speaking seller works in an Arabic interface and still types "RAV4",
+ * because that is the model's name. So the test is the text itself.
+ *
+ * ؀-ۿ is Arabic, ݐ-ݿ its supplement, ࢠ-ࣿ the
+ * extended block, and ﭐ-﻿ the presentation forms that arrive from
+ * copy-paste out of older documents. One Arabic letter anywhere is enough —
+ * "BMW ٧٥٠" is an Arabic name with Latin in it, not the other way round.
+ */
+export function isArabicText(value: string): boolean {
+  return /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﻿]/.test(value ?? '');
+}
+
+/**
+ * One typed name, as the {ar, en} pair the catalog stores.
+ *
+ * Deliberately fills ONE side. The other is left empty for somebody to
+ * translate later, and every reader already copes — localized() falls back to
+ * whichever side exists, which is why a half-translated row renders correctly
+ * rather than blank.
+ *
+ * Writing the same text into both would have looked tidier in the database and
+ * lied: it would claim a translation nobody made, and no later pass could tell
+ * the claim from a real one.
+ */
+export function namePair(text: string): { ar?: string; en?: string } {
+  const value = (text ?? '').trim();
+  if (!value) return {};
+  return isArabicText(value) ? { ar: value } : { en: value };
+}
+
 export const DEFAULT_CURRENCY = 'SAR';
 
 /**

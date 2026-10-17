@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { createCatalogEntry } from "../_apicalls/catalogApi";
-import { localized } from "@/marketplace/lib/listing";
+import { localized, namePair } from "@/marketplace/lib/listing";
 
 export default function CatalogCombo({
   mode = "ar",
@@ -42,14 +42,42 @@ export default function CatalogCombo({
   onCreated,
   parentId = null,
   vendorId = null,
+  /**
+   * The model a newly created row belongs to, for the kinds that can belong to
+   * one — today that is `year`.
+   *
+   * Not the same thing as parentId: a year has no parent, it has an audience.
+   * Sending it is what stops a year added to one car appearing on every car in
+   * the catalog; see linkToModel in the create route for the rule it feeds.
+   */
+  modelId = null,
   disabled = false,
   required = false,
   placeholder = "",
-  // OFF by default. Letting a seller invent a brand mid-listing is how the
-  // catalog filled up with models filed as brands ("Camry", "RAV4") and rows
-  // whose English name was the Arabic one. The catalog is shared reference
-  // data — every seller sees it — so entries are created on the Catalog page,
-  // deliberately, not as a side effect of typing into a picker.
+  /**
+   * Still OFF by default, but the reason has changed — and so has the answer
+   * for the listing form, which now passes it.
+   *
+   * The old argument was that the catalog is SHARED: a seller inventing a
+   * brand mid-listing filled it with models filed as brands ("Camry", "RAV4")
+   * and rows whose English name was the Arabic one, and every other seller saw
+   * the mess. §30 of schema.sql ended that — a catalog row now belongs to
+   * exactly one showroom. A seller who types something wrong now pollutes
+   * their own catalog and nobody else's, which they can edit and retire from
+   * their own Catalog tab.
+   *
+   * What still stands, and is what the create path actually relies on:
+   *
+   *   · the search runs BEFORE the offer to create, so "Toyota" is found
+   *     rather than typed again;
+   *   · the match is case-insensitive and repeated server-side, scoped to
+   *     this showroom's own rows plus the platform-level ones;
+   *   · a created row lands as is_custom with approved = false, so it shows
+   *     in the admin merge queue rather than being treated as canon.
+   *
+   * It stays false by default because a picker that can create is the wrong
+   * default everywhere it is NOT a seller filling in their own car.
+   */
   allowCreate = false,
   labelOf,
   /**
@@ -69,6 +97,13 @@ export default function CatalogCombo({
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+
+  /* The bilingual dialog's own create. Controlled rather than left to
+     DialogTrigger, because a successful create has to close it. */
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [draftAr, setDraftAr] = useState("");
+  const [draftEn, setDraftEn] = useState("");
+  const [dialogError, setDialogError] = useState(null);
 
   /**
    * Names are {ar, en} jsonb; `value` covers years, which are plain numbers.
@@ -123,6 +158,26 @@ export default function CatalogCombo({
   // could not see clicks inside a portal, which is why the picker stayed open
   // behind other overlays.
 
+  /**
+   * The one create path, called from the inline list and from the dialog.
+   *
+   * It takes the two sides separately because its two callers know different
+   * amounts: the inline box has one string and has to GUESS which language it
+   * is in, while the dialog was given each side by name and guesses nothing.
+   * Empty strings are dropped by the server, so a one-sided create still lands
+   * one-sided.
+   */
+  const submit = async ({ ar = "", en = "", value = "" }) => {
+    const payload = kind === "year"
+      ? { kind, value, vendorId, modelId }
+      : { kind, nameAr: ar, nameEn: en, parentId, vendorId, modelId };
+
+    const { item, created } = await createCatalogEntry(payload);
+    onCreated?.(item, created);
+    onChange?.(item.id);
+    return item;
+  };
+
   const create = async () => {
     const text = query.trim();
     if (!text) return;
@@ -130,17 +185,50 @@ export default function CatalogCombo({
     setCreating(true);
     setError(null);
     try {
-      const payload = kind === "year"
-        ? { kind, value: text, vendorId }
-        : { kind, nameAr: isAr ? text : text, nameEn: isAr ? text : text, parentId, vendorId };
+      /* The side that matches what was TYPED, not what the interface is in.
+         An Arabic-speaking seller still types "RAV4", so the dashboard's own
+         language is no evidence about the text. See namePair(). */
+      const { ar, en } = namePair(text);
 
-      const { item, created } = await createCatalogEntry(payload);
-      onCreated?.(item, created);
-      onChange?.(item.id);
+      await submit({ ar: ar ?? "", en: en ?? "", value: text });
       setOpen(false);
       setQuery("");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  /**
+   * The same create, from the bilingual dialog — where BOTH sides are typed.
+   *
+   * This is the gap the dialog had: a store authoring in both languages could
+   * only pick, never add, so the one seller who most needs a properly
+   * translated row was the one who could not make one. namePair() is not used
+   * here and must not be — the seller has said which box is which, and
+   * guessing from the script would overrule them.
+   */
+  const createFromDialog = async () => {
+    const ar = draftAr.trim();
+    const en = draftEn.trim();
+    /* A year has one box, which is the English one — a number is the same
+       number in both languages. */
+    const typed = en || ar;
+    if (!typed) {
+      setDialogError(t("اكتب اسماً أولاً", "Type a name first"));
+      return;
+    }
+
+    setCreating(true);
+    setDialogError(null);
+    try {
+      await submit({ ar, en, value: typed });
+      setDraftAr("");
+      setDraftEn("");
+      setDialogOpen(false);
+    } catch (err) {
+      setDialogError(err.message);
     } finally {
       setCreating(false);
     }
@@ -283,7 +371,7 @@ export default function CatalogCombo({
         {/* Same affordance as the bilingual TEXT fields: one control inline,
             and a dialog holding both languages when the store authors in both. */}
         {mode === "both" && !disabled ? (
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setDialogError(null); }}>
             <DialogTrigger asChild>
               <Button
                 type="button"
@@ -338,6 +426,70 @@ export default function CatalogCombo({
                   </div>
                 ))}
               </div>
+
+              {/* ── Add a new one, with both sides named ──────────────────
+                  The lists above can only PICK, and a store that authors in
+                  both languages was left with no way to add — the inline box
+                  behind this dialog guesses the language from the script, so
+                  it can never produce a row that is correct in both. Here the
+                  seller says which is which and the server stores exactly
+                  that. */}
+              {allowCreate ? (
+                <div className="mt-4 space-y-2 rounded-lg border border-dashed border-gray-300 p-3 dark:border-gray-600">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("إضافة قيمة جديدة", "Add a new one")}
+                  </p>
+
+                  {kind === "year" ? (
+                    <input
+                      value={draftEn}
+                      onChange={(e) => { setDraftEn(e.target.value); setDialogError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createFromDialog(); } }}
+                      inputMode="numeric"
+                      placeholder="2027"
+                      dir="ltr"
+                      className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
+                    />
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input
+                        value={draftAr}
+                        onChange={(e) => { setDraftAr(e.target.value); setDialogError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createFromDialog(); } }}
+                        placeholder={t("الاسم بالعربية", "Arabic name")}
+                        dir="rtl"
+                        className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
+                      />
+                      <input
+                        value={draftEn}
+                        onChange={(e) => { setDraftEn(e.target.value); setDialogError(null); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createFromDialog(); } }}
+                        placeholder={t("الاسم بالإنجليزية", "English name")}
+                        dir="ltr"
+                        className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
+                      />
+                    </div>
+                  )}
+
+                  {/* One side is enough — the other can be filled in later and
+                      localized() falls back meanwhile. Naming both here is the
+                      point of the dialog, not a requirement of it. */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={createFromDialog}
+                    disabled={creating || !(draftAr.trim() || draftEn.trim())}
+                    className="w-full gap-1.5"
+                  >
+                    {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    {t("إضافة واختيار", "Add and select")}
+                  </Button>
+
+                  {dialogError ? (
+                    <p className="text-xs text-red-600">{dialogError}</p>
+                  ) : null}
+                </div>
+              ) : null}
 
               <DialogClose asChild>
                 <Button type="button" className="w-full bg-brand-primary hover:bg-[var(--brand-dark)]">

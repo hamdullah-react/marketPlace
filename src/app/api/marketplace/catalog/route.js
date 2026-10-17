@@ -1,4 +1,4 @@
-import { getModels, getTrims } from '@/marketplace/db/queries/catalog';
+import { getModels, getTrims, getModelPalette } from '@/marketplace/db/queries/catalog';
 import { getViewer } from '@/marketplace/auth/session';
 import { ok, fail } from '@/app/api/marketplace/_lib/response';
 
@@ -11,6 +11,12 @@ import { ok, fail } from '@/app/api/marketplace/_lib/response';
  *
  *   /api/marketplace/catalog?models=<brandId>
  *   /api/marketplace/catalog?trims=<modelId>
+ *   /api/marketplace/catalog?palette=<modelId>
+ *
+ * The third answers "which colours and years does this model offer" — see
+ * getModelPalette. It is a separate call rather than part of the models
+ * response because it is asked when the MODEL changes, which is one step
+ * later: the brand's models arrive before any of them is picked.
  *
  * Scoped to the caller's own catalog. This route is what the brand dropdown
  * calls when a seller picks a brand, so leaving it unscoped would hand back
@@ -38,7 +44,13 @@ export async function GET(request) {
     const modelId = p.get('trims');
     if (modelId) return ok({ items: await getTrims(modelId, scope) });
 
-    return fail('Pass ?models=<brandId> or ?trims=<modelId>', 400, 'MISSING_PARAM');
+    /* Not scoped by vendor, and it does not need to be: §30 already gives each
+       showroom its own colour and year rows, so the ids this returns can only
+       match rows the caller's own list already contains. */
+    const paletteFor = p.get('palette');
+    if (paletteFor) return ok(await getModelPalette(paletteFor));
+
+    return fail('Pass ?models=<brandId>, ?trims=<modelId> or ?palette=<modelId>', 400, 'MISSING_PARAM');
   } catch (err) {
     return fail(err.message, 500, 'CATALOG_QUERY_FAILED');
   }

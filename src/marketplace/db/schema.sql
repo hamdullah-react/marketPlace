@@ -7329,3 +7329,179 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  WHICH COLOURS AND YEARS A MODEL ACTUALLY COMES IN
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  `car_colors` and `car_years` are flat lists, so every colour and every year
+--  is offered on every car. A seller adding a 2026 Camry is shown ninety-odd
+--  colours — including ones no Camry has ever been painted — and every year
+--  from 1950, and has to find the right answer in a list that was never about
+--  this car. The wrong answer is one keystroke away from the right one, and
+--  nothing in the form can tell them apart.
+--
+--  ── Links, not ownership ──────────────────────────────────────────────────
+--
+--  The obvious alternative is to make a colour BELONG to a car, the way a
+--  model belongs to a brand: car_colors.trim_id, and a cascade. It is simpler
+--  and it is wrong for this data. A model belongs to exactly one brand, which
+--  is why that FK is honest; "Pearl White" does not belong to one trim. Owning
+--  it per trim turns one row into forty, and forty rows drift — in spelling,
+--  in hex, in which of them a listing happens to point at. That is precisely
+--  the duplication §30 spent a whole section undoing for brands.
+--
+--  So the colour stays one row and a LINK says which models offer it. Renaming
+--  it once renames it everywhere, and a colour linked to nothing is still in
+--  the palette rather than deleted.
+--
+--  ── MODEL level, deliberately, not trim ───────────────────────────────────
+--
+--  Manufacturers really do vary the palette by trim, so trim would be more
+--  accurate. It would also be maintained by a showroom with four hundred
+--  trims, one palette at a time, and a catalog nobody finishes filling in is
+--  worse than one that is roughly right: an empty link list means "no answer
+--  recorded", and the form cannot tell that from "this car has no colours".
+--  Model is the level somebody will actually keep current.
+--
+--  ── A COLOUR BELONGS TO A MODEL, THE WAY A TRIM DOES ─────────────────────
+--
+--  Brand → model → trim is a chain of ownership: a trim belongs to one model,
+--  appears nowhere else, and picking the model is what fills the trim list.
+--  Colour and year work exactly that way now. The 2026 Camry offers the
+--  colours recorded against the 2026 Camry.
+--
+--  There is NO shared tier. A colour attached to no model is offered nowhere,
+--  the way a trim with no model would be. That is deliberate and it is the
+--  whole point: a colour mixed for one car used to turn up on every car in the
+--  catalog, and a year added to one model appeared on all of them.
+--
+--  ── The consequence, stated rather than discovered ────────────────────────
+--
+--  A model with no links has an EMPTY colour and year picker. The backfill
+--  below gives every model the colours and years its own cars already use, so
+--  a catalog in use does not open empty; a model nobody has listed a car for
+--  yet starts blank, and the way to fill it is the Add button inside the
+--  picker — which attaches what it creates to the model on the form.
+--
+--  getModelPalette in src/marketplace/db/queries/catalog.ts is the reader, and
+--  it answers with the ids to SHOW. The rule is written out in both places
+--  because the two must not drift.
+
+create table if not exists model_colors (
+  model_id   uuid not null references car_models (id) on delete cascade,
+  color_id   uuid not null references car_colors (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (model_id, color_id)
+);
+
+create table if not exists model_years (
+  model_id   uuid not null references car_models (id) on delete cascade,
+  year_id    uuid not null references car_years (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (model_id, year_id)
+);
+
+-- The primary key already serves "what does this model offer", which is the
+-- question the form asks. These serve the other direction — "what offers this
+-- colour" — which is what the catalog screen needs to show a colour's models,
+-- and what a delete has to check.
+create index if not exists model_colors_color_idx on model_colors (color_id);
+create index if not exists model_years_year_idx   on model_years (year_id);
+
+alter table model_colors enable row level security;
+alter table model_years  enable row level security;
+
+-- Readable by anyone: the browse filters will want "which colours does this
+-- model come in" long before a seller does, and there is nothing private in a
+-- pair of ids.
+drop policy if exists model_colors_public_read on model_colors;
+create policy model_colors_public_read on model_colors for select using (true);
+
+drop policy if exists model_years_public_read on model_years;
+create policy model_years_public_read on model_years for select using (true);
+
+-- Writing is the MODEL's owner's business. The link lives between two rows and
+-- could be guarded by either; the model is the one being described, and the
+-- palette of somebody else's model is not yours to edit even if the colour is.
+do $$
+declare tbl text;
+begin
+  foreach tbl in array array['model_colors', 'model_years'] loop
+    execute format('drop policy if exists %I on %I', tbl || '_owner_write', tbl);
+    execute format(
+      'create policy %I on %I for all
+         using (
+           is_staff() or exists (
+             select 1 from car_models m
+             where m.id = model_id and owns_vendor(m.created_by_vendor_id)
+           )
+         )
+         with check (
+           is_staff() or exists (
+             select 1 from car_models m
+             where m.id = model_id and owns_vendor(m.created_by_vendor_id)
+           )
+         )',
+      tbl || '_owner_write', tbl
+    );
+  end loop;
+end $$;
+
+-- ── Every model starts with what its own cars already use ─────────────────
+--
+-- Without this, applying this section empties the colour and year picker for
+-- every model in every catalog — including the models that have cars on the
+-- site right now, whose colours and years are a matter of record. The links
+-- are read straight off those listings, so the palette a seller opens is the
+-- one they have actually been using.
+--
+-- Four sources, because a colour reaches a listing four ways: its main colour,
+-- its interior colour, a colour variant's own colour, and the year. `on
+-- conflict do nothing` makes the whole thing re-runnable, and it never removes
+-- a link somebody added by hand.
+
+insert into model_colors (model_id, color_id)
+select distinct l.model_id, l.color_id
+from listings l
+where l.model_id is not null and l.color_id is not null
+on conflict do nothing;
+
+insert into model_colors (model_id, color_id)
+select distinct l.model_id, l.interior_color_id
+from listings l
+where l.model_id is not null and l.interior_color_id is not null
+on conflict do nothing;
+
+insert into model_colors (model_id, color_id)
+select distinct l.model_id, v.color_id
+from listing_variants v
+join listings l on l.id = v.listing_id
+where l.model_id is not null and v.color_id is not null
+on conflict do nothing;
+
+insert into model_years (model_id, year_id)
+select distinct l.model_id, l.year_id
+from listings l
+where l.model_id is not null and l.year_id is not null
+on conflict do nothing;
+
+do $$
+declare
+  c int; y int; m int; bare int;
+begin
+  select count(*) into c from model_colors;
+  select count(*) into y from model_years;
+  select count(*) into m from car_models where active;
+
+  select count(*) into bare
+  from car_models m2
+  where m2.active
+    and not exists (select 1 from model_colors mc where mc.model_id = m2.id);
+
+  raise notice
+    'Model palettes: % colour link(s) and % year link(s) across % model(s). % model(s) have no colour recorded yet and open with an empty picker — the Add button inside it is how they are filled.',
+    c, y, m, bare;
+end $$;
+
+notify pgrst, 'reload schema';

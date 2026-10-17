@@ -14,6 +14,21 @@ export const fetchModels = (brandId, signal) =>
 export const fetchTrims = (modelId, signal) =>
   modelId ? marketplaceApi.trims(modelId, { signal }).then((d) => d.items ?? []) : Promise.resolve([]);
 
+/**
+ * The colours and years this model offers.
+ *
+ * `{colors: null, years: null}` means "no answer" — no model chosen, or the
+ * request failed — and the caller leaves its lists unfiltered. An ARRAY, even
+ * an empty one, is an answer: show exactly these.
+ */
+export const fetchModelPalette = (modelId, signal) =>
+  modelId
+    ? marketplaceApi
+        .catalogPalette(modelId, { signal })
+        .then((d) => ({ colors: d?.colors ?? null, years: d?.years ?? null }))
+        .catch(() => ({ colors: null, years: null }))
+    : Promise.resolve({ colors: null, years: null });
+
 export const fetchAttributes = (kind, signal) =>
   marketplaceApi.attributes(kind, { signal }).then((d) => (kind ? d.items ?? [] : d.groups ?? {}));
 

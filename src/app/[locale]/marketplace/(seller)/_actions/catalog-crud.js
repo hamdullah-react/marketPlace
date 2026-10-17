@@ -171,6 +171,57 @@ async function catalogWriter() {
   return { isStaff: false, vendorId: vendor.vendorId, viewer: vendor.viewer };
 }
 
+/**
+ * May this writer change THIS row?
+ *
+ * Called by edit, activate/deactivate and delete — three actions with one
+ * rule, which is why it is a function and not three copies of a condition that
+ * would drift apart.
+ *
+ * It was referenced by all three and defined by none, so every one of them
+ * threw `canWriteCatalogRow is not defined` the moment it was reached. The
+ * seller saw it as a red line across the Catalog page with no indication of
+ * what had failed — which is worse than a refusal, because a refusal at least
+ * names a rule.
+ *
+ * ── The rule ───────────────────────────────────────────────────────────────
+ *
+ *   staff            every row. Curating the catalog is the job.
+ *   a showroom       its OWN rows — created_by_vendor_id matches. Since §30 of
+ *                    schema.sql that is most of what it can see, including
+ *                    everything a template installed, because installing gave
+ *                    it copies rather than pointers.
+ *   anybody else     nothing.
+ *
+ * ── Rows with NO owner are refused, deliberately ───────────────────────────
+ *
+ * `created_by_vendor_id is null` means a platform-level row: shared by design,
+ * visible to every showroom, and therefore not one showroom's to rename or
+ * retire. §30.8 also leaves genuinely ownerless orphans in that state, and
+ * letting the first seller who finds one claim it by editing it would be a
+ * guess about whose it was — the same guess §30.8 refuses to make.
+ *
+ * ── A missing row is a refusal, not an error ───────────────────────────────
+ *
+ * Deleted between the page rendering and the button being pressed, or an id
+ * from a stale tab. Either way the honest answer to "may I write it" is no,
+ * and the caller turns that into NOT_YOUR_ENTRY — which is also what it should
+ * say to somebody probing for ids that exist.
+ */
+async function canWriteCatalogRow(db, entity, id, writer) {
+  if (writer.isStaff) return true;
+  if (!id || !writer.vendorId) return false;
+
+  const { data, error } = await db
+    .from(entity.table)
+    .select('created_by_vendor_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) return false;
+  return data.created_by_vendor_id === writer.vendorId;
+}
+
 export async function saveCatalogEntry(prevState, formData) {
   const writer = await catalogWriter();
   if (writer.error) return { ok: false, error: writer.error, errors: {}, token: Date.now() };

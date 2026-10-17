@@ -16,7 +16,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Check, Plus, Search, Loader2, X, Palette } from "lucide-react";
 import { createCatalogEntry } from "../_apicalls/catalogApi";
-import { localized } from "@/marketplace/lib/listing";
+import { localized, namePair } from "@/marketplace/lib/listing";
 
 export default function ColorPicker({
   mode = "ar",
@@ -27,11 +27,27 @@ export default function ColorPicker({
   onChange,
   onCreated,
   vendorId = null,
+  /**
+   * The model this colour belongs to.
+   *
+   * A colour belongs to one model the way a trim does, so adding one here
+   * attaches it to that model and to no other. See getModelPalette.
+   */
+  modelId = null,
   // OFF by default, same reasoning as CatalogCombo: colours are shared catalog
   // data, so they are added on the Catalog page rather than invented inside a
   // listing.
   allowCreate = false,
   compact = false,
+  /**
+   * Closed, with a reason in place of the placeholder.
+   *
+   * The colour list is scoped to the chosen model, so there is nothing honest
+   * to show before one is chosen — and a seller who picks a colour first and
+   * the model second would have made their choice against the wrong list.
+   */
+  disabled = false,
+  placeholder = "",
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -40,6 +56,10 @@ export default function ColorPicker({
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
+  /* 'both' mode names each side explicitly instead of guessing from the script
+      — the same gap the bilingual dialog in CatalogCombo had. */
+  const [newAr, setNewAr] = useState("");
+  const [newEn, setNewEn] = useState("");
   const [newHex, setNewHex] = useState("#c0c0c0");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -92,7 +112,13 @@ export default function ColorPicker({
   }, []);
 
   const create = async () => {
-    const text = newName.trim();
+    /* In 'both' mode the seller has labelled each box, so namePair is not
+       consulted — guessing from the script would overrule what they said.
+       With one box it is the only evidence there is. */
+    const both = mode === "both";
+    const ar = both ? newAr.trim() : namePair(newName.trim()).ar ?? "";
+    const en = both ? newEn.trim() : namePair(newName.trim()).en ?? "";
+    const text = both ? ar || en : newName.trim();
     if (!text) { setError(t("أدخل اسم اللون", "Enter a colour name")); return; }
 
     setCreating(true);
@@ -101,7 +127,14 @@ export default function ColorPicker({
       const res = await fetch("/api/marketplace/catalog/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "color", nameAr: text, nameEn: text, hex: newHex, vendorId }),
+        body: JSON.stringify({
+          kind: "color",
+          nameAr: ar,
+          nameEn: en,
+          hex: newHex,
+          vendorId,
+          modelId,
+        }),
       });
       const json = await res.json();
 
@@ -111,6 +144,8 @@ export default function ColorPicker({
         setOpen(false);
         setAdding(false);
         setNewName("");
+        setNewAr("");
+        setNewEn("");
       } else {
         setError(json?.error?.message ?? t("تعذّرت الإضافة", "Could not add"));
       }
@@ -132,7 +167,8 @@ export default function ColorPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center gap-2.5 rounded-lg border border-gray-300 bg-white px-3 text-start text-sm outline-hidden transition-colors focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 dark:border-gray-600 dark:bg-[#1a1a1a] ${compact ? "h-9" : "h-11"}`}
+        disabled={disabled}
+        className={`flex w-full items-center gap-2.5 rounded-lg border border-gray-300 bg-white px-3 text-start text-sm outline-hidden transition-colors focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:bg-gray-50 disabled:text-gray-400 dark:border-gray-600 dark:bg-[#1a1a1a] dark:disabled:bg-[#141414] ${compact ? "h-9" : "h-11"}`}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
@@ -144,12 +180,12 @@ export default function ColorPicker({
         ) : (
           <>
             <Palette className="h-4 w-4 shrink-0 text-gray-400" />
-            <span className="text-gray-400">{t("اختر اللون", "Pick a colour")}</span>
+            <span className="text-gray-400">{placeholder || t("اختر اللون", "Pick a colour")}</span>
           </>
         )}
       </button>
 
-      {open ? (
+      {open && !disabled ? (
         <div className="absolute z-50 mt-1 w-[min(30rem,90vw)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-[#1a1a1a]">
           {/* ── Search ─────────────────────────────────────────────────── */}
           <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-gray-700">
@@ -209,7 +245,10 @@ export default function ColorPicker({
             <div className="border-t border-gray-100 dark:border-gray-700">
               {adding ? (
                 <div className="space-y-2 p-3">
-                  <div className="flex items-center gap-2">
+                  {/* Wraps, because the bilingual version puts two name boxes
+                      in this row and a phone has no space for both beside the
+                      swatch and the buttons. */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
                       type="color"
                       value={newHex}
@@ -217,13 +256,37 @@ export default function ColorPicker({
                       className="h-9 w-12 shrink-0 cursor-pointer rounded border border-gray-300 bg-transparent dark:border-gray-600"
                       aria-label={t("اختر اللون", "Choose colour")}
                     />
-                    <input
-                      value={newName}
-                      onChange={(e) => { setNewName(e.target.value); setError(null); }}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), create())}
-                      placeholder={t("اسم اللون", "Colour name")}
-                      className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
-                    />
+                    {/* One box, or one per language when the store authors in
+                        both — so a colour can be named properly on each side
+                        rather than landing with the same string twice. */}
+                    {mode === "both" ? (
+                      <div className="grid w-full gap-2 sm:grid-cols-2">
+                        <input
+                          value={newAr}
+                          onChange={(e) => { setNewAr(e.target.value); setError(null); }}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), create())}
+                          placeholder={t("الاسم بالعربية", "Arabic name")}
+                          dir="rtl"
+                          className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
+                        />
+                        <input
+                          value={newEn}
+                          onChange={(e) => { setNewEn(e.target.value); setError(null); }}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), create())}
+                          placeholder={t("الاسم بالإنجليزية", "English name")}
+                          dir="ltr"
+                          className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        value={newName}
+                        onChange={(e) => { setNewName(e.target.value); setError(null); }}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), create())}
+                        placeholder={t("اسم اللون", "Colour name")}
+                        className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm outline-hidden focus:border-brand-primary dark:border-gray-600 dark:bg-[#141414]"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={create}

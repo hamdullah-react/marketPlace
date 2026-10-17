@@ -29,7 +29,7 @@ import MediaGallery from "./MediaGallery";
 import ImagePicker from "./ImagePicker";
 import KeywordChips from "./TagsInput";
 import CatalogCombo from "./CatalogCombo";
-import { fetchModels, fetchTrims } from "../_apicalls/catalogApi";
+import { fetchModels, fetchTrims, fetchModelPalette } from "../_apicalls/catalogApi";
 import { localized } from "@/marketplace/lib/listing";
 import { listingStem } from "@/marketplace/lib/slug";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
@@ -525,8 +525,29 @@ function ListingFormInstance({
    * came back undefined. Same visible symptom as the catalog staleness above,
    * different cause.
    */
-  const addColor = (c) =>
+  const addColor = (c) => {
     setColors((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c]));
+    /* The create route attached it to the chosen model, so the palette this
+       page is holding is now one row out of date. Without this the new colour
+       is filtered straight back out and the picker renders blank — the same
+       bug as adding it to `colors` and forgetting, one layer along. */
+    setPalette((p) => (p.colors ? { ...p, colors: [...p.colors, c.id] } : p));
+  };
+
+  /**
+   * The same rule for the other four pickers, which now create too.
+   *
+   * CatalogCombo selects the new row by id the moment it is created. If the
+   * list it was given does not contain that id, `items.find(…)` returns
+   * undefined and the picker renders empty — the seller has typed a brand,
+   * watched it save, and been left looking at a blank field. Exactly the
+   * colour bug above, which is why this is the same two lines.
+   *
+   * Append rather than refetch: the row is already in hand, and a round trip
+   * would leave the field blank for as long as it took.
+   */
+  const addTo = (setter) => (row) =>
+    setter((prev) => (prev.some((x) => x.id === row.id) ? prev : [...prev, row]));
 
   const [brandId, setBrandId] = useState(existing?.brand_id || "");
   const [modelId, setModelId] = useState(existing?.model_id || "");
@@ -724,6 +745,60 @@ function ListingFormInstance({
 
     return () => ac.abort();
   }, [modelId, catalogVersion]);
+
+  /**
+   * The colours and years THIS model offers.
+   *
+   * Brand → model → trim is a chain: a trim belongs to one model and the trim
+   * list is whatever that model owns. Colour and year are the same now — the
+   * 2026 Camry offers the colours recorded against the 2026 Camry, and a
+   * colour added here belongs to it and to nothing else. A seller who added
+   * 2027 to one car no longer finds it on every car in their catalog.
+   *
+   * null means "no answer yet" — no model chosen, or the request failed — and
+   * the lists stay unfiltered. An empty ARRAY is an answer: this model has no
+   * palette recorded, so the picker is empty and the way to fill it is the
+   * Add button inside it.
+   */
+  const [palette, setPalette] = useState({ colors: null, years: null });
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!modelId) { setPalette({ colors: null, years: null }); return; }
+
+    const ac = new AbortController();
+    let live = true;
+
+    fetchModelPalette(modelId, ac.signal).then((x) => { if (live) setPalette(x); });
+
+    return () => { live = false; ac.abort(); };
+  }, [modelId, catalogVersion]);
+
+  /**
+   * The lists the pickers actually show.
+   *
+   * A row already CHOSEN is never hidden, whichever model it belongs to. That
+   * covers the two cases where narrowing would otherwise destroy something:
+   * editing an old listing whose colour has since been narrowed to another
+   * model, and switching the model on a half-filled form — the field would
+   * blank itself and the seller would have no idea what it used to say.
+   */
+  const visibleYears = useMemo(() => {
+    if (!palette.years) return years;
+    const allow = new Set(palette.years);
+    return years.filter((y) => allow.has(y.id) || y.id === yearId);
+  }, [years, palette.years, yearId]);
+
+  const visibleColors = useMemo(() => {
+    if (!palette.colors) return colors;
+    const allow = new Set(palette.colors);
+
+    // Every colour in play on this listing, the variants' included — a swatch
+    // that vanished from the grid while still being a variant's colour would
+    // render that row empty.
+    const inUse = new Set([colorId, ...variants.map((v) => v.colorId)].filter(Boolean));
+    return colors.filter((c) => allow.has(c.id) || inUse.has(c.id));
+  }, [colors, palette.colors, colorId, variants]);
 
   /**
    * Coming back to a form that was left open.
@@ -1185,9 +1260,10 @@ function ListingFormInstance({
                   <CatalogCombo
                     mode={fieldMode}
                     locale={locale} kind="brand" name="brandId" items={brands} value={brandId}
-                    vendorId={vendorId} required
+                    vendorId={vendorId} required allowCreate
                     placeholder={t("اختر الماركة", "Select brand")}
                     onChange={setBrandId}
+                    onCreated={addTo(setBrands)}
                   />
                   <FieldError message={err("brandId")} />
                 </div>
@@ -1197,7 +1273,8 @@ function ListingFormInstance({
                   <CatalogCombo
                     mode={fieldMode}
                     locale={locale} kind="model" name="modelId" items={models} value={modelId}
-                    parentId={brandId} vendorId={vendorId} required
+                    parentId={brandId} vendorId={vendorId} required allowCreate
+                    onCreated={addTo(setModels)}
                     disabled={!brandId || loadingModels}
                     placeholder={
                       loadingModels ? t("جاري التحميل…", "Loading…")
@@ -1213,11 +1290,34 @@ function ListingFormInstance({
                   <label className={label}>{t("سنة الصنع", "Year")} *</label>
                   <CatalogCombo
                     mode={fieldMode}
-                    locale={locale} kind="year" name="yearId" items={years} value={yearId}
-                    vendorId={vendorId} required
-                    placeholder={t("اختر السنة", "Select year")}
+                    locale={locale} kind="year" name="yearId" items={visibleYears} value={yearId}
+                    vendorId={vendorId} modelId={modelId} required allowCreate
+                    /* Brand → model → year, in that order, exactly as trim
+                       already works. The years shown belong to the chosen
+                       model, so offering the field first would be offering a
+                       list that is not about any car yet — and a year created
+                       with no model selected is a year that lands shared
+                       across the whole catalog, which is the thing this was
+                       built to stop. */
+                    disabled={!modelId}
+                    placeholder={
+                      !modelId ? t("اختر الموديل أولاً", "Pick a model first")
+                        : t("اختر السنة", "Select year")
+                    }
                     labelOf={(y) => String(y.value)}
                     onChange={setYearId}
+                    /* Years read as a sequence, so a new one goes in order
+                       rather than at the end of the list. */
+                    onCreated={(row) => {
+                      setYears((prev) =>
+                        prev.some((x) => x.id === row.id)
+                          ? prev
+                          : [...prev, row].sort((a, b) => Number(b.value) - Number(a.value))
+                      );
+                      // It was attached to this model as it was created; the
+                      // palette in hand predates that. See addColor.
+                      setPalette((p) => (p.years ? { ...p, years: [...p.years, row.id] } : p));
+                    }}
                   />
                   <FieldError message={err("yearId")} />
                 </div>
@@ -1227,7 +1327,8 @@ function ListingFormInstance({
                   <CatalogCombo
                     mode={fieldMode}
                     locale={locale} kind="trim" name="trimId" items={trims} value={trimId}
-                    parentId={modelId} vendorId={vendorId}
+                    parentId={modelId} vendorId={vendorId} allowCreate
+                    onCreated={addTo(setTrims)}
                     disabled={!modelId || loadingTrims}
                     placeholder={
                       loadingTrims ? t("جاري التحميل…", "Loading…")
@@ -1243,8 +1344,17 @@ function ListingFormInstance({
                   <label className={label}>{t("اللون الأساسي", "Main colour")}</label>
                   <ColorPicker
                     mode={fieldMode}
-                    locale={locale} name="colorId" items={colors} value={colorId}
-                    vendorId={vendorId}
+                    locale={locale} name="colorId" items={visibleColors} value={colorId}
+                    vendorId={vendorId} modelId={modelId}
+                    /* Without this the picker has no "add" footer at all, so a
+                       search that found nothing simply said "No matches" and
+                       left the seller stuck — the colour on the car in front
+                       of them not being in the list is the ordinary case, not
+                       the exception. */
+                    allowCreate
+                    /* Same cascade as the year above. */
+                    disabled={!modelId}
+                    placeholder={!modelId ? t("اختر الموديل أولاً", "Pick a model first") : ""}
                     onChange={setColorId}
                     onCreated={addColor}
                   />
@@ -1377,7 +1487,7 @@ function ListingFormInstance({
                           ? "sm:grid-cols-[1fr_1fr_1fr_8rem_auto_auto]"
                           : "sm:grid-cols-[1fr_1fr_8rem_auto_auto]"
                       }`}>
-                        <ColorPicker mode={fieldMode} locale={locale} name={`variantColor-${i}`} items={colors} value={v.colorId} vendorId={vendorId} compact onChange={(id) => updateVariant(i, { colorId: id })} onCreated={addColor} />
+                        <ColorPicker mode={fieldMode} locale={locale} name={`variantColor-${i}`} items={visibleColors} value={v.colorId} vendorId={vendorId} modelId={modelId} compact allowCreate onChange={(id) => updateVariant(i, { colorId: id })} onCreated={addColor} />
 
                         {(fieldMode === "both" ? ["ar", "en"] : [fieldMode === "en" ? "en" : "ar"]).map((lang) => (
                           <input
@@ -1553,7 +1663,7 @@ function ListingFormInstance({
                   "Fill in only what you know — anything left empty is hidden from buyers."
                 )}
               </p>
-              <SpecEditor locale={locale} groups={specGroups} values={specs} onChange={setSpecs} fieldMode={fieldMode} />
+              <SpecEditor locale={locale} groups={specGroups} values={specs} onChange={setSpecs} fieldMode={fieldMode} vendorId={vendorId} />
             </div>
           </div>
 

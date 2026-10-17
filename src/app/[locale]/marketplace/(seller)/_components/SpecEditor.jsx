@@ -35,6 +35,7 @@ import { Search, X, Star } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { localized } from "@/marketplace/lib/listing";
 import BilingualSelect from "./BilingualSelect";
+import CatalogCombo from "./CatalogCombo";
 
 /**
  * A spec's unit, in the dashboard's language.
@@ -49,7 +50,37 @@ const unitOf = (item, locale) => localized(item?.unit_code, locale);
 
 const isFilled = (v) => v !== "" && v != null;
 
-export default function SpecEditor({ locale = "ar", groups = [], values = {}, onChange, fieldMode = "ar" }) {
+export default function SpecEditor({
+  locale = "ar",
+  groups = [],
+  values = {},
+  onChange,
+  fieldMode = "ar",
+  vendorId = null,
+}) {
+  /**
+   * Options the seller has just created, by attribute id.
+   *
+   * `groups` arrives from the server and is not refetched while the form is
+   * open, so a newly created answer would otherwise vanish from the list the
+   * instant it was chosen — the value would be set and the dropdown would show
+   * nothing, which reads as the save having failed.
+   *
+   * Kept here rather than in the form: nothing above this component has any
+   * use for it, and it is thrown away on save, when the page reloads the real
+   * list from the database.
+   */
+  const [added, setAdded] = useState({});
+
+  const optionsFor = (item) => [...(item.options ?? []), ...(added[item.id] ?? [])];
+
+
+
+  const remember = (attributeId) => (row, created) => {
+    if (!created) return;
+    setAdded((prev) => ({ ...prev, [attributeId]: [...(prev[attributeId] ?? []), row] }));
+  };
+
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
@@ -154,6 +185,7 @@ export default function SpecEditor({ locale = "ar", groups = [], values = {}, on
           <Star className={`h-3.5 w-3.5 ${keyOnly ? "fill-current" : ""}`} />
           {t("الأساسية فقط", "Key only")}
         </button>
+
       </div>
 
       {/* Progress: 83 fields is a lot, and knowing 12 are done is the
@@ -313,17 +345,30 @@ export default function SpecEditor({ locale = "ar", groups = [], values = {}, on
                           /* Same control as the catalog dropdowns above — one
                              list in a single-language store, two synced lists
                              in a popup when the store authors in both. */
-                          <BilingualSelect
+                          /* CatalogCombo rather than a plain dropdown, for
+                             the same two reasons the brand and model fields
+                             use it: a specification can carry forty answers,
+                             which wants a search box; and the answer on the
+                             car in front of the seller may not be in the list
+                             yet, which wants a way to add it. Creating here
+                             writes a spec_attribute_values row under THIS
+                             attribute — see the specValue branch of
+                             /api/marketplace/catalog/create. */
+                          <CatalogCombo
+                            kind="specValue"
                             name={`spec_${item.id}`}
-                            options={item.options}
+                            parentId={item.id}
+                            vendorId={vendorId}
+                            items={optionsFor(item)}
                             /* The option ID, verbatim. A dropdown matches on id,
                                so localizing it here would hand it display text
                                that matches no option and select nothing. */
                             value={typeof value === "string" ? value : ""}
-                            onChange={(v) => (v === "" ? clear(item.id) : set(item.id, v))}
+                            onChange={(v) => (!v ? clear(item.id) : set(item.id, v))}
+                            onCreated={remember(item.id)}
+                            allowCreate
                             mode={fieldMode}
                             locale={locale}
-                            className={field}
                           />
                         )
                       ) : item.display_type === "yesno" ? (
@@ -424,3 +469,4 @@ export default function SpecEditor({ locale = "ar", groups = [], values = {}, on
     </div>
   );
 }
+

@@ -72,6 +72,10 @@ export const marketplaceApi = {
   /** kind omitted → every list grouped by kind. */
   attributes: (kind?: string, opts?: RequestOpts) => request('attributes', { ...opts, params: { kind, ...opts?.params } }),
 
+  /** The colour and year ids one model does NOT offer. */
+  catalogPalette: (model: string, opts?: RequestOpts) =>
+    request('catalog', { ...opts, params: { palette: model, ...opts?.params } }),
+
   createCatalogEntry: (payload: unknown) => request('catalog/create', { method: 'POST', body: payload }),
 
   // ── browse ──
