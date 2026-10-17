@@ -46,6 +46,7 @@
  *     seller flagged "show on card", with the icons uploaded there.
  */
 
+import SpecIcon from "@/marketplace/ui/SpecIcon";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { Heart, ArrowUpRight, ArrowUpLeft, ArrowLeftRight, Eye } from "lucide-react";
@@ -681,13 +682,13 @@ export default function ListingCard({
               <div className="flex w-full min-w-0 items-center justify-center gap-0.5 sm:gap-1">
                 {/* No fallback glyph: a spec without artwork shows its value
                     alone rather than a generic icon that looks wrong. */}
+                {/* Masked, not <img>, so the mark takes the brand colour from
+                    the theme instead of whatever colour the catalog file was
+                    drawn in — see SpecIcon. */}
                 {f.icon ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <SpecIcon
                     src={f.icon}
-                    alt=""
-                    loading="lazy"
-                    className="h-2.5 w-2.5 shrink-0 object-contain opacity-70 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5"
+                    className="h-2.5 w-2.5 opacity-70 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5"
                   />
                 ) : null}
                 <span className="truncate text-[8px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:text-[10px] md:text-[11px]">

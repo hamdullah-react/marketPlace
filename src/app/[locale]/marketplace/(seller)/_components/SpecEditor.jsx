@@ -30,6 +30,7 @@
  * answers.
  */
 
+import SpecIcon from "@/marketplace/ui/SpecIcon";
 import { useState, useMemo } from "react";
 import { Search, X, Star } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -223,12 +224,13 @@ export default function SpecEditor({
                     : "border-gray-200 hover:border-brand-primary dark:border-gray-700"
                 }`}
               >
+                {/* Masked, so it takes the brand colour from the theme —
+                    and on the active tab simply becomes white, instead of the
+                    `brightness-0 invert` trick an <img> needed. */}
                 {g.icon ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <SpecIcon
                     src={g.icon}
-                    alt=""
-                    className={`h-4 w-4 shrink-0 object-contain ${isActive ? "brightness-0 invert" : ""}`}
+                    className={`h-4 w-4 ${isActive ? "!bg-white" : ""}`}
                   />
                 ) : null}
                 <span className="flex-1 whitespace-nowrap font-medium lg:whitespace-normal">{g.name}</span>
@@ -262,10 +264,7 @@ export default function SpecEditor({
                   otherwise the rail already says which category this is. */}
               {searching ? (
                 <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold text-brand-primary">
-                  {group.icon ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={group.icon} alt="" className="h-4 w-4 object-contain" />
-                  ) : null}
+                  {group.icon ? <SpecIcon src={group.icon} className="h-4 w-4" /> : null}
                   {group.name}
                 </h3>
               ) : null}
@@ -287,8 +286,7 @@ export default function SpecEditor({
                     >
                       <div className="mb-2 flex items-start gap-2">
                         {item.attribute_icon_url ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={item.attribute_icon_url} alt="" className="mt-0.5 h-4 w-4 shrink-0 object-contain" />
+                          <SpecIcon src={item.attribute_icon_url} className="mt-0.5 h-4 w-4" />
                         ) : null}
                         <span className="flex-1 text-xs font-medium leading-snug text-gray-700 dark:text-gray-300">
                           {label}

@@ -644,7 +644,13 @@ async function main() {
          * dealership's new stock, so `new` is both the truthful answer and the
          * one that does not demand an odometer reading nobody has.
          */
-        attributes: { condition: 'new' },
+        /* `year` as well as `condition`: the Year filter tallies
+           attributes.year, not year_id, so a listing without it is invisible
+           to that control however well its catalog row is linked. */
+        attributes: {
+          condition: 'new',
+          ...(Number.isFinite(yearValue) ? { year: String(yearValue) } : {}),
+        },
         city: vendor.city ?? null,
         is_featured: false,
         published_at: new Date().toISOString(),
@@ -717,7 +723,25 @@ async function main() {
         /* The category is part of the slug because an attribute name is only
            unique inside one: "Type" exists under Engine and under Seats, and
            one slug for both would merge two different questions. */
-        const specSlug = slugify(`${catName.en || catName.ar || ''}-${attrEn}`, `spec-${s.id}`);
+        /**
+         * Three specs keep a CANONICAL slug.
+         *
+         * The browse rail has dedicated controls for transmission, fuel type
+         * and seats, and it finds them by slug — `DEDICATED_SPECS` in
+         * FilterSidebar. Filed under their category ("engine-fuel-type") they
+         * were invisible to it: the three sections rendered empty and
+         * disappeared, while the same values showed fine on the card, which
+         * looks them up a different way. Everything else keeps the category
+         * prefix, which is what stops "Type" under Engine colliding with
+         * "Type" under Seats.
+         */
+        const CANONICAL = {
+          transmission: 'transmission',
+          'fuel type': 'fuel-type',
+          seats: 'seats',
+        };
+        const specSlug = CANONICAL[attrEn.trim().toLowerCase()]
+          ?? slugify(`${catName.en || catName.ar || ''}-${attrEn}`, `spec-${s.id}`);
 
         const attributeId = await ensureSpec(
           `spec:${specSlug}`,
