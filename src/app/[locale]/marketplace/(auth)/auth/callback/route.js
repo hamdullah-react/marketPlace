@@ -12,9 +12,50 @@ import { notifyNewUser } from '@/marketplace/db/queries/notifications';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
 import { postAuthDestination } from '@/marketplace/auth/session';
 
+/**
+ * The PUBLIC origin, which is not necessarily the one in `request.url`.
+ *
+ * Behind a reverse proxy — Coolify, Vercel, anything — the request arrives at
+ * the container on its internal address, so `new URL(request.url).origin` is
+ * `http://localhost:3001`. Every redirect built against it sent the person
+ * there: they signed in on sauda.digital and landed on a localhost URL their
+ * browser could not open. The session had been created correctly; only the
+ * last hop was wrong, which is what made it look like a sign-in failure.
+ *
+ * Order matters, and it is not the obvious one:
+ *
+ *   1. NEXT_PUBLIC_BASE_URL. Configured by us, so it cannot be influenced by
+ *      the request — and this route is an open-redirect target if it can be.
+ *      A forged X-Forwarded-Host would otherwise send a freshly signed-in
+ *      person to somebody else's site carrying our link's credibility.
+ *   2. x-forwarded-host, for a deployment that has not set the variable.
+ *   3. host, then request.url — the local-development path, where there is no
+ *      proxy and all three agree anyway.
+ */
+function publicOrigin(request) {
+  const configured = process.env.NEXT_PUBLIC_BASE_URL;
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      /* A malformed variable must not take sign-in down; fall through. */
+    }
+  }
+
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  if (!host) return new URL(request.url).origin;
+
+  const proto =
+    request.headers.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
+
 export async function GET(request, { params }) {
   const { locale } = await params;
   const url = new URL(request.url);
+  /* `url` is still the right thing to read the query string from — only its
+     ORIGIN is untrustworthy behind a proxy. */
+  const origin = publicOrigin(request);
   const code = url.searchParams.get('code');
 
   // Same rule as the sign-in action: a same-site absolute path only, never
@@ -27,7 +68,7 @@ export async function GET(request, { params }) {
       : `/${locale}/marketplace`;
 
   if (!code) {
-    return NextResponse.redirect(new URL(`/${locale}/marketplace/login?error=link`, url.origin));
+    return NextResponse.redirect(new URL(`/${locale}/marketplace/login?error=link`, origin));
   }
 
   const supabase = await getMarketplaceAuthServer();
@@ -36,7 +77,7 @@ export async function GET(request, { params }) {
   if (error) {
     // Expired or already used — both mean "ask for a fresh one", which is the
     // login page's job, not an error page's.
-    return NextResponse.redirect(new URL(`/${locale}/marketplace/login?error=link`, url.origin));
+    return NextResponse.redirect(new URL(`/${locale}/marketplace/login?error=link`, origin));
   }
 
   /* A Google sign-in is also how somebody joins, and this route runs on every
@@ -57,6 +98,6 @@ export async function GET(request, { params }) {
    * ring. Same decision as the other three doors — see postAuthDestination.
    */
   return NextResponse.redirect(
-    new URL(await postAuthDestination(next, locale), url.origin)
+    new URL(await postAuthDestination(next, locale), origin)
   );
 }

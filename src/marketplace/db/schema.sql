@@ -16,8 +16,15 @@
 --  first. That is the only case requiring a wipe.
 --
 --  Fresh install, or migrating to a new database:
---    1. reset.sql          (drops everything — destructive; skip on a new one)
+--    1. 1-prepare-shared-database.sql
+--         Only if this database already runs ANOTHER application. It moves a
+--         foreign `public.profiles` out of the way — the one collision that
+--         stops this file. Finds nothing on a database of our own, so running
+--         it is never wrong.
 --    2. schema.sql         (this file)
+--
+--    reset.sql drops everything and is destructive; it is for wiping a
+--    database you own, never for clearing somebody else's tables.
 --
 --  That is all of it. Tables, policies, the starting categories and the STORAGE
 --  BUCKETS (§24) are in here, so a new database needs a terminal for nothing.
@@ -115,7 +122,7 @@ begin
     where table_schema = 'public' and table_name = 'profiles' and column_name = 'full_name'
   ) then
     raise exception
-      'public.profiles already exists and is NOT this marketplace''s (no full_name column). `create table if not exists` would skip it and §17.1 would then fail with 42703. If it belongs to another application sharing this database, rename it first — `alter table public.profiles rename to <app>_profiles;` keeps its rows, indexes and policies — then run this file again.';
+      'STOP: public.profiles belongs to another application (it has no full_name column). RUN src/marketplace/db/1-prepare-shared-database.sql FIRST, then run this file again. That takes a second, moves the other table to other_app_profiles with its rows and policies intact, and is safe to run twice. Doing nothing instead: `create table if not exists` would skip the foreign table and §17.1 would fail 1,300 lines later with 42703, saying nothing about whose table it was.';
   end if;
 end $$;
 
