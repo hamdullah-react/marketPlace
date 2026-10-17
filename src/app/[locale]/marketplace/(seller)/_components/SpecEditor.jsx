@@ -224,13 +224,14 @@ export default function SpecEditor({
                     : "border-gray-200 hover:border-brand-primary dark:border-gray-700"
                 }`}
               >
-                {/* Masked, so it takes the brand colour from the theme —
-                    and on the active tab simply becomes white, instead of the
-                    `brightness-0 invert` trick an <img> needed. */}
+                {/* `brightness-0 invert` on the active tab: the icon is a
+                    two-tone bitmap-like SVG, so it cannot be tinted by CSS —
+                    forcing it to pure white is the one transform that reads
+                    correctly against the filled tab. */}
                 {g.icon ? (
                   <SpecIcon
                     src={g.icon}
-                    className={`h-4 w-4 ${isActive ? "!bg-white" : ""}`}
+                    className={`h-4 w-4 ${isActive ? "brightness-0 invert" : ""}`}
                   />
                 ) : null}
                 <span className="flex-1 whitespace-nowrap font-medium lg:whitespace-normal">{g.name}</span>

@@ -23,6 +23,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { RefreshCw, X, TrendingUp, TrendingDown, Sparkles, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { localized } from "@/marketplace/lib/listing";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -154,7 +155,10 @@ export default function ResultsHeader({
         const v = (facets.vendors ?? []).find((x) => x.id === raw);
         // Falls back to the raw value rather than dropping the chip: a filter
         // that is applied and not shown is worse than one shown awkwardly.
-        label = v ? (isAr ? v.name_ar : v.name_en) : raw;
+        // {ar, en} jsonb, not the name_ar / name_en columns the schema
+        // replaced — reading those put the raw uuid in the chip. Same fix as
+        // VendorFilter.
+        label = v ? localized(v.name, locale) || v.slug || raw : raw;
       } else if (key === "min_price") {
         label = t(`من ${formatPrice(raw, "ar", currency)}`, `From ${formatPrice(raw, "en", currency)}`);
       } else if (key === "max_price") {
@@ -228,8 +232,12 @@ export default function ResultsHeader({
     return out;
     /* The currency belongs in these deps: the price chips render an amount
        through it, so a list memoised without it would go on showing the old
-       currency after the platform changed its own. */
-  }, [searchParams, facets, isAr, currency]);
+       currency after the platform changed its own.
+
+       `locale` joins them for the same reason: the showroom chip resolves its
+       label through localized(v.name, locale), so a list memoised without it
+       would keep the Arabic name after a switch to English. */
+  }, [searchParams, facets, isAr, locale, currency]);
 
   const removeChip = (key, value) => {
     const params = new URLSearchParams(searchParams.toString());

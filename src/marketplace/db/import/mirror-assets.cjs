@@ -105,17 +105,27 @@ async function storage(p, { method = 'POST', body, headers = {} } = {}) {
  * deferring to whatever renders it.
  */
 function recolour(svg, brand) {
-  /* `{3,}`, not `{3,8}`. Several of these icons carry a MALFORMED colour —
-     `fill="#46194F332C2B"`, thirteen hex digits, two colours concatenated by
-     whatever exported them. A bounded pattern cannot match it: the engine
-     tries eight digits, wants the closing quote, finds another digit, and
-     backtracks all the way out. Those icons came through still purple while
-     their neighbours turned green, which is a worse result than either. */
-  const COLOUR = '(#[0-9a-fA-F]{3,}|rgba?\([^)]*\))';
-  return svg
-    .replace(new RegExp(`(fill|stroke|stop-color|flood-color)\s*=\s*"${COLOUR}"`, 'g'), `$1="${brand}"`)
-    .replace(new RegExp(`(fill|stroke|stop-color|flood-color)\s*:\s*${COLOUR}`, 'g'), `$1:${brand}`);
+  /**
+   * Only the inks that are NOT white.
+   *
+   * These icons are two-tone: a filled hexagon with the symbol knocked out of
+   * it in white. Repainting every colour — which the first version did — made
+   * the symbol the same green as the hexagon behind it, so twenty icons
+   * became twenty solid green hexagons with nothing in them. White is the
+   * ICON; everything else is the background it sits on.
+   *
+   * `{3,}` and not `{3,8}`, because several carry a malformed colour
+   * (`fill="#46194F332C2B"` — two colours concatenated by whatever exported
+   * them). A bounded pattern skips those entirely and leaves them purple.
+   */
+  const WHITE = /^#(fff|ffffff)$/i;
+
+  return svg.replace(
+    /(fill|stroke|stop-color|flood-color)(\s*[=:]\s*)"?(#[0-9a-fA-F]{3,})"?/g,
+    (whole, _prop, _sep, colour) => (WHITE.test(colour) ? whole : whole.replace(colour, brand))
+  );
 }
+
 
 async function main() {
   const [vendor] = await select(`vendors?slug=eq.${enc(VENDOR_SLUG)}&select=id,slug&limit=1`);

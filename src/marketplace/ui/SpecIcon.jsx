@@ -1,59 +1,51 @@
+/* eslint-disable @next/next/no-img-element */
+
 /**
- * A catalog icon, coloured by the THEME rather than by the file.
+ * A catalog icon.
  *
- * ── Why this is not an <img> ────────────────────────────────────────────────
+ * One component for every place a spec or category mark is drawn — the car
+ * page's tiles and groups, the card's fact row, the compare table and the
+ * seller's spec editor — so how these are rendered is one decision rather
+ * than six copies of an <img>.
  *
- * These marks arrive from a catalog with a colour baked into them —
- * `fill="#46194F"`, the dealership's purple — and an <img> cannot be
- * recoloured by CSS, so a purple icon sat on every green tile.
+ * ── It was a CSS mask, and that was wrong ───────────────────────────────────
  *
- * The obvious repair is to rewrite the file's fill on the way in, and that is
- * what the importer first did. It is wrong for one reason that matters: the
- * brand colour is a SETTING. An admin changes it on Settings → Appearance and
- * every token on the site follows — except a colour painted into a file in a
- * bucket, which stays whatever it was on the day it was copied. The icons
- * would silently drift out of the theme, and nothing on screen would say why.
+ * The attraction of a mask was that the colour came from the theme: paint the
+ * silhouette with `bg-brand-primary` and an admin changing the brand colour
+ * changes every icon, with no file rewritten.
  *
- * ── A mask, so the colour is CSS ────────────────────────────────────────────
+ * It only works for a single-colour glyph, and these are not. They are TWO
+ * tone — a filled hexagon with the symbol knocked out of it in white — and a
+ * mask reads alpha, not colour, so hexagon and symbol are equally opaque and
+ * both get painted. Every one of them rendered as a solid green hexagon with
+ * the symbol gone. The handful that did survive were the few drawn as open
+ * outlines, which is what made it look like a partial failure rather than the
+ * wrong technique.
  *
- * The SVG is used as a mask-image and the colour is an ordinary background,
- * `bg-brand-primary` — a token that resolves to whatever the theme currently
- * says. Change the brand colour in the admin and these change with it, with
- * no re-import and no second copy of the file.
+ * ── So the colour lives in the FILE, and the importer owns it ───────────────
  *
- * It also means the file's own colour stops mattering: a mask reads the ALPHA
- * channel, so the shape is taken and the paint is discarded. A catalog icon
- * in any colour, from any source, renders in this platform's.
+ * mirror-assets.cjs recolours on the way in, and recolours only the inks that
+ * are not white: the hexagon takes the brand colour, the symbol stays white.
+ * Changing the brand colour therefore means re-running that script — a real
+ * cost, stated here rather than hidden:
  *
- * ── What this must NOT be used for ──────────────────────────────────────────
+ *     node src/marketplace/db/import/mirror-assets.cjs --refresh
  *
- * Anything whose own colours carry meaning — a brand logo, a colour swatch, a
- * photograph. A mask flattens every one of those to a single-colour
- * silhouette. Those stay <img>.
+ * The alternative that keeps both — two-tone art AND a live theme — is to
+ * inline the SVG and give its parts `currentColor`, which means parsing and
+ * emitting markup from a bucket on every render. That is a bigger change than
+ * an icon deserves, and it is the thing §28's no-stored-HTML rule exists to
+ * keep out of this codebase.
  */
-export default function SpecIcon({ src, className = '', title }) {
+export default function SpecIcon({ src, className = '', alt = '' }) {
   if (!src) return null;
 
-  /* Quoted and encoded: the value goes into a CSS url(), and a stray quote or
-     bracket in a filename would end the declaration early. */
-  const url = `url("${encodeURI(src).replace(/"/g, '%22')}")`;
-
   return (
-    <span
-      aria-hidden={title ? undefined : 'true'}
-      role={title ? 'img' : undefined}
-      aria-label={title}
-      className={`inline-block shrink-0 bg-brand-primary dark:bg-brand-on-dark ${className}`}
-      style={{
-        maskImage: url,
-        WebkitMaskImage: url,
-        maskRepeat: 'no-repeat',
-        WebkitMaskRepeat: 'no-repeat',
-        maskPosition: 'center',
-        WebkitMaskPosition: 'center',
-        maskSize: 'contain',
-        WebkitMaskSize: 'contain',
-      }}
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      className={`shrink-0 object-contain ${className}`}
     />
   );
 }
