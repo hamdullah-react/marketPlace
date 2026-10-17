@@ -298,6 +298,17 @@ export async function getFeaturedListings(limit = 8) {
 export async function getSiblingTrims(listing: LooseRow | null | undefined, limit = 6) {
   if (!listing?.brand_id || !listing?.model_id) return [];
 
+  /* ONE showroom, said out loud.
+   *
+   * Today this would hold without the filter: §30 gives every showroom its own
+   * catalog rows, so a rival listing the same car points at a DIFFERENT
+   * model_id and could never match. But that is a property of how the rows
+   * happen to have been created, not a rule — approve one shared model row for
+   * two showrooms and this strip starts offering a competitor's car from inside
+   * a seller's own page, under a heading that reads like the seller put it
+   * there. The vendor is part of what "the same car in another spec" means. */
+  const vendorId = listing.vendor_id ?? listing.vendors?.id ?? null;
+
   let q = getMarketplaceDb()
     .from('listings')
     .select(`${CARD_SELECT}, trim_id, car_trims ( id, name )`)
@@ -309,6 +320,8 @@ export async function getSiblingTrims(listing: LooseRow | null | undefined, limi
     .neq('id', listing.id)
     .order('price', { ascending: true })
     .limit(limit);
+
+  if (vendorId) q = q.eq('vendor_id', vendorId);
 
   // Year narrows it when the listing has one. A 2026 GLX beside a 2019 GL is
   // not the same choice.
