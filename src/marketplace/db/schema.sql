@@ -86,6 +86,37 @@ begin
     raise exception
       'Old schema detected (car_brands.name_ar exists). This file is a fresh install, not an upgrade. Run reset.sql first, then this file.';
   end if;
+
+  -- ── SOMEBODY ELSE'S `profiles` ───────────────────────────────────────────
+  --
+  -- §17.1 creates public.profiles with `create table if not exists`, which
+  -- SKIPS a table of that name whatever shape it has — it does not compare
+  -- columns. So another application's profiles table survives the create, and
+  -- the failure surfaces 1,300 lines later as
+  --
+  --   ERROR: 42703: column "full_name" of relation "profiles" does not exist
+  --
+  -- on the backfill, with nothing in the message to say that the table was
+  -- never ours. Measured on a self-hosted instance shared with a second app:
+  -- its profiles was (id, email, role text, status, created_at), the run died
+  -- there, and the half-applied state had to be unpicked by hand.
+  --
+  -- `profiles` is a name two applications pick independently — it is the most
+  -- likely collision there is on a shared database — so it is worth one check
+  -- at the top, where the answer is still "rename it and run this again".
+  --
+  -- It also catches the quieter version of the same problem: a profiles that
+  -- IS ours but predates full_name, which would fail identically.
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'profiles'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'full_name'
+  ) then
+    raise exception
+      'public.profiles already exists and is NOT this marketplace''s (no full_name column). `create table if not exists` would skip it and §17.1 would then fail with 42703. If it belongs to another application sharing this database, rename it first — `alter table public.profiles rename to <app>_profiles;` keeps its rows, indexes and policies — then run this file again.';
+  end if;
 end $$;
 
 -- ── 1. helpers + enums ─────────────────────────────────────────────────────
