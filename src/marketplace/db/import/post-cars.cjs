@@ -312,6 +312,40 @@ function slugify(value, fallback = '') {
   return s || fallback;
 }
 
+/**
+ * The trim name, which the source sometimes does not send.
+ *
+ * One of the twenty cars arrived as `trim: null` while still carrying
+ * `trimId: 2241` — a trim their own /car-trims endpoint no longer lists, so
+ * there is nothing left to look it up in. Left at that, the listing keeps a
+ * null trim_id and the car drops out of its own family: the sibling query
+ * asks for a trim DIFFERENT from this one, and SQL will not say that a null
+ * differs from anything, so two of the three G700s showed as variants of each
+ * other and the third was invisible from both.
+ *
+ * The name is in the title either way. "Jetour G700 Comfort 2026" is brand,
+ * model, trim, year, and the other three are known — so what is left after
+ * removing them IS the trim, in whichever languages the title carries.
+ */
+function trimName(car) {
+  if (car.trim?.name) return i18n(car.trim.name);
+  if (!car.trimId) return null;
+
+  const year = String(car.year?.value ?? text(car.year?.name, "en") ?? "");
+  const out = {};
+
+  for (const lang of ["ar", "en"]) {
+    let rest = text(car.name, lang);
+    for (const known of [text(car.brand?.name, lang), text(car.model?.name, lang), year]) {
+      if (known) rest = rest.split(known).join(" ");
+    }
+    rest = rest.replace(/s+/g, " ").trim();
+    if (rest) out[lang] = rest;
+  }
+
+  return Object.keys(out).length ? out : null;
+}
+
 // ── Catalog ────────────────────────────────────────────────────────────────
 
 /**
@@ -494,16 +528,17 @@ async function main() {
       );
 
       let trimId = null;
-      if (car.trim) {
-        const trimSlug = slugify(text(car.trim.name, 'en') || car.trim.code, `trim-${car.trimId}`);
+      const trimLabel = trimName(car);
+      if (trimLabel) {
+        const trimSlug = slugify(trimLabel.en || car.trim?.code, `trim-${car.trimId}`);
         trimId = await ensureTrim(
           `trim:${modelSlug}/${trimSlug}`,
           `slug=eq.${enc(trimSlug)}&model_id=eq.${modelId}`,
           {
             model_id: modelId,
             slug: trimSlug,
-            name: i18n(car.trim.name),
-            code: car.trim.code ?? null,
+            name: trimLabel,
+            code: car.trim?.code ?? null,
             is_custom: true,
             approved: true,
             active: true,
