@@ -25,6 +25,7 @@
  * resolved on the server — this ships markup and a toggle, not a formatter.
  */
 
+import SpecIcon from "@/marketplace/ui/SpecIcon";
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Check, X, Sparkles } from "lucide-react";
 
@@ -139,13 +140,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
                 >
                   {item.icon ? (
                     <div className="raised-card mb-2 shrink-0 rounded-xl p-2 sm:mb-3 sm:p-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.icon}
-                        alt=""
-                        loading="lazy"
-                        className="h-5 w-5 object-contain sm:h-6 sm:w-6"
-                      />
+                      <SpecIcon src={item.icon} className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                   ) : null}
 
@@ -210,13 +205,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
                               : "border-gray-200 bg-white dark:border-white/10 dark:bg-[#252525]"
                           }`}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={group.icon}
-                            alt=""
-                            loading="lazy"
-                            className="h-4 w-4 object-contain sm:h-5 sm:w-5"
-                          />
+                          <SpecIcon src={group.icon} className="h-4 w-4 sm:h-5 sm:w-5" />
                         </span>
                       ) : null}
 
@@ -257,13 +246,7 @@ export default function SpecSheet({ sheet = [], keySpecs = [], locale = "ar" }) 
                                   site. */}
                               {!yesNo && item.icon ? (
                                 <div className="raised-card flex shrink-0 items-center justify-center rounded-xl p-2">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={item.icon}
-                                    alt=""
-                                    loading="lazy"
-                                    className="h-5 w-5 object-contain"
-                                  />
+                                  <SpecIcon src={item.icon} className="h-5 w-5" />
                                 </div>
                               ) : null}
 

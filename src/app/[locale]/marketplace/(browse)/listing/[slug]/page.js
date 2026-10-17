@@ -470,28 +470,34 @@ async function AboveTheFold({ slug, locale, t }) {
           what somebody asks after reading the specs and before deciding to
           look elsewhere, which is exactly where the objection lives.
 
-          ── The fallback is NOT shown here ──────────────────────────────
+          EVERY car shows this section. Where the showroom has written none —
+          which is most cars — five answers built from this car's own row
+          stand in, so the section is never empty and never says anything
+          untrue of the car in front of the reader: the VAT line follows
+          vat_included, availability follows the state, the viewing line names
+          the city. See lib/faq.js.
 
-          It used to be: five answers built from the car's own row, so the
-          section was never empty. On a catalogue of any size that reads as
-          what it is — the same five questions, word for word, under every
-          car — and a reader who meets it twice stops reading it at all. It
-          also has nothing to say that the page has not already said: the VAT
-          line is beside the price, availability is on the badge.
+          Those fallbacks carry no FAQPage markup, which is what `structured`
+          decides: identical text under twenty cars is boilerplate structured
+          data, and it would compete with the real one on /faq. A showroom's
+          own questions get the markup.
 
-          So a car shows questions only where the showroom wrote them. The
-          fallbacks still exist and are still offered inside the seller's FAQ
-          tab as a starting point — which is where five ready-made questions
-          help somebody, rather than being published on their behalf. */}
-      {!faqsFallback ? (
-        <FaqSection
-          faqs={faqs}
-          locale={locale}
-          title={t('أسئلة عن هذه السيارة', 'Questions about this car')}
-          className="mt-8 sm:mt-10"
-          structured
-        />
-      ) : null}
+          The PLATFORM's four questions are deliberately absent from this
+          page, so the only FAQ a buyer meets here is the one about this car.
+          The band lives in the footer, which a LAYOUT renders — a layout has
+          no pathname, and a client component reading usePathname() resolves
+          to nothing during the prerender, so it shipped in the static HTML
+          and only disappeared after hydration. One rule, rendered by the page
+          that wants it, has none of that: it is in the first byte of HTML and
+          needs no JavaScript. */}
+      <style>{'[data-site-faq]{display:none}'}</style>
+      <FaqSection
+        faqs={faqs}
+        locale={locale}
+        title={t('أسئلة عن هذه السيارة', 'Questions about this car')}
+        className="mt-8 sm:mt-10"
+        structured={!faqsFallback}
+      />
     </>
   );
 }

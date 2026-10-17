@@ -326,6 +326,46 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose, currenc
           the scroll area would never scroll. */}
       <ScrollArea className="min-h-0 flex-1 bg-gray-50 dark:bg-[#111]">
         <div className="space-y-3 p-4">
+          {/* ── The rail, deliberately short ──────────────────────────────
+
+              Eleven filters, in the order a buyer narrows: what car, what
+              year, what it costs, how it drives, who is selling and where.
+
+              What used to be here and is not: the colour, the
+              mileage slider, every SPECIFICATION the catalog holds, the
+              option kinds, and the "special features" pair. The spec block is
+              the one that mattered — it renders a section per spec_attribute,
+              so importing a real catalog turned the rail into eighty-odd
+              accordions (Valves, Torque, Turbo, Additional electric motor)
+              and pushed Showroom and City, which were always here, so far
+              down that nobody reached them.
+
+              A filter nobody scrolls to is worse than one that does not
+              exist: it takes up the space the useful ones needed. Those
+              facets are still computed and still in the URL contract — a link
+              carrying ?spec_torque=… keeps working — they are simply not
+              offered as a wall of controls. */}
+
+          <BrandsFilter
+            options={facets.brands ?? []}
+            selectedBrands={list("brand")}
+            selectedModels={list("model")}
+            onToggleBrand={toggleMulti("brand")}
+            onToggleModel={toggleMulti("model")}
+            isExpanded={!!open.brands}
+            onToggle={toggleSection("brands")}
+            locale={locale}
+          />
+
+          <YearFilter
+            options={facets.years ?? []}
+            selected={list("year")}
+            onToggleValue={toggleMulti("year")}
+            isExpanded={!!open.year}
+            onToggle={toggleSection("year")}
+            locale={locale}
+          />
+
           <PriceFilter
             currency={currency}
             range={[priceLo, priceHi]}
@@ -347,77 +387,12 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose, currenc
             locale={locale}
           />
 
-          <BrandsFilter
-            options={facets.brands ?? []}
-            selectedBrands={list("brand")}
-            selectedModels={list("model")}
-            onToggleBrand={toggleMulti("brand")}
-            onToggleModel={toggleMulti("model")}
-            isExpanded={!!open.brands}
-            onToggle={toggleSection("brands")}
-            locale={locale}
-          />
-
-          <TrimsFilter
-            options={facets.trimModels ?? []}
-            selected={list("trim")}
-            onToggleValue={toggleMulti("trim")}
-            isExpanded={!!open.trims}
-            onToggle={toggleSection("trims")}
-            locale={locale}
-          />
-
-          <YearFilter
-            options={facets.years ?? []}
-            selected={list("year")}
-            onToggleValue={toggleMulti("year")}
-            isExpanded={!!open.year}
-            onToggle={toggleSection("year")}
-            locale={locale}
-          />
-
           <SeatsFilter
             options={specBySlug.seats?.values ?? []}
             selected={chosenSpecs.seats ?? []}
             onToggleValue={(v) => toggleSpecValue("seats", v)}
             isExpanded={!!open.seats}
             onToggle={toggleSection("seats")}
-            locale={locale}
-          />
-
-          <ColorsFilter
-            options={facets.colors ?? []}
-            selected={list("color")}
-            onToggleValue={toggleMulti("color")}
-            isExpanded={!!open.colors}
-            onToggle={toggleSection("colors")}
-            locale={locale}
-          />
-
-          <MileageFilter
-            max={facets.maxMileage}
-            value={get("max_mileage")}
-            onCommit={(v) => setSingle("max_mileage", v)}
-            isExpanded={!!open.mileage}
-            onToggle={toggleSection("mileage")}
-            locale={locale}
-          />
-
-          <ConditionFilter
-            options={facets.conditions ?? []}
-            selected={list("condition")}
-            onToggleValue={toggleMulti("condition")}
-            isExpanded={!!open.condition}
-            onToggle={toggleSection("condition")}
-            locale={locale}
-          />
-
-          <TransmissionFilter
-            options={specBySlug.transmission?.values ?? []}
-            selected={chosenSpecs.transmission ?? []}
-            onToggleValue={(v) => toggleSpecValue("transmission", v)}
-            isExpanded={!!open.transmission}
-            onToggle={toggleSection("transmission")}
             locale={locale}
           />
 
@@ -430,23 +405,21 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose, currenc
             locale={locale}
           />
 
-          <SpecFacets
-            facets={genericSpecs}
-            selected={chosenSpecs}
-            ranges={specRanges}
-            onToggleValue={toggleSpecValue}
-            onCommitRange={commitSpecRange}
-            expanded={open}
-            onToggleSection={(slug, v) => setOpen((o) => ({ ...o, [slug]: v }))}
+          <TransmissionFilter
+            options={specBySlug.transmission?.values ?? []}
+            selected={chosenSpecs.transmission ?? []}
+            onToggleValue={(v) => toggleSpecValue("transmission", v)}
+            isExpanded={!!open.transmission}
+            onToggle={toggleSection("transmission")}
             locale={locale}
           />
 
-          <DynamicFacets
-            facets={facets.kinds ?? []}
-            selected={chosenKinds}
-            onToggleValue={toggleKindValue}
-            expanded={open}
-            onToggleSection={(kind, v) => setOpen((o) => ({ ...o, [kind]: v }))}
+          <ConditionFilter
+            options={facets.conditions ?? []}
+            selected={list("condition")}
+            onToggleValue={toggleMulti("condition")}
+            isExpanded={!!open.condition}
+            onToggle={toggleSection("condition")}
             locale={locale}
           />
 
@@ -459,14 +432,12 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose, currenc
             locale={locale}
           />
 
-          <SpecialFeaturesFilter
-            features={facets.features ?? {}}
-            hasOffer={get("has_offer") === "1"}
-            isFeatured={get("featured") === "1"}
-            onHasOfferChange={(on) => setSingle("has_offer", on ? "1" : null)}
-            onIsFeaturedChange={(on) => setSingle("featured", on ? "1" : null)}
-            isExpanded={!!open.features}
-            onToggle={toggleSection("features")}
+          <VendorFilter
+            options={facets.vendors ?? []}
+            selected={get("vendor")}
+            onSelect={(v) => setSingle("vendor", v)}
+            isExpanded={!!open.vendor}
+            onToggle={toggleSection("vendor")}
             locale={locale}
           />
 
@@ -476,15 +447,6 @@ function FilterPanel({ facets, locale, total, isMobile = false, onClose, currenc
             onSelect={(v) => setSingle("city", v)}
             isExpanded={!!open.city}
             onToggle={toggleSection("city")}
-            locale={locale}
-          />
-
-          <VendorFilter
-            options={facets.vendors ?? []}
-            selected={get("vendor")}
-            onSelect={(v) => setSingle("vendor", v)}
-            isExpanded={!!open.vendor}
-            onToggle={toggleSection("vendor")}
             locale={locale}
           />
         </div>

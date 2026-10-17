@@ -181,7 +181,24 @@ async function mirror(bucket, vendorId, listingId, src, alt) {
   if (!MIRROR || !src) return src;
   if (mirrored.has(src)) return mirrored.get(src);
 
+  /* The key is computed from the SOURCE URL alone — no request needed — so a
+     re-run can ask the database whether it already holds this picture before
+     spending a download and an upload on it. Without this, --force re-copies
+     all 370 images every time, which is fifteen minutes to change a colour
+     name. */
+  const hash = crypto.createHash('sha1').update(src).digest('hex').slice(0, 16);
+  const name = (src.split('/').pop() ?? 'photo').split('?')[0]
+    .toLowerCase().replace(/[^a-z0-9.]+/g, '-').slice(-60) || 'photo.jpg';
+  const key = `listings/${listingId}/${hash}-${name}`;
+  const publicUrl = `${URL_BASE}/storage/v1/object/public/${bucket}/${key}`;
+
   try {
+    const already = await select(`media_assets?storage_path=eq.${enc(key)}&select=url&limit=1`);
+    if (already.length) {
+      mirrored.set(src, already[0].url ?? publicUrl);
+      return mirrored.get(src);
+    }
+
     const res = await fetch(src, { signal: AbortSignal.timeout(60_000) });
     if (!res.ok) throw new Error(`source ${res.status}`);
 
@@ -190,12 +207,6 @@ async function mirror(bucket, vendorId, listingId, src, alt) {
 
     const bytes = Buffer.from(await res.arrayBuffer());
     if (bytes.length > MAX_BYTES) throw new Error(`${(bytes.length / 1048576).toFixed(1)} MB over the 8 MB limit`);
-
-    const hash = crypto.createHash('sha1').update(src).digest('hex').slice(0, 16);
-    const name = (src.split('/').pop() ?? 'photo').split('?')[0]
-      .toLowerCase().replace(/[^a-z0-9.]+/g, '-').slice(-60) || `photo.${EXT[type]}`;
-    const key = `listings/${listingId}/${hash}-${name}`;
-    const publicUrl = `${URL_BASE}/storage/v1/object/public/${bucket}/${key}`;
 
     /* x-upsert, because a re-run writes the same key with the same bytes and
        a 409 there would be noise rather than information. */

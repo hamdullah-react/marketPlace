@@ -125,8 +125,19 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
           every page of the site, and a FAQPage node repeated site-wide is
           boilerplate markup that competes with the real one on /faq. See
           FaqSection. */}
+      {/* `data-site-faq` is how a CAR page switches this band off.
+          That page carries the showroom's own questions about the car in
+          front of the reader, and the platform's four general ones
+          underneath read as a second, competing FAQ.
+
+          The decision cannot be made here: the footer is rendered once by a
+          LAYOUT, and a layout has no pathname. A client component reading
+          usePathname() was tried and is wrong — it resolves to nothing
+          during the prerender, so the band shipped in the static HTML and
+          only vanished after hydration. The car page therefore hides it with
+          one rule of its own; see the FAQ block in listing/[slug]/page.js. */}
       {footerFaqs.length ? (
-        <div className="border-b border-brand-primary/10 bg-brand-primary/[0.03] dark:border-white/10 dark:bg-white/[0.02]">
+        <div data-site-faq className="border-b border-brand-primary/10 bg-brand-primary/[0.03] dark:border-white/10 dark:bg-white/[0.02]">
           <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-8 sm:py-8 lg:px-20 xl:px-28">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-base font-bold text-brand-primary sm:text-lg">
