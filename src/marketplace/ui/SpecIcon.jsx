@@ -1,48 +1,60 @@
 /* eslint-disable @next/next/no-img-element */
 
 /**
- * A catalog icon.
+ * A catalog icon, painted in the CURRENT brand colour.
  *
  * One component for every place a spec or category mark is drawn — the car
- * page's tiles and groups, the card's fact row, the compare table and the
- * seller's spec editor — so how these are rendered is one decision rather
+ * page's tiles and groups, the listing card's fact row, the compare table and
+ * the seller's spec editor — so how these are coloured is one decision rather
  * than six copies of an <img>.
  *
- * ── It was a CSS mask, and that was wrong ───────────────────────────────────
+ * ── The colour is resolved per REQUEST, not per import ─────────────────────
  *
- * The attraction of a mask was that the colour came from the theme: paint the
- * silhouette with `bg-brand-primary` and an admin changing the brand colour
- * changes every icon, with no file rewritten.
+ * An SVG of ours is served through /api/marketplace/icon, which substitutes
+ * the brand colour from site_settings as it hands the file over. So changing
+ * the colour on Settings → Appearance changes every icon on the next load,
+ * with no script to re-run and no second copy of any file.
  *
- * It only works for a single-colour glyph, and these are not. They are TWO
- * tone — a filled hexagon with the symbol knocked out of it in white — and a
- * mask reads alpha, not colour, so hexagon and symbol are equally opaque and
- * both get painted. Every one of them rendered as a solid green hexagon with
- * the symbol gone. The handful that did survive were the few drawn as open
- * outlines, which is what made it look like a partial failure rather than the
- * wrong technique.
+ * Two cheaper approaches were tried and are wrong, both because these icons
+ * are TWO TONE — a filled hexagon with the symbol knocked out in white:
  *
- * ── So the colour lives in the FILE, and the importer owns it ───────────────
+ *   · a CSS mask reads ALPHA, so hexagon and symbol are painted alike and the
+ *     symbol disappears. Every icon became a solid block.
+ *   · recolouring the FILE at import works and then freezes: the colour is a
+ *     setting, and a file in a bucket cannot follow it.
  *
- * mirror-assets.cjs recolours on the way in, and recolours only the inks that
- * are not white: the hexagon takes the brand colour, the symbol stays white.
- * Changing the brand colour therefore means re-running that script — a real
- * cost, stated here rather than hidden:
+ * ── What is NOT sent through the route ─────────────────────────────────────
  *
- *     node src/marketplace/db/import/mirror-assets.cjs --refresh
- *
- * The alternative that keeps both — two-tone art AND a live theme — is to
- * inline the SVG and give its parts `currentColor`, which means parsing and
- * emitting markup from a bucket on every render. That is a bigger change than
- * an icon deserves, and it is the thing §28's no-stored-HTML rule exists to
- * keep out of this codebase.
+ * Anything that is not an SVG in our own storage is rendered directly. A
+ * raster icon has nothing to substitute, and a URL on somebody else's host is
+ * refused by the route anyway — it only accepts this deployment's bucket, so
+ * it cannot be used as an open proxy.
  */
+
+/** Our own storage, which is the only thing the route will serve. */
+function isOurSvg(src) {
+  if (!/\.svg($|\?)/i.test(src)) return false;
+
+  /* Either name — see the route for why a precedence rule between the
+     build-time and runtime variables refuses everything when they differ. */
+  const bases = [
+    process.env.NEXT_PUBLIC_MARKETPLACE_SUPABASE_URL,
+    process.env.MARKETPLACE_SUPABASE_URL,
+  ].filter(Boolean);
+
+  return bases.some((b) => src.startsWith(`${b.replace(/\/$/, '')}/storage/v1/object/public/`));
+}
+
 export default function SpecIcon({ src, className = '', alt = '' }) {
   if (!src) return null;
 
+  const href = isOurSvg(src)
+    ? `/api/marketplace/icon?u=${encodeURIComponent(src)}`
+    : src;
+
   return (
     <img
-      src={src}
+      src={href}
       alt={alt}
       loading="lazy"
       className={`shrink-0 object-contain ${className}`}
