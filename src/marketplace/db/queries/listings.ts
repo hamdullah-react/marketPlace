@@ -1,6 +1,7 @@
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { attachOffers } from './offers';
 import type { LooseRow } from '@/marketplace/lib/row';
+import { PUBLIC_STATES } from '@/marketplace/lib/listing';
 
 /**
  * Reads against DB2. Server-only — these run with the secret key, so every
@@ -120,7 +121,23 @@ async function runLiveQuery(opts: LooseRow, select: string) {
   let query = getMarketplaceDb()
     .from('listings')
     .select(select, { count: 'exact' })
-    .eq('state', 'live');
+    /* Sold cars included — see PUBLIC_STATES. The name of this function is now
+       a shade historical; what it means is "the public set". */
+    .in('state', PUBLIC_STATES);
+
+  /**
+   * Availability first, then whatever the caller asked to sort by.
+   *
+   * `state` is an enum and Postgres orders an enum by its DECLARED order,
+   * which puts 'live' (third) ahead of 'sold_out' (sixth) — see §1 of
+   * schema.sql. So one cheap order clause pushes sold cars behind the
+   * available ones without a second column to keep in step with the state,
+   * which is the thing the schema argues against in half a dozen places.
+   *
+   * It is applied BEFORE the caller's sort below, making it the primary key:
+   * "price, low to high" still means "of the ones I can buy".
+   */
+  query = query.order('state', { ascending: true });
 
   if (type) query = query.eq('type', type);
   if (categoryId) query = query.eq('category_id', categoryId);
@@ -160,12 +177,32 @@ export async function getLiveListingCards(opts = {}) {
   return runLiveQuery(opts, CARD_SELECT);
 }
 
+/**
+ * One listing by slug, for its own page.
+ *
+ * ── 'sold_out' is served, and that is the point of it ───────────────────────
+ *
+ * This filtered on `state = 'live'` alone, which meant marking a car sold made
+ * its page a 404 — taking with it every inbound link, every share, every
+ * bookmark and whatever search ranking the URL had earned. A buyer following a
+ * link to a car that sold deserves to be told it sold, by the showroom that
+ * sold it, with the rest of that showroom's cars one click away. A 404 tells
+ * them the site is broken.
+ *
+ * It is also why this is the right place for the change rather than the browse
+ * queries: a BROWSE list is someone shopping, and a sold car does not belong
+ * in it. A DIRECT link is someone asking about one specific car.
+ *
+ * Every caller of this function is that second case — the detail page, the
+ * public API route for one slug, and the compare page — so all three behave
+ * the same way without having to agree about it separately.
+ */
 export async function getListingBySlug(slug: string) {
   const { data, error } = await getMarketplaceDb()
     .from('listings')
     .select(DETAIL_SELECT)
     .eq('slug', slug)
-    .eq('state', 'live')
+    .in('state', ['live', 'sold_out'])
     .maybeSingle();
 
   if (error) throw new Error(`getListingBySlug: ${error.message}`);
@@ -191,7 +228,10 @@ export async function getLiveListingSlugs(limit = 500) {
   const { data, error } = await getMarketplaceDb()
     .from('listings')
     .select('slug')
-    .eq('state', 'live')
+    /* Sold cars too: their page is served (getListingBySlug admits sold_out),
+       so prerendering them is what keeps an old link fast instead of making
+       every visit to a sold car a dynamic render. */
+    .in('state', PUBLIC_STATES)
     .not('slug', 'is', null)
     .order('published_at', { ascending: false, nullsFirst: false })
     .limit(limit);
@@ -207,6 +247,10 @@ export async function getLiveListingSlugs(limit = 500) {
  */
 export async function getFeaturedListings(limit = 8) {
   const featuredQuery = () =>
+    /* live only, deliberately: a boost is a PAID placement, and the top of
+       the home page is the one slot where promoting a car nobody can buy
+       wastes both the slot and the showroom's money. A sold car still appears
+       in the grid below — see PUBLIC_STATES. */
     getMarketplaceDb().from('listings').select(SELECT).eq('state', 'live').eq('is_featured', true);
 
   /* The admin's own order first (Admin → Boost requests → Running, dragged).
@@ -257,6 +301,8 @@ export async function getSiblingTrims(listing: LooseRow | null | undefined, limi
   let q = getMarketplaceDb()
     .from('listings')
     .select(`${CARD_SELECT}, trim_id, car_trims ( id, name )`)
+    /* live only: this strip exists so somebody can pick a different spec, and
+       a sold one is not a choice. */
     .eq('state', 'live')
     .eq('brand_id', listing.brand_id)
     .eq('model_id', listing.model_id)
@@ -287,6 +333,9 @@ export async function getRelatedListings(listing: LooseRow | null | undefined, l
   const { data, error } = await getMarketplaceDb()
     .from('listings')
     .select(CARD_SELECT)
+    /* live only, and it matters most on a SOLD car's page: "similar cars" is
+       the one thing that page has to offer its visitor, so filling it with
+       more cars they cannot buy would waste the only useful space on it. */
     .eq('state', 'live')
     .eq('category_id', listing.categories.id)
     .neq('id', listing.id)
@@ -294,5 +343,39 @@ export async function getRelatedListings(listing: LooseRow | null | undefined, l
 
   if (error) throw new Error(`getRelatedListings: ${error.message}`);
   await attachOffers(data);
+  return data ?? [];
+}
+
+/**
+ * One car's own questions, as its showroom wrote them.
+ *
+ * ── Why a separate read rather than an embed ────────────────────────────────
+ *
+ * DETAIL_SELECT could pull these through the foreign key, and that would put
+ * them on the hot path of a page whose first job is to render a car. Most
+ * listings have no FAQ at all, the section sits well below the fold, and the
+ * page already fetches variants, specs and siblings in parallel after the
+ * car itself. This joins that group.
+ *
+ * Switched-off rows are left out here rather than filtered by the caller: a
+ * question a showroom turned off should not reach the browser at all, and it
+ * must never reach the FAQPage structured data — marking up an answer nobody
+ * can see is exactly the kind of thing a rich result gets penalised for.
+ */
+export async function getListingFaqs(listingId: string) {
+  if (!listingId) return [];
+
+  const { data, error } = await getMarketplaceDb()
+    .from('listing_faqs')
+    .select('id, question, answer, sort_order')
+    .eq('listing_id', listingId)
+    .eq('active', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  /* The table arrives with the FAQ section of schema.sql. Until it is run this
+     throws 42P01, and a car page that failed to render because it has no
+     questions would be a far worse bug than one with no FAQ section. */
+  if (error) return [];
   return data ?? [];
 }

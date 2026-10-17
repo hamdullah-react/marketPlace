@@ -20,7 +20,7 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  MoreHorizontal, Eye, Pencil, Send, Undo2, Trash2, Loader2, AlertTriangle,
+  MoreHorizontal, Eye, Pencil, Send, Undo2, Trash2, Loader2, AlertTriangle, BadgeCheck,
   Sparkles, XCircle,
 } from "lucide-react";
 import {
@@ -60,6 +60,10 @@ export default function ListingRowActions({
   const msg = (r) => (r?.error ? errorText(r.error, locale, r.params) : null);
 
   const isLive = listing.state === "live";
+  const isSold = listing.state === "sold_out";
+  /* A sold car keeps its page — getListingBySlug serves 'live' and 'sold_out'
+     — so "View" is offered for both. See the OUT OF STOCK note in schema.sql. */
+  const isPublic = isLive || isSold;
   const busy = move.pending || remove.pending || cancelBoost.pending;
 
   const activeUntil = boost?.activeUntil
@@ -119,7 +123,7 @@ export default function ListingRowActions({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align={isAr ? "start" : "end"} dir={isAr ? "rtl" : "ltr"}>
-            {isLive && publicPath ? (
+            {isPublic && publicPath ? (
               <DropdownMenuItem asChild>
                 <Link href={publicPath} className="gap-2">
                   <Eye className="h-4 w-4" />
@@ -170,12 +174,35 @@ export default function ListingRowActions({
                 <Undo2 className="h-4 w-4" />
                 {t("إلغاء النشر", "Unpublish")}
               </DropdownMenuItem>
-            ) : (
+            ) : isSold ? null : (
               <DropdownMenuItem className="gap-2" onSelect={() => moveTo("live")}>
                 <Send className="h-4 w-4" />
                 {t("نشر", "Publish")}
               </DropdownMenuItem>
             )}
+
+            {/* ── Sold, and back ────────────────────────────────────────
+                Selling a car happens on the forecourt, so nothing here can
+                detect it — it can only ever be the seller saying so. The two
+                directions are one control shown one at a time, like publish
+                and unpublish above: offering somebody the state they are
+                already in is how a menu stops being read.
+
+                Deliberately NOT "unpublish". A sold car stays on the site
+                with its page intact, because the showroom selling cars is
+                the thing a buyer wants to see evidence of, and because the
+                URL has value that deleting it throws away. */}
+            {isLive ? (
+              <DropdownMenuItem className="gap-2" onSelect={() => moveTo("sold_out")}>
+                <BadgeCheck className="h-4 w-4" />
+                {t("تحديد كمباع", "Mark as sold")}
+              </DropdownMenuItem>
+            ) : isSold ? (
+              <DropdownMenuItem className="gap-2" onSelect={() => moveTo("live")}>
+                <Send className="h-4 w-4" />
+                {t("إعادة للبيع", "Put back on sale")}
+              </DropdownMenuItem>
+            ) : null}
 
             {listing.state === "draft" || listing.state === "rejected" ? (
               <DropdownMenuItem className="gap-2" onSelect={() => moveTo("pending_review")}>

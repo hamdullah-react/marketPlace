@@ -13,8 +13,10 @@ import {
   Mail, Phone, Globe, Ghost, Link as LinkIcon, MessageCircle, Send, MapPin, Store, Star,
   Image as ImageIcon, Video, FileText,
 } from "lucide-react";
-import { getSiteSettings } from "@/marketplace/db/queries/site";
+import { getSiteSettings, getSiteFaqs } from "@/marketplace/db/queries/site";
 import { socialLinksOf } from "@/marketplace/lib/social";
+import FaqSection from "@/marketplace/ui/FaqSection";
+import { SITE_FAQ_FALLBACK, faqsOrFallback } from "@/marketplace/lib/faq";
 
 /**
  * The social fallback, used only when Admin → Settings has no list of its own.
@@ -55,6 +57,7 @@ const COLUMNS = [
       { ar: "من نحن", en: "About Us", href: "/marketplace/about" },
       { ar: "كيف يعمل", en: "How It Works", href: "/marketplace/how-it-works" },
       { ar: "الأخبار", en: "News", href: "/marketplace/blog" },
+      { ar: "الأسئلة الشائعة", en: "FAQ", href: "/marketplace/faq" },
       { ar: "مركز المساعدة", en: "Help Centre", href: "/marketplace/help" },
       { ar: "حماية المشتري", en: "Buyer Protection", href: "/marketplace/buyer-protection" },
       { ar: "شروط البائع", en: "Seller Terms", href: "/marketplace/seller-terms" },
@@ -84,7 +87,10 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
   const t = (ar, en) => (isAr ? ar : en);
   const year = 2026;
 
-  const site = await getSiteSettings();
+  /* Both cached reads, in parallel: the footer is on every page and must not
+     cost two sequential round trips. A missing site_faqs table resolves to an
+     empty list and the band falls back to the built-in five. */
+  const [site, faqRows] = await Promise.all([getSiteSettings(), getSiteFaqs()]);
   const siteName = isAr ? site.name.ar : site.name.en;
   const tagline = isAr ? site.tagline.ar : site.tagline.en;
   // SVG and uploaded (absolute URL) logos load directly, not via the optimiser,
@@ -98,11 +104,52 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
     ? socialLinksOf({ social_links: site.socialLinks }, locale)
     : SOCIAL.map((s) => ({ key: s.label, label: s.label, href: s.href, icon: s.src, lucide: null }));
 
+  /* Admin → Website content → FAQ, or the built-in five while that is empty.
+     Four of them: the footer is a place somebody glances at, not reads, and a
+     ten-row accordion above the links turns the footer into a page. */
+  const footerFaqs = faqsOrFallback(faqRows.faqs, SITE_FAQ_FALLBACK).faqs.slice(0, 4);
+
   return (
     <footer
       dir={isAr ? "rtl" : "ltr"}
       className="mt-16 border-t border-brand-primary/10 bg-[var(--app-bg)] font-noto dark:border-white/10 dark:bg-[var(--app-bg-dark)]"
     >
+      {/* ── The questions, above everything else ───────────────────────────
+          A buyer who has scrolled to the bottom of a car page is usually
+          looking for one of two things: a way to ask, or the answer to the
+          thing stopping them. The footer is where both of those get looked
+          for, so the FAQ sits at the top of it rather than as one more link in
+          a column of fifteen.
+
+          `structured={false}`, deliberately: this is the same four answers on
+          every page of the site, and a FAQPage node repeated site-wide is
+          boilerplate markup that competes with the real one on /faq. See
+          FaqSection. */}
+      {footerFaqs.length ? (
+        <div className="border-b border-brand-primary/10 bg-brand-primary/[0.03] dark:border-white/10 dark:bg-white/[0.02]">
+          <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-8 sm:py-8 lg:px-20 xl:px-28">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-base font-bold text-brand-primary sm:text-lg">
+                {t("الأسئلة الشائعة", "Frequently asked questions")}
+              </h2>
+              <Link
+                href={`/${locale}/marketplace/faq`}
+                className="text-xs font-medium text-brand-primary hover:underline sm:text-sm"
+              >
+                {t("كل الأسئلة", "All questions")}
+              </Link>
+            </div>
+
+            <FaqSection
+              faqs={footerFaqs}
+              locale={locale}
+              className="mt-3 max-w-3xl"
+              structured={false}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-8 sm:py-12 lg:px-20 xl:px-28">
         {/* Three link columns side by side on a phone, under the brand block,
             rather than two and a stragglers' row — the footer was a long

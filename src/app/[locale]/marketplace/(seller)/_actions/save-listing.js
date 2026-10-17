@@ -178,6 +178,7 @@ function readForm(formData) {
     media: json('media', []),
     specs: json('specs', {}),
     variants: json('variants', []),
+    faqs: json('faqs', []),
     publish: s('publish') === 'on',
     // draft | review | publish. The form sends it; older callers that only
     // send `publish` still work, falling back to the review queue.
@@ -265,6 +266,46 @@ function validate(raw, slugs = {}) {
   }
 
   return errors;
+}
+
+/**
+ * This car's own questions, replaced wholesale — same as variants and specs.
+ *
+ * Delete-then-insert rather than a diff, for the reason the other two give:
+ * the form posts the WHOLE list every time, so a diff would be reconstructing
+ * information the payload already contains, and getting it subtly wrong is how
+ * a reordered list ends up duplicated.
+ *
+ * ── What is dropped, and why silently ──────────────────────────────────────
+ *
+ * A pair with no question, or no answer, in EITHER language. The editor starts
+ * every new row empty, so a seller who adds a row and changes their mind would
+ * otherwise save a blank entry that renders as an empty accordion on the car
+ * page and as an invalid FAQPage node in the structured data. Dropping it is
+ * what they meant; an error telling them to fill in a row they are trying to
+ * abandon is not.
+ *
+ * `sort_order` comes from the array index rather than from a stored number, so
+ * the order on screen IS the order saved and there is no second field to drift.
+ */
+async function saveFaqs(db, listingId, vendorId, faqs) {
+  await db.from('listing_faqs').delete().eq('listing_id', listingId);
+
+  const rows = (Array.isArray(faqs) ? faqs : [])
+    .map((f, i) => ({
+      listing_id: listingId,
+      vendor_id: vendorId,
+      question: i18n(String(f?.questionAr ?? '').trim(), String(f?.questionEn ?? '').trim()),
+      answer: i18n(String(f?.answerAr ?? '').trim(), String(f?.answerEn ?? '').trim()),
+      sort_order: i,
+      active: f?.active !== false,
+    }))
+    .filter((r) => Object.keys(r.question).length && Object.keys(r.answer).length);
+
+  if (!rows.length) return;
+
+  const { error } = await db.from('listing_faqs').insert(rows);
+  if (error) throw new Error(`faqs: ${error.message}`);
 }
 
 /**
@@ -733,6 +774,7 @@ export async function saveListing(prevState, formData) {
     try {
       await saveVariants(db, listingId, raw.variants);
       await saveSpecs(db, listingId, raw.specs);
+      await saveFaqs(db, listingId, raw.vendorId, raw.faqs);
     } catch (err) {
       // The listing saved; only the colour variants failed. Say exactly that
       // rather than implying the whole thing was lost.

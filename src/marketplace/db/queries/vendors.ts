@@ -1,4 +1,5 @@
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { PUBLIC_STATES } from '@/marketplace/lib/listing';
 import { likePattern } from '@/marketplace/lib/search';
 
 const SELECT = `
@@ -148,8 +149,10 @@ export async function getVendorStats(vendorId: string) {
   const db = getMarketplaceDb();
 
   const [live, sold] = await Promise.all([
+    /* The same set the storefront LISTS (PUBLIC_STATES), or the header says
+       "12 cars listed" over thirteen cards. */
     db.from('listings').select('id', { count: 'exact', head: true })
-      .eq('vendor_id', vendorId).eq('state', 'live'),
+      .eq('vendor_id', vendorId).in('state', PUBLIC_STATES),
     db.from('orders').select('id', { count: 'exact', head: true })
       .eq('vendor_id', vendorId).in('state', ['delivered', 'completed']),
   ]);

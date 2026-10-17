@@ -20,6 +20,7 @@ export const SITE_TAGS = {
   seo: 'page-seo',
   pages: 'site-pages',
   blog: 'blog-posts',
+  faq: 'site-faqs',
 };
 
 /**
@@ -187,6 +188,15 @@ export const SEO_PAGES = [
     label: { ar: 'مركز المساعدة', en: 'Help centre' },
     title: { ar: 'مركز المساعدة', en: 'Help Centre' },
     description: { ar: 'إجابات عن الأسئلة الشائعة حول سوق الرميح.', en: 'Answers to common questions about Sauda.' },
+  },
+  {
+    /* Higher priority and a shorter changefreq than its neighbours: this is
+       the one info page whose content an admin actually edits, and the one
+       carrying FAQPage structured data — so it is the one worth re-crawling. */
+    key: 'faq', path: '/faq', group: 'info', index: false, changefreq: 'weekly', priority: 0.6,
+    label: { ar: 'الأسئلة الشائعة', en: 'FAQ' },
+    title: { ar: 'الأسئلة الشائعة', en: 'Frequently Asked Questions' },
+    description: { ar: 'إجابات عن أكثر ما يسأل عنه المشترون في سودة.', en: 'Answers to what buyers most often ask about Sauda.' },
   },
   {
     key: 'buyer-protection', path: '/buyer-protection', group: 'info', index: false, changefreq: 'yearly', priority: 0.4,

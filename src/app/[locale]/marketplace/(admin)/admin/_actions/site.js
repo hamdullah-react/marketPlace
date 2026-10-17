@@ -552,3 +552,91 @@ export async function setSitePagePublished(prevState, formData) {
   refresh(SITE_TAGS.pages, [pageRoute(SEO_PAGE_BY_KEY[content.seoKey]), 'page'], PAGES_ADMIN);
   return ok({ saved: true });
 }
+
+/* ── The platform's own FAQ ─────────────────────────────────────────────────
+   Buyer-facing and admin-written — NOT the help centre in
+   src/marketplace/lib/help-articles.ts, which is hardcoded documentation for
+   SELLERS about operating the dashboard and ships with the code because it
+   describes the code.
+   ------------------------------------------------------------------------ */
+
+const FAQ_ADMIN = ['/[locale]/marketplace/admin/content/faq', 'page'];
+const FAQ_PUBLIC = ['/[locale]/marketplace/faq', 'page'];
+
+/** How many questions one FAQ may hold. A cap on a list anybody can grow. */
+const FAQ_MAX = 60;
+
+/**
+ * The whole list, replaced in one write.
+ *
+ * ── Why wholesale rather than a row per action ─────────────────────────────
+ *
+ * Hero slides get save / delete / move / toggle as four separate actions,
+ * which is right for a carousel: a slide carries an uploaded image, so each
+ * one is edited on its own and reordering must not risk the others.
+ *
+ * A FAQ is text. The admin edits the list as a list — writes three questions,
+ * reorders them, switches one off — and expects one Save. Four actions would
+ * mean four round trips to do what the screen presents as one change, and a
+ * `move` that half-applies leaves the order wrong with nothing to blame.
+ *
+ * The cost is the honest one: two admins editing the FAQ at the same moment,
+ * last write wins. For a page edited a few times a year by the people who run
+ * the platform, that is a better trade than four endpoints.
+ *
+ * Delete-then-insert for the same reason the listing form replaces its specs
+ * and variants: the payload is the whole truth, so reconstructing a diff from
+ * it is work that can only introduce disagreement.
+ */
+export async function saveSiteFaqs(prevState, formData) {
+  const { viewer, denied } = await guard();
+  if (denied) return denied;
+
+  let rows;
+  try {
+    const parsed = JSON.parse(str(formData, 'faqs') || '[]');
+    if (!Array.isArray(parsed)) return bad('CONTENT_INVALID');
+    if (parsed.length > FAQ_MAX) return bad('TOO_MANY', { max: FAQ_MAX });
+
+    rows = parsed
+      .map((f, i) => ({
+        question: {
+          ...(String(f?.questionAr ?? '').trim() ? { ar: String(f.questionAr).trim().slice(0, 300) } : {}),
+          ...(String(f?.questionEn ?? '').trim() ? { en: String(f.questionEn).trim().slice(0, 300) } : {}),
+        },
+        answer: {
+          ...(String(f?.answerAr ?? '').trim() ? { ar: String(f.answerAr).trim().slice(0, 4000) } : {}),
+          ...(String(f?.answerEn ?? '').trim() ? { en: String(f.answerEn).trim().slice(0, 4000) } : {}),
+        },
+        category: String(f?.category ?? '').trim().slice(0, 40) || null,
+        sort_order: i,
+        active: f?.active !== false,
+      }))
+      /* A pair missing a question or an answer in BOTH languages is a row the
+         admin added and abandoned. Dropped rather than rejected: an error
+         about a row somebody is trying to leave blank is an error about
+         nothing. */
+      .filter((r) => Object.keys(r.question).length && Object.keys(r.answer).length);
+  } catch {
+    return bad('CONTENT_INVALID');
+  }
+
+  const db = getMarketplaceDb();
+
+  /* `neq(id, …)` rather than a bare delete: PostgREST refuses an unfiltered
+     DELETE, which is a guard worth having on a table this one owns entirely. */
+  const { error: clearError } = await db
+    .from('site_faqs')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  if (clearError) return dbFail(clearError);
+
+  if (rows.length) {
+    const { error } = await db.from('site_faqs').insert(rows);
+    if (error) return dbFail(error);
+  }
+
+  await writeAudit(viewer, 'site.faq.update', 'site_faqs', null, null, { count: rows.length });
+  refresh(SITE_TAGS.faq, FAQ_ADMIN, FAQ_PUBLIC);
+  return ok({ saved: true, count: rows.length });
+}

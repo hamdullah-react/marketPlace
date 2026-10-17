@@ -30,10 +30,11 @@ import { badgeClass } from "@/marketplace/lib/badge";
 import { priceWithOffer } from "@/marketplace/lib/offer";
 import { formatPrice } from "@/marketplace/lib/listing";
 import LeadPanel from "./LeadPanel";
+import SoldTag from "@/marketplace/ui/SoldTag";
 import Stars from "@/marketplace/ui/Stars";
 import {
   ChevronLeft, ChevronRight, ImageOff, Maximize2, Car, Sofa, X, Images,
-  Heart, Share2, ShieldCheck,
+  Heart, Share2, ShieldCheck, BadgeCheck,
 } from "lucide-react";
 
 /** Same formatter the main site's CashPrice uses — grouped, no decimals. */
@@ -284,6 +285,22 @@ export default function ListingFold({
               <p className="mt-2 text-sm">{t("لا توجد صورة", "No image")}</p>
             </div>
           )}
+
+          {/* ── Sold, on the photo ──────────────────────────────────────
+              The panel further down already says it in full, and on a phone
+              that panel is a scroll away — so the gallery carries the same
+              statement where the eye lands first. Same corner and same small
+              chip as the card, so the two read as one mark rather than two
+              designs: somebody arriving from a saved link should not have to
+              read a price to find out the car is gone.
+
+              pointer-events-none, so it never eats a swipe or a tap on the
+              gallery arrows behind it. */}
+          {!listing.inStock ? (
+            <div className="pointer-events-none absolute end-4 top-0 z-10 sm:end-6">
+              <SoldTag locale={locale} className="h-12 w-auto drop-shadow-lg sm:h-14" />
+            </div>
+          ) : null}
 
           {photos.length > 1 ? (
             <>
@@ -671,19 +688,58 @@ export default function ListingFold({
                   because this component is already the gallery AND the buy
                   panel, and a dialog with its own form state does not belong in
                   the same file as the colour swatches. */}
-              <LeadPanel
-                listingId={listing.id}
-                locale={locale}
-                signedIn={viewer.signedIn}
-                isOwn={viewer.ownsListing}
-                buyerPhone={viewer.phone}
-                alreadySentAt={viewer.alreadySentAt}
-                vendorName={listing.vendor?.name ?? ""}
-                fields={leadFields}
-                styleKey={leadStyle}
-                theme={leadTheme}
-                tabs={leadTabs}
-              />
+              {/* ── Sold, or out of stock ──────────────────────────────
+                  `inStock` is computed in normalizeListing and already means
+                  the right thing for both shapes: stock > 0 for a part, and
+                  state === 'live' for a car. It has existed all along and was
+                  read by nothing except the schema.org availability field — so
+                  the structured data correctly told Google a car was
+                  OutOfStock while the page went on offering an enquiry form
+                  for it, and a buyer could send a request about a car that had
+                  already been sold.
+
+                  The panel is REPLACED rather than disabled. A greyed-out
+                  button invites a second click to check, and the useful thing
+                  to offer somebody who arrived at a sold car is the rest of
+                  the showroom's stock, which is one link away. */}
+              {listing.inStock ? (
+                <LeadPanel
+                  listingId={listing.id}
+                  locale={locale}
+                  signedIn={viewer.signedIn}
+                  isOwn={viewer.ownsListing}
+                  buyerPhone={viewer.phone}
+                  alreadySentAt={viewer.alreadySentAt}
+                  vendorName={listing.vendor?.name ?? ""}
+                  fields={leadFields}
+                  styleKey={leadStyle}
+                  theme={leadTheme}
+                  tabs={leadTabs}
+                />
+              ) : (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    <BadgeCheck className="h-4 w-4 shrink-0 text-brand-primary" />
+                    {listing.type === "part" || listing.type === "accessory"
+                      ? t("غير متوفر حالياً", "Out of stock")
+                      : t("تم بيع هذه السيارة", "This car has been sold")}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                    {t(
+                      "لم تعد متاحة للبيع. تصفّح بقية سيارات المعرض.",
+                      "It is no longer available. Have a look at what else this showroom has."
+                    )}
+                  </p>
+                  {listing.vendor?.path ? (
+                    <Link
+                      href={`/${locale}${listing.vendor.path}`}
+                      className="raised-solid mt-3 inline-flex items-center justify-center rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white"
+                    >
+                      {t("سيارات المعرض", "See the showroom's cars")}
+                    </Link>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         </div>

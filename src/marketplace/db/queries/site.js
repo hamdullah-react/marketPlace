@@ -30,6 +30,22 @@ const LANGUAGE_FALLBACK = [
 const text = (v) => (typeof v === 'string' ? v : '');
 const bi = (v) => ({ ar: text(v?.ar), en: text(v?.en) });
 
+/**
+ * One FAQ row as the pages read it.
+ *
+ * Both halves stay bilingual objects rather than being resolved to a string
+ * here: the public page picks a language, the admin editor shows both at once,
+ * and a query that already chose would make the editor re-fetch.
+ */
+const shapeFaq = (r) => ({
+  id: r.id,
+  question: bi(r.question),
+  answer: bi(r.answer),
+  category: r.category ?? null,
+  sort: r.sort_order ?? 0,
+  active: r.active !== false,
+});
+
 function shapeSettings(row, ready) {
   const name = bi(row?.name);
   const tagline = bi(row?.tagline);
@@ -169,6 +185,29 @@ export async function getHeroSlides() {
   return { ready: true, slides: (data ?? []).map(shapeSlide) };
 }
 
+/**
+ * The site's own FAQ, for the public page and its FAQPage rich result.
+ *
+ * Switched-on rows only, in the admin's order. `ready: false` means the table
+ * is not there yet — the page renders nothing rather than an error, the same
+ * way hero slides do.
+ */
+export async function getSiteFaqs() {
+  'use cache';
+  cacheLife('hours');
+  cacheTag(SITE_TAGS.faq);
+
+  const { data, error } = await getMarketplaceDb()
+    .from('site_faqs')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (error) return { ready: false, faqs: [] };
+  return { ready: true, faqs: (data ?? []).map(shapeFaq) };
+}
+
 /** The customised SEO row for one page, or null when it uses the defaults. */
 export async function getPageSeo(key) {
   'use cache';
@@ -276,6 +315,18 @@ export async function readHeroSlides() {
 
   if (error) return { ready: !failed('readHeroSlides', error), slides: [] };
   return { ready: true, slides: (data ?? []).map(shapeSlide) };
+}
+
+/** Every FAQ, switched off ones included: the admin has to see what is hidden. */
+export async function readSiteFaqs() {
+  const { data, error } = await getMarketplaceDb()
+    .from('site_faqs')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (error) return { ready: !failed('readSiteFaqs', error), faqs: [] };
+  return { ready: true, faqs: (data ?? []).map(shapeFaq) };
 }
 
 export async function readPageSeoRows() {

@@ -11,6 +11,48 @@ import { findLiveOffer, shapeOffer } from './offer';
 
 export const LISTING_TYPES = ['part', 'car', 'service', 'accessory'];
 
+/**
+ * The states a VISITOR may see.
+ *
+ * `live` is the obvious one. `sold_out` is here because a sold car does not
+ * stop existing: its page is kept (getListingBySlug serves it, so an old link
+ * shows "Sold" instead of a 404 and the URL keeps its inbound links and its
+ * ranking), it is still in buyers' wishlists and compare trays, and a showroom
+ * that has sold twelve cars is showing twelve pieces of evidence that it sells
+ * cars. Hiding it was the behaviour a seller met as "I marked it sold and it
+ * vanished from the site".
+ *
+ * ── Why a list and not a per-query literal ─────────────────────────────────
+ *
+ * Because the cost of getting it wrong is silent and asymmetric. There are
+ * fifteen-odd reads that each decide what the public can see — the grid, the
+ * facet counts beside it, the nav counts, the brand index, the sitemap, a
+ * buyer's saved cars — and when one of them disagrees with the others nothing
+ * errors: a filter simply offers "Toyota · 10" and returns eleven rows. One
+ * list, imported, so that disagreement is not expressible.
+ *
+ * ── What is deliberately NOT in it ─────────────────────────────────────────
+ *
+ * This is "may be SEEN", not "may be RECOMMENDED". The featured row is a paid
+ * placement and the similar-cars strip exists to offer an alternative, so both
+ * stay `live`-only — promoting a car nobody can buy wastes the slot, and the
+ * strip is the main thing a sold car's own page has to offer its visitor.
+ */
+/* `as const`, so each entry is the literal the generated database types
+   expect: a plain string[] is rejected by .in('state', …) against the
+   listing_state enum. */
+export const PUBLIC_STATES = ['live', 'sold_out'] as const;
+
+/**
+ * Sold cars sort LAST, whatever else the sort is.
+ *
+ * Availability is the outermost key: a buyer who asked for "price, low to
+ * high" still means "of the ones I can buy". Used as a stable-sort comparator
+ * so everything inside each group keeps the order it already had.
+ */
+export const soldLast = (a: { state?: string }, b: { state?: string }) =>
+  Number(a?.state === 'sold_out') - Number(b?.state === 'sold_out');
+
 /** Types that go through cart → checkout. The rest use offers or bookings. */
 export const CART_TYPES = ['part', 'accessory'];
 

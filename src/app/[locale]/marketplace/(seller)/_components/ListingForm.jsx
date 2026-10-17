@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Loader2, Check, AlertCircle, Plus, Trash2, Images, X,
-  Car, Camera, Gauge, FileText, ChevronRight, ChevronLeft, ListChecks, Search, Sparkles,
+  Car, Camera, Gauge, FileText, ChevronRight, ChevronLeft, ListChecks, Search, Sparkles, HelpCircle,
 } from "lucide-react";
 import { saveListing } from "../_actions/save-listing";
 import { useOnChange } from "@/hooks/use-on-change";
@@ -45,6 +45,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import ColorPicker from "./ColorPicker";
+import FaqListEditor from "@/marketplace/ui/FaqListEditor";
+import { faqEditorRows, listingFaqFallback } from "@/marketplace/lib/faq";
 
 const INITIAL = { ok: false, errors: {}, values: null, error: null };
 
@@ -168,6 +170,11 @@ const TABS = [
   { id: "condition", icon: Gauge, ar: "الحالة والسعر", en: "Condition & price", fields: ["condition", "mileage", "price", "compareAt"] },
   { id: "specs", icon: ListChecks, ar: "المواصفات", en: "Specifications", fields: [] },
   { id: "details", icon: FileText, ar: "التفاصيل", en: "Details", fields: [] },
+  /* Its own tab rather than a block at the bottom of Details: a FAQ is
+     written in a different sitting from the description, often after the
+     car has been listed a while and the same question has been asked
+     three times. Buried under the description it would never be found. */
+  { id: "faq", icon: HelpCircle, ar: "الأسئلة", en: "Questions", fields: [] },
   // Last on purpose: everything on it is optional and generated when blank,
   // so a seller who never opens this tab still gets a complete <head>.
   { id: "seo", icon: Search, ar: "SEO", en: "SEO", fields: ["canonicalUrl"] },
@@ -592,6 +599,22 @@ function ListingFormInstance({
       compareAt: v.compareAt ?? v.compare_at ?? "",
     }))
   );
+
+  /* This car's own questions. Flat {questionAr, questionEn, answerAr,
+     answerEn} per row — see FaqListEditor for why the editor holds four
+     strings rather than two bilingual objects.
+
+     `_k` is minted here because the editor reorders rows in place and each
+     field keeps its own state; a key from the index would leave two swapped
+     rows holding each other's text. */
+  const [faqs, setFaqs] = useState(() =>
+    (existing?.faqs ?? []).map((f, i) => ({ ...f, _k: f._k ?? `row-${i}` }))
+  );
+
+  /* The five fallbacks this car's page is already showing, as editable rows.
+     Offered rather than saved: loading them is the showroom's choice, and the
+     moment they save anything the automatic set stops being used. */
+  const faqDefaults = useMemo(() => faqEditorRows(listingFaqFallback({})), []);
 
   // attributeId → value. Kept as one flat object so the hidden field is a
   // single small JSON blob rather than 80 individual inputs.
@@ -1598,6 +1621,36 @@ function ListingFormInstance({
               listingSeo() the server action calls, so what is shown is what
               gets stored. Two implementations would drift and the seller would
               be previewing text that never existed. */}
+          {/* ── This car's own questions ──────────────────────────────────
+              The showroom answers what buyers keep ringing to ask — service
+              history, accident history, whether the warranty transfers — and
+              the car's page renders them with FAQPage structured data, which
+              is what makes them eligible for a rich result. A question
+              answered here is a phone call not made.
+
+              The editor posts its own hidden input (name="faqs"); the action
+              replaces the whole list on save, the same way variants and specs
+              are handled. */}
+          <div hidden={tab !== "faq"} role="tabpanel">
+            <div className={section}>
+              <h2 className={sectionTitle}>{t("أسئلة عن هذه السيارة", "Questions about this car")}</h2>
+              <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                {t(
+                  "اكتب الأسئلة التي يسألها المشترون فعلاً. تظهر في صفحة السيارة وتساعد ظهورها في نتائج البحث.",
+                  "Write the questions buyers actually ask. They appear on the car's page and help it show up in search results."
+                )}
+              </p>
+              <FaqListEditor
+                value={faqs}
+                onChange={setFaqs}
+                locale={locale}
+                name="faqs"
+                mode={fieldMode}
+                defaults={faqDefaults}
+              />
+            </div>
+          </div>
+
           <div hidden={tab !== "seo"} role="tabpanel">
             {/* ── What you get for free ─────────────────────────────────────
                 The tab opens on the result, not on a wall of empty inputs.

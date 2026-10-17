@@ -41,12 +41,25 @@ const bump = () => {
 /**
  * The states this action will move a listing to.
  *
- * Not every listing_state value — `sold_out`, `expired` and `removed` are
- * outcomes the system reaches on its own, and `rejected` belongs to staff
- * review. Letting a row button set those would let a seller mark their own
- * listing rejected, which means nothing and cannot be undone from here.
+ * Not every listing_state value — `expired` and `removed` are outcomes the
+ * system reaches on its own, and `rejected` belongs to staff review. Letting a
+ * row button set those would let a seller mark their own listing rejected,
+ * which means nothing and cannot be undone from here.
+ *
+ * ── `sold_out` was on that list, and should never have been ────────────────
+ *
+ * It was excluded as another "outcome the system reaches on its own". Nothing
+ * reaches it: no action, no job and no trigger in this application has ever
+ * written that state, so a car that sold last March is still advertised as
+ * available today. Selling a car is not something a marketplace can detect —
+ * it happens on the forecourt — so it can only ever be the seller saying so,
+ * which means it has to be a button.
+ *
+ * It is safe for a seller to set, unlike `rejected`: it is their own car, the
+ * claim is theirs to make, and it is reversible from the same menu. The car
+ * keeps its page either way — see the OUT OF STOCK section of schema.sql.
  */
-const ALLOWED_STATES = ['live', 'draft', 'pending_review'];
+const ALLOWED_STATES = ['live', 'draft', 'pending_review', 'sold_out'];
 
 export async function setListingState(prevState, formData) {
   const listingId = str(formData, 'listingId');

@@ -15,6 +15,7 @@ import {
   LayoutDashboardIcon, UsersIcon, ShieldCheckIcon, SparklesIcon, HomeIcon,
   StoreIcon, BadgeDollarSignIcon, ChevronsUpDownIcon, LogOutIcon, UserIcon,
   LayoutTemplateIcon, ImagesIcon, FileTextIcon, NewspaperIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
+  HelpCircle as HelpCircleIcon,
   StarIcon, WalletIcon, CalendarClockIcon,
 } from "lucide-react";
 import {
@@ -61,6 +62,7 @@ const NAV_CONTENT = {
   children: [
     { href: "/marketplace/admin/content/banners", icon: ImagesIcon, ar: "شرائح الصفحة الرئيسية", en: "Home carousel" },
     { href: "/marketplace/admin/content/pages", icon: FileTextIcon, ar: "صفحة من نحن", en: "About us" },
+    { href: "/marketplace/admin/content/faq", icon: HelpCircleIcon, ar: "الأسئلة الشائعة", en: "FAQ" },
     { href: "/marketplace/admin/content/blog", icon: NewspaperIcon, ar: "الأخبار", en: "News" },
     { href: "/marketplace/admin/content/seo", icon: SearchCheckIcon, ar: "تحسين محركات البحث", en: "Pages SEO" },
   ],

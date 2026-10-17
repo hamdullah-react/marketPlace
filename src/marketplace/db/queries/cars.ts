@@ -3,6 +3,7 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { attachOffers } from './offers';
 import { getKindsWithOptions } from './attributes';
 import { getSpecFacets, listingIdsMatchingSpecs } from './specs';
+import { PUBLIC_STATES, soldLast } from '@/marketplace/lib/listing';
 
 /**
  * Car-specific reads. Cars live in the same `listings` table as everything
@@ -170,7 +171,9 @@ export async function getCars(opts: CarFilters = {}) {
   let query = getMarketplaceDb()
     .from('listings')
     .select(SELECT)
-    .eq('state', 'live')
+    /* Sold cars included, and sorted to the back below. A car that sold keeps
+       its page and its place in the grid, labelled — see PUBLIC_STATES. */
+    .in('state', PUBLIC_STATES)
     .eq('type', 'car');
 
   // Cheap, indexable predicates stay in SQL.
@@ -286,6 +289,12 @@ export async function getCars(opts: CarFilters = {}) {
     filtered.sort((a: CarRow, b: CarRow) => rank(a) - rank(b));
   }
 
+  /* Availability is the LAST sort applied and therefore the outermost key:
+     sold cars go to the back of every ordering, including the price ones and
+     including a sold car that is still featured. Stable, so the work above is
+     preserved inside each group. */
+  filtered.sort(soldLast);
+
   /**
    * "Has an offer" is the one filter that cannot be answered before the offers
    * are attached, so it costs the whole filtered set rather than a page. Only
@@ -367,7 +376,7 @@ export async function getCarFacets(locale = 'ar', scope: FacetScope = null) {
       car_models ( id, slug, name, brand_id ),
       car_trims ( id, slug, name, model_id ),
       car_colors!color_id ( id, slug, name, hex )`)
-    .eq('state', 'live')
+    .in('state', PUBLIC_STATES)
     .eq('type', 'car');
 
   if (error) throw new Error(`getCarFacets: ${error.message}`);
@@ -674,7 +683,7 @@ export async function getNavData() {
   const { data: rows, error } = await db
     .from('listings')
     .select('id')
-    .eq('state', 'live')
+    .in('state', PUBLIC_STATES)
     .eq('type', 'car');
 
   // A menu must never take the page down with it — and throwing inside a
@@ -723,7 +732,7 @@ export async function getBrandsIndex(locale = 'ar') {
     db
       .from('listings')
       .select('brand_id, model_id, attributes')
-      .eq('state', 'live')
+      .in('state', PUBLIC_STATES)
       .eq('type', 'car'),
   ]);
 

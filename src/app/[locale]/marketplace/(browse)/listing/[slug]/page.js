@@ -9,6 +9,7 @@ import {
 } from '../../../_components/Skeletons';
 import ListingFold from './_components/ListingFold';
 import SpecSheet from './_components/SpecSheet';
+import FaqSection from '@/marketplace/ui/FaqSection';
 import ListingCard from '../../../_components/ListingCard';
 import { routing } from '@/i18n/routing';
 import { getLiveListingSlugs } from '@/marketplace/db/queries/listings';
@@ -338,7 +339,7 @@ async function AboveTheFold({ slug, locale, t }) {
   const data = await getListingPageData(slug, locale);
   if (!data) notFound();
 
-  const { listing, variants, trims, kindFacts, specSheet, keySpecs } = data;
+  const { listing, variants, trims, kindFacts, specSheet, keySpecs, faqs, faqsFallback } = data;
 
   /**
    * Who is looking, for the enquiry buttons.
@@ -463,6 +464,24 @@ async function AboveTheFold({ slug, locale, t }) {
       {/* The full sheet the seller filled in, grouped by category. Renders
           nothing at all when a listing has no specs — see SpecSheet. */}
       <SpecSheet sheet={specSheet} keySpecs={keySpecs} locale={locale} />
+
+      {/* ── The showroom's own questions about THIS car ────────────────
+          Placed under the spec sheet and above "similar cars": it answers
+          what somebody asks after reading the specs and before deciding to
+          look elsewhere, which is exactly where the objection lives.
+
+          Where the showroom has written none — which is most cars — five
+          answers built from this car's own row stand in, so the section is
+          never empty and never says anything untrue of the car in front of
+          the reader. Those carry no FAQPage markup: identical text on every
+          car page is boilerplate structured data. See lib/faq.js. */}
+      <FaqSection
+        faqs={faqs}
+        locale={locale}
+        title={t('أسئلة عن هذه السيارة', 'Questions about this car')}
+        className="mt-8 sm:mt-10"
+        structured={!faqsFallback}
+      />
     </>
   );
 }

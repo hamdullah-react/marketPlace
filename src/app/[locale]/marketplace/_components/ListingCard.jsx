@@ -66,6 +66,7 @@ import {
 } from "./savedStore";
 import { subscribeViews, getViews, getServerViews } from "./viewsStore";
 import PromoBadges from "./PromoBadges";
+import SoldTag from "@/marketplace/ui/SoldTag";
 
 /**
  * Where a saved car lives.
@@ -255,6 +256,22 @@ export default function ListingCard({
      English, ↖ in Arabic. An arrow that points back into the card reads as
      "return", which is the opposite of what this control does. */
   const Arrow = isEnglish ? ArrowUpRight : ArrowUpLeft;
+
+  /**
+   * Sold, and therefore not for sale.
+   *
+   * Read off `state` rather than `inStock`, deliberately. `inStock` is
+   * `state === 'live'` for a car, so it is also false for a draft and for one
+   * awaiting review — and a seller looking at their own drafts must not be
+   * told they have been sold. Only `sold_out` means sold.
+   *
+   * A card for a sold car is a legitimate thing to render: it is still in a
+   * buyer's wishlist, in their compare tray and in the showroom's own list.
+   * What it must never do is look available, which is why the photo is
+   * desaturated as well as labelled — the label is the statement, the grey is
+   * what makes it register from a scroll.
+   */
+  const sold = listing.state === "sold_out";
 
   return (
     /* ── The card ─────────────────────────────────────────────────────────
@@ -450,7 +467,9 @@ export default function ListingCard({
             <img
               src={listing.image}
               alt={listing.imageAlt}
-              className="h-full w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)]"
+              className={`h-full w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)] ${
+                sold ? "opacity-55 grayscale" : ""
+              }`}
               loading={priority ? "eager" : "lazy"}
             />
           ) : (
@@ -459,6 +478,33 @@ export default function ListingCard({
             </div>
           )}
         </CardLink>
+
+        {/* ── Sold ─────────────────────────────────────────────────────────
+            Across the photo rather than in the badge row: the badges are
+            4-5px marks that say what a car HAS, and this says the car is not
+            for sale — a distinction that has to survive being glanced at.
+
+            pointer-events-none so the whole stage stays the link it was. The
+            page is still worth opening (it carries the showroom, the specs
+            and the similar cars), so this labels the card rather than
+            disabling it. */}
+        {sold ? (
+          /* Top corner, and SMALL. Across the middle it covered the car —
+             which is the thing the card is for — and at that size it read as
+             a stamp on the photo rather than as a status on the listing.
+
+             Inset from the trailing edge rather than pinned to it: the heart
+             and the compare tick live in that corner, and the offsets below
+             clear the widest of them at each breakpoint (h-6 / h-8 / h-9).
+             pointer-events-none so it can never swallow a tap meant for one
+             of them. */
+          <div className="pointer-events-none absolute end-9 top-0 z-20 sm:end-11 md:end-12">
+            <SoldTag
+              locale={isEnglish ? "en" : "ar"}
+              className="h-9 w-auto drop-shadow-md sm:h-10 md:h-12"
+            />
+          </div>
+        ) : null}
 
         {/* ── Floating controls ─────────────────────────────────────────────
             The heart and the compare tick, stacked on the trailing edge. Both

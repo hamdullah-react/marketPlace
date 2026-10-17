@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { PUBLIC_STATES } from '@/marketplace/lib/listing';
 import { getAllPageSeo, getSiteLanguages } from '@/marketplace/db/queries/site';
 import { listBlogSlugs } from '@/marketplace/db/queries/blog';
 import { SEO_PAGES, SITE_TAGS, SITE_URL, pagePath } from '@/marketplace/lib/sitePages';
@@ -45,7 +46,10 @@ export default async function sitemap() {
   const { data: listings, error } = await getMarketplaceDb()
     .from('listings')
     .select('slug, updated_at, seo_index, seo_changefreq, seo_priority')
-    .eq('state', 'live')
+    /* Sold cars included, and that is the point of keeping their page: the URL
+       holds its inbound links and its ranking, so dropping it from the sitemap
+       the day it sells throws away the thing the page was kept for. */
+    .in('state', PUBLIC_STATES)
     .limit(5000);
 
   const cars = error

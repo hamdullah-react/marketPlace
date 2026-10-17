@@ -4,6 +4,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Store, BadgeCheck, MapPin, Star, Car } from 'lucide-react';
 import { getApprovedVendors } from '@/marketplace/db/queries/vendors';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { PUBLIC_STATES } from '@/marketplace/lib/listing';
 import { localized } from '@/marketplace/lib/listing';
 import { Skeleton } from '@/components/ui/skeleton';
 import SeoJsonLd from '@/app/[locale]/marketplace/_components/SeoJsonLd';
@@ -175,7 +176,8 @@ async function Grid({ searchParams, locale, t }) {
     const { data } = await getMarketplaceDb()
       .from('listings')
       .select('vendor_id')
-      .eq('state', 'live')
+      // The set the showroom's own page lists, so the two numbers agree.
+      .in('state', PUBLIC_STATES)
       .in('vendor_id', items.map((v) => v.id));
     for (const row of data ?? []) {
       counts.set(row.vendor_id, (counts.get(row.vendor_id) ?? 0) + 1);

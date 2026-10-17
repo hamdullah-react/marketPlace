@@ -1,5 +1,6 @@
 import { cache } from 'react';
-import { getListingBySlug, getRelatedListings, getSiblingTrims } from '@/marketplace/db/queries/listings';
+import { getListingBySlug, getRelatedListings, getSiblingTrims, getListingFaqs } from '@/marketplace/db/queries/listings';
+import { faqsOrFallback, listingFaqFallback } from '@/marketplace/lib/faq';
 import { getListingVariants, normalizeVariant } from '@/marketplace/db/queries/media';
 import {
   getListingSpecs, buildSpecSheet, cardSpecs, getCardSpecs,
@@ -46,11 +47,16 @@ export const getListingPageData = cache(async (slug, locale = 'ar') => {
   // main content already loaded.
   // Both optional and independent — a missing variants table or an
   // unreachable catalog must not take down a page whose car already loaded.
-  const [variantRows, kinds, specRows, siblingRows] = await Promise.all([
+  const [variantRows, kinds, specRows, siblingRows, faqRows] = await Promise.all([
     getListingVariants(row.id).catch(() => []),
     getKindsWithOptions().catch(() => []),
     getListingSpecs(row.id).catch(() => []),
     getSiblingTrims(row, 6).catch(() => []),
+    /* Joins the group rather than being awaited after it: the FAQ sits well
+       below the fold and most cars have none, so it must not cost the page a
+       second round trip. Catches for the same reason as the rest — a missing
+       table must not take down a car that has already loaded. */
+    getListingFaqs(row.id).catch(() => []),
   ]);
 
   /**
@@ -115,6 +121,17 @@ export const getListingPageData = cache(async (slug, locale = 'ar') => {
       ?? null,
   });
 
+  const faq = faqsOrFallback(
+    faqRows,
+    listingFaqFallback({
+      vatIncluded: row.vat_included !== false,
+      hasTestDrive: row.has_test_drive === true,
+      warrantyMonths: row.warranty_months ?? null,
+      city: row.city ?? '',
+      sold: row.state === 'sold_out',
+    })
+  );
+
   return {
     listing: normalizeListing(row, locale),
     variants: variantRows.map((v) => normalizeVariant(v, locale)),
@@ -124,6 +141,18 @@ export const getListingPageData = cache(async (slug, locale = 'ar') => {
     // The handful flagged key / show-on-card, for the tile strip above the
     // sheet. Same helper the main site's "Car Information" row uses.
     keySpecs: cardSpecs(specSheet, 12),
+    /* Raw rows, both languages intact. FaqSection resolves the language
+       itself, because it builds the DOM and the FAQPage markup from one
+       array and they must not be allowed to disagree.
+
+       Where the showroom has written none — which is most cars — five
+       fallbacks stand in, built from THIS car's own row so every answer is
+       true of it: the VAT line follows vat_included, the availability line
+       follows the state, the warranty line follows warranty_months. See
+       lib/faq.js; `faqsFallback` is what withholds the FAQPage markup from
+       text that is otherwise identical on every car page. */
+    faqs: faq.faqs,
+    faqsFallback: faq.isFallback,
   };
 });
 

@@ -1,4 +1,5 @@
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { PUBLIC_STATES } from '@/marketplace/lib/listing';
 
 /**
  * What a BUYER's own pages read.
@@ -38,7 +39,12 @@ export async function getSavedListings(userId: string, { limit = 24, offset = 0 
     .from('saved_listings')
     .select(`id, created_at, listings!inner ( ${CARD} )`, { count: 'exact' })
     .eq('user_id', userId)
-    .eq('listings.state', 'live')
+    /* Sold cars stay in the list, marked Sold out by the card. Dropping them
+       was the behaviour that quietly emptied a buyer's wishlist the week the
+       cars they were watching were bought by somebody else — and "it sold"
+       is exactly the thing they saved it to find out. A car the seller took
+       DOWN is still dropped: that is what PUBLIC_STATES excludes. */
+    .in('listings.state', PUBLIC_STATES)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

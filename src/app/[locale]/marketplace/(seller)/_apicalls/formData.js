@@ -172,7 +172,30 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
         }
         let specs = [];
         try { specs = await getListingSpecs(listingId); } catch { specs = []; }
-        existing = { ...data, variants, specs };
+        /* Raw rows, in the shape the editor posts back — the form holds a
+           flat {questionAr, questionEn, answerAr, answerEn} per row rather
+           than the stored {ar, en} objects, because an editor showing two
+           language boxes is editing four strings, not two objects. */
+        let faqs = [];
+        try {
+          const { data: rows } = await getMarketplaceDb()
+            .from('listing_faqs')
+            .select('question, answer, active, sort_order')
+            .eq('listing_id', listingId)
+            .order('sort_order', { ascending: true });
+          faqs = (rows ?? []).map((r) => ({
+            questionAr: r.question?.ar ?? '',
+            questionEn: r.question?.en ?? '',
+            answerAr: r.answer?.ar ?? '',
+            answerEn: r.answer?.en ?? '',
+            active: r.active !== false,
+          }));
+        } catch {
+          // The table arrives with the FAQ section of schema.sql. Until then
+          // the tab opens empty rather than taking the edit page down.
+          faqs = [];
+        }
+        existing = { ...data, variants, specs, faqs };
       }
     }
 

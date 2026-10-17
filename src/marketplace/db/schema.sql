@@ -850,17 +850,24 @@ create policy vendors_public_read on vendors for select using (state = 'approved
 drop policy if exists categories_public_read on categories;
 create policy categories_public_read on categories for select using (active);
 
+-- 'live' AND 'sold_out', the same pair src/marketplace/lib/listing.ts calls
+-- PUBLIC_STATES. A sold car keeps its page — an old link has to show "Sold"
+-- rather than a 404, which is what keeps the URL's inbound links and its
+-- ranking — and a page whose photos, colours and spec sheet were unreadable
+-- would be a page that renders as an empty shell. listing_faqs further down
+-- already names the same pair, for the same reason.
 drop policy if exists listings_public_read on listings;
-create policy listings_public_read on listings for select using (state = 'live');
+create policy listings_public_read on listings for select
+  using (state in ('live', 'sold_out'));
 
 drop policy if exists listing_variants_public_read on listing_variants;
 create policy listing_variants_public_read on listing_variants for select using (
-  exists (select 1 from listings l where l.id = listing_id and l.state = 'live')
+  exists (select 1 from listings l where l.id = listing_id and l.state in ('live', 'sold_out'))
 );
 
 drop policy if exists listing_specs_public_read on listing_specs;
 create policy listing_specs_public_read on listing_specs for select using (
-  exists (select 1 from listings l where l.id = listing_id and l.state = 'live')
+  exists (select 1 from listings l where l.id = listing_id and l.state in ('live', 'sold_out'))
 );
 
 drop policy if exists trim_specs_public_read on trim_specs;
@@ -7070,6 +7077,217 @@ begin
       'Catalog ownership: % listing(s) still reference another showroom''s brand, model or trim because their own showroom has no row with that slug. Install it in their catalog and re-run this file. To see them: select l.slug, l.vendor_id from listings l join car_brands b on b.id = l.brand_id where b.created_by_vendor_id is not null and b.created_by_vendor_id <> l.vendor_id;',
       stranded;
   end if;
+end $$;
+
+notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  FAQs — one set per CAR, one set for the SITE
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  Two tables rather than one with a nullable listing_id, because they are
+--  answered by different people, read on different pages and moderated under
+--  different rules. A showroom writes "has it been in an accident?" about one
+--  car; the platform writes "how do I pay?" about the marketplace. Sharing a
+--  table would mean every query carrying a `where listing_id is null` that
+--  means "actually the other kind", and one RLS policy trying to be both
+--  "the owning showroom" and "an admin".
+--
+--  ── Rows, not a jsonb array on the listing ────────────────────────────────
+--
+--  The same argument §20 makes about vendor_form_fields. These are ORDERED and
+--  edited one at a time, and a jsonb blob of them is rewritten wholesale on
+--  every save — so two people editing a showroom's FAQ in two tabs silently
+--  discard each other's work. Rows also let the public page read just the
+--  questions without pulling the whole listing.
+--
+--  ── Why this is worth building at all: it is SEO ──────────────────────────
+--
+--  A question-and-answer pair marked up as schema.org FAQPage is eligible for
+--  a rich result, and it is the one kind of content that can rank for how
+--  somebody actually types a query — "is the 2022 Camry still under warranty"
+--  rather than "camry". The blog section of this file already names FAQPage as
+--  a thing structured_data exists for; this makes it real and, unlike a blog
+--  post, it is written by the person who knows the car.
+--
+--  So the ANSWER is plain text, not a rich document. Google wants answer text,
+--  a buyer wants a sentence, and a paragraph of formatted HTML in a rich
+--  result is stripped anyway — see §28 for why no HTML is stored on this
+--  platform in the first place.
+
+create table if not exists listing_faqs (
+  id         uuid primary key default gen_random_uuid(),
+
+  listing_id uuid not null references listings (id) on delete cascade,
+
+  -- Denormalised from the listing so the RLS policy and the seller's own reads
+  -- are one lookup rather than a join. A listing cannot change showrooms, so
+  -- the two can never disagree. Same rule as listing_offers.
+  vendor_id  uuid not null references vendors (id) on delete cascade,
+
+  question   jsonb not null default '{}'::jsonb,   -- {ar, en}
+  answer     jsonb not null default '{}'::jsonb,   -- {ar, en}
+
+  sort_order integer not null default 0,
+  active     boolean not null default true,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- The car's page: its questions, in the showroom's chosen order. Partial, so
+-- a switched-off question costs nothing to skip.
+create index if not exists listing_faqs_listing_idx
+  on listing_faqs (listing_id, sort_order) where active;
+
+create index if not exists listing_faqs_vendor_idx
+  on listing_faqs (vendor_id, created_at desc);
+
+drop trigger if exists listing_faqs_updated_at on listing_faqs;
+create trigger listing_faqs_updated_at before update on listing_faqs
+  for each row execute function set_updated_at();
+
+alter table listing_faqs enable row level security;
+
+-- The showroom writes its own; anybody may READ the questions on a car that is
+-- publicly visible. `sold_out` is included deliberately — a sold car keeps its
+-- page (see the OUT OF STOCK section below), and a page whose FAQ vanished the
+-- moment the car sold would be a page that lost half its content for no reason
+-- a reader could see.
+drop policy if exists listing_faqs_vendor_all on listing_faqs;
+create policy listing_faqs_vendor_all on listing_faqs
+  for all
+  using (owns_vendor(vendor_id) or is_staff())
+  with check (owns_vendor(vendor_id) or is_staff());
+
+drop policy if exists listing_faqs_public_read on listing_faqs;
+create policy listing_faqs_public_read on listing_faqs
+  for select using (
+    active and exists (
+      select 1 from listings l
+      where l.id = listing_id and l.state in ('live', 'sold_out')
+    )
+  );
+
+-- ── The platform's own FAQ ────────────────────────────────────────────────
+--
+-- Admin-written, buyer-facing, and NOT the same thing as the help centre in
+-- src/marketplace/lib/help-articles.ts: that is hardcoded documentation for
+-- SELLERS about operating the dashboard, and it ships with the code because it
+-- describes the code. This is for buyers, it is edited without a deploy, and
+-- it is the set of questions somebody asks before they trust a marketplace
+-- with a car purchase.
+--
+-- `category` is a plain slug rather than a table. There are a handful of them,
+-- they are chosen from a list in the admin form, and a table would be three
+-- more screens to manage five words. If that stops being true it becomes a
+-- table then, and this column keeps working as its key.
+
+create table if not exists site_faqs (
+  id         uuid primary key default gen_random_uuid(),
+
+  question   jsonb not null default '{}'::jsonb,   -- {ar, en}
+  answer     jsonb not null default '{}'::jsonb,   -- {ar, en}
+
+  category   text,
+  sort_order integer not null default 0,
+  active     boolean not null default true,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists site_faqs_order_idx
+  on site_faqs (sort_order, created_at) where active;
+
+drop trigger if exists site_faqs_updated_at on site_faqs;
+create trigger site_faqs_updated_at before update on site_faqs
+  for each row execute function set_updated_at();
+
+alter table site_faqs enable row level security;
+
+-- Same shape as every other piece of site content: anyone reads what is
+-- switched on, only an admin writes.
+drop policy if exists site_faqs_public_read on site_faqs;
+create policy site_faqs_public_read on site_faqs
+  for select using (active or is_admin());
+
+drop policy if exists site_faqs_admin_write on site_faqs;
+create policy site_faqs_admin_write on site_faqs
+  for all using (is_admin()) with check (is_admin());
+
+do $$
+declare
+  a int; b int;
+begin
+  select count(*) into a from listing_faqs;
+  select count(*) into b from site_faqs;
+  raise notice 'FAQs: % question(s) on cars, % on the site.', a, b;
+end $$;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  OUT OF STOCK — a car that has sold keeps its page
+-- ════════════════════════════════════════════════════════════════════════════
+--
+--  `sold_out` has been a listing_state since §1 and nothing has ever been able
+--  to set it. ALLOWED_STATES in the seller's state action is ['live', 'draft',
+--  'pending_review'], on the reasoning that sold_out is "an outcome the system
+--  reaches on its own" — except nothing reaches it, so a car that sold last
+--  March is still advertised as available today. That is the gap this closes,
+--  and it is closed in the application rather than here: the seller gets the
+--  action, and this file already has the state it writes.
+--
+--  ── What is NOT done here, deliberately ───────────────────────────────────
+--
+--  No new column. The temptation is a `sold boolean` beside `state`, because
+--  then every `where state = 'live'` keeps working untouched. It would also be
+--  a second answer to "is this car available", and the two would disagree the
+--  first time something set one without the other — the exact failure this
+--  schema argues against in half a dozen places.
+--
+--  ── The one index worth adding ────────────────────────────────────────────
+--
+--  A sold car still has a PAGE: getListingBySlug serves 'live' and 'sold_out'
+--  so an old link shows "Sold" instead of a 404, which keeps the URL, its
+--  inbound links and its search ranking. listings_live_idx is partial on
+--  `state = 'live'` and therefore cannot serve that lookup, so the slug
+--  lookup for a sold car would fall back to a scan.
+
+create index if not exists listings_public_slug_idx
+  on listings (slug) where state in ('live', 'sold_out');
+
+-- ── The browse grid reads the same pair ───────────────────────────────────
+--
+-- Marking a car sold used to remove it from the site, which is not what a
+-- showroom means by it: they mean "this one went", and a forecourt that hides
+-- what it has sold is a forecourt with no evidence that it sells anything. So
+-- every public read now asks for `state in ('live','sold_out')` and the card
+-- labels the sold ones — see PUBLIC_STATES in src/marketplace/lib/listing.ts.
+--
+-- listings_live_idx is partial on `state = 'live'` and therefore cannot serve
+-- that query at all: Postgres can only use a partial index when the predicate
+-- PROVES the index covers every row the query wants, and a two-state IN does
+-- not. Without this the hottest query in the application goes to a sequential
+-- scan the day the first car is marked sold.
+create index if not exists listings_public_idx
+  on listings (state, published_at desc) where state in ('live', 'sold_out');
+
+-- The same set per type, which is what the grid actually asks for: cars are
+-- browsed on their own page and the sold ones sort behind the available ones
+-- by the leading `state` column.
+create index if not exists listings_public_type_idx
+  on listings (type, state, published_at desc) where state in ('live', 'sold_out');
+
+-- The showroom's own "what have I sold" view, and the badge count beside it.
+create index if not exists listings_sold_idx
+  on listings (vendor_id, updated_at desc) where state = 'sold_out';
+
+do $$
+declare
+  n int;
+begin
+  select count(*) into n from listings where state = 'sold_out';
+  raise notice 'Out of stock: % listing(s) currently marked sold.', n;
 end $$;
 
 notify pgrst, 'reload schema';
