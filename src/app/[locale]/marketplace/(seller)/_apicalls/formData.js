@@ -57,7 +57,28 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
      */
     const viewer = await getViewer();
     const vendors = await getVendorOptions();
-    const activeVendorId = vendorId || vendors[0]?.id || null;
+
+    /**
+     * `vendorId` arrives from `?vendor=` in the URL and is a REQUEST, not an
+     * instruction.
+     *
+     * It was used verbatim. getVendorOptions() already returns only the
+     * showrooms this caller may act for (their memberships, or every approved
+     * one for staff), so matching against it is the whole check — and without
+     * it, opening /seller/listings/new?vendor=<somebody-else's-uuid> loaded
+     * THAT showroom's catalog into the form: their brands, their models, their
+     * years, their colours, their spec definitions and their authoring-language
+     * setting. No write was possible — saveListing re-resolves the vendor from
+     * the session and overwrites whatever the form posted — so this was a read
+     * of another business's catalog rather than a way to damage it. Still
+     * theirs, still not ours to show.
+     *
+     * An id that is not theirs falls back to their own first showroom rather
+     * than erroring, the same rule the Catalog page already states: a stale
+     * link should degrade to your own data, not to a refusal.
+     */
+    const asked = vendors.some((v) => v.id === vendorId) ? vendorId : null;
+    const activeVendorId = asked || vendors[0]?.id || null;
     /* Falls back to unscoped only when there is no showroom to scope TO — a
        staff account belonging to none. Null means "no filter", which is the
        old behaviour and the safe direction to fail in for a form whose pickers

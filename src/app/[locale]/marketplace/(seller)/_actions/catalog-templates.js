@@ -52,7 +52,7 @@ import path from 'node:path';
 import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { SHARED_BUCKET } from '@/marketplace/media/bucket';
-import { vendorForAction } from '@/marketplace/auth/session';
+import { vendorForAction, getViewer } from '@/marketplace/auth/session';
 import { MANIFEST, TEMPLATES } from '@/marketplace/catalog-templates/templates';
 // Car images are not generated into templates.js: they are photos copied into
 // each showroom's own library, not catalog rows. See carImagesTemplate.js.
@@ -214,8 +214,41 @@ function readTemplate(key) {
   return Object.hasOwn(TEMPLATES, key) ? TEMPLATES[key] : null;
 }
 
-/** The manifest, plus how many rows of each template are currently installed. */
+/**
+ * The manifest, plus how many rows of each template are currently installed.
+ *
+ * ── The id is a REQUEST, resolved against the session ──────────────────────
+ *
+ * This is a server action, so it is an HTTP endpoint: anything that can reach
+ * the dashboard can call it directly with an argument of its choosing, exactly
+ * as it could post a form field. `vendorId` arriving as a plain parameter made
+ * that easy to miss — it looks like an internal call from the page beside it,
+ * and it is also a POST anybody signed in can make.
+ *
+ * Unscoped, passing a neighbour's id answered with THEIR install counts: which
+ * of the six catalogs that showroom runs, and how big each one is. Small, and
+ * still one business's data read by another.
+ *
+ * The rule is media.js's `scope()`: resolved through the caller's memberships,
+ * and an id that is not theirs is refused rather than quietly answered with
+ * their own. Null — the platform-level counts — stays reachable for staff only.
+ */
 export async function getTemplates(vendorId = null) {
+  const viewer = await getViewer();
+  if (!viewer) return [];
+
+  if (viewer.isStaff) {
+    /* Staff may ask for any showroom — they install on a showroom's behalf —
+       and null still means the platform-level counts. */
+  } else {
+    // An id that is not theirs is refused outright rather than quietly
+    // answered with their own: a silent substitution would make a probe look
+    // like a hit. No id means their own showroom.
+    if (vendorId && !viewer.vendorIds.includes(vendorId)) return [];
+    vendorId = vendorId || viewer.vendorIds[0] || null;
+    if (!vendorId) return [];
+  }
+
   const carImages = carImagesManifest();
   const manifest = carImages ? [...MANIFEST, carImages] : MANIFEST;
 

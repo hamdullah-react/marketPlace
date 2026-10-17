@@ -152,11 +152,19 @@ export async function saveOffer(prevState, formData) {
   let nameId = null;
 
   if (offerNameId) {
+    /* Scoped to this showroom's own names, plus the platform-level ones.
+       Unscoped, posting a neighbour's offer_name id attached THEIR promotion
+       name to this offer — the label is snapshotted onto the row and printed
+       on the public card, and vendor_catalog_rows' "rows my offers use" branch
+       would then pin that foreign row into this showroom's catalog. Exactly
+       the cross-showroom reference the CATALOG OWNERSHIP repair in schema.sql
+       exists to undo, arriving through a form field. */
     const { data: chosen } = await db
       .from('offer_names')
       .select('id, name')
       .eq('id', offerNameId)
       .eq('active', true)
+      .or(`created_by_vendor_id.eq.${vendor.vendorId},created_by_vendor_id.is.null`)
       .maybeSingle();
 
     // A name that has been deleted or deactivated since the form loaded is not

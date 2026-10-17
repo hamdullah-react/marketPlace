@@ -761,15 +761,74 @@ function ListingFormInstance({
    * Add button inside it.
    */
   const [palette, setPalette] = useState({ colors: null, years: null });
+  const [loadingPalette, setLoadingPalette] = useState(false);
+
+  /**
+   * The model the palette in state belongs to.
+   *
+   * Seeded with the listing's own model so opening an existing car does NOT
+   * count as a change — otherwise editing a listing would clear the year and
+   * colour it was saved with before the seller had touched anything.
+   */
+  const paletteFor = useRef(existing?.model_id || "");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!modelId) { setPalette({ colors: null, years: null }); return; }
+    if (!modelId) {
+      /* Switching the BRAND empties the model (see the models fetch), so the
+         model goes "" before it goes to its replacement. Clearing here as well
+         is what makes a brand change clear the year and colour too — without
+         it the change is invisible to the test below, which would compare the
+         new model against "" and conclude nothing had changed. */
+      if (paletteFor.current) {
+        setYearId("");
+        setColorId("");
+      }
+      setPalette({ colors: null, years: null });
+      setLoadingPalette(false);
+      paletteFor.current = "";
+      return;
+    }
+
+    /**
+     * Switching the model clears the year and the colour.
+     *
+     * They belong to the model now, the way the trim does, so carrying them
+     * across is carrying another car's answer: the seller changed the model,
+     * the trim emptied itself, and the two fields beside it went on showing
+     * values that are no longer on offer.
+     *
+     * Only on a real CHANGE — `paletteFor` empty means this is the first model
+     * of a new listing (nothing to clear) or the one an existing listing was
+     * saved with (nothing that should be cleared).
+     */
+    const changed = paletteFor.current && paletteFor.current !== modelId;
+    paletteFor.current = modelId;
+
+    if (changed) {
+      setYearId("");
+      setColorId("");
+    }
+
+    /**
+     * Empty, not null, for the moment the request is in the air.
+     *
+     * null means "no answer, show everything", which is right before a model
+     * is chosen and wrong here: it put the whole catalog — every year, every
+     * colour — on screen for as long as the fetch took, and a seller who
+     * picked from that flash picked from a list that was never this car's.
+     * Empty plus a disabled control says "working on it" instead of offering
+     * the wrong answer quickly.
+     */
+    setLoadingPalette(true);
+    setPalette({ colors: [], years: [] });
 
     const ac = new AbortController();
     let live = true;
 
-    fetchModelPalette(modelId, ac.signal).then((x) => { if (live) setPalette(x); });
+    fetchModelPalette(modelId, ac.signal)
+      .then((x) => { if (live) setPalette(x); })
+      .finally(() => { if (live) setLoadingPalette(false); });
 
     return () => { live = false; ac.abort(); };
   }, [modelId, catalogVersion]);
@@ -1299,9 +1358,10 @@ function ListingFormInstance({
                        with no model selected is a year that lands shared
                        across the whole catalog, which is the thing this was
                        built to stop. */
-                    disabled={!modelId}
+                    disabled={!modelId || loadingPalette}
                     placeholder={
                       !modelId ? t("اختر الموديل أولاً", "Pick a model first")
+                        : loadingPalette ? t("جاري التحميل…", "Loading…")
                         : t("اختر السنة", "Select year")
                     }
                     labelOf={(y) => String(y.value)}
@@ -1353,8 +1413,12 @@ function ListingFormInstance({
                        the exception. */
                     allowCreate
                     /* Same cascade as the year above. */
-                    disabled={!modelId}
-                    placeholder={!modelId ? t("اختر الموديل أولاً", "Pick a model first") : ""}
+                    disabled={!modelId || loadingPalette}
+                    placeholder={
+                      !modelId ? t("اختر الموديل أولاً", "Pick a model first")
+                        : loadingPalette ? t("جاري التحميل…", "Loading…")
+                        : ""
+                    }
                     onChange={setColorId}
                     onCreated={addColor}
                   />

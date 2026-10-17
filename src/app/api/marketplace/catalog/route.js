@@ -44,11 +44,11 @@ export async function GET(request) {
     const modelId = p.get('trims');
     if (modelId) return ok({ items: await getTrims(modelId, scope) });
 
-    /* Not scoped by vendor, and it does not need to be: §30 already gives each
-       showroom its own colour and year rows, so the ids this returns can only
-       match rows the caller's own list already contains. */
+    /* Scoped like the two above. Model ids are public — /api/marketplace/models
+       answers without a session — so an unscoped palette would hand any signed-in
+       seller the colour and year ids another showroom has recorded. */
     const paletteFor = p.get('palette');
-    if (paletteFor) return ok(await getModelPalette(paletteFor));
+    if (paletteFor) return ok(await getModelPalette(paletteFor, scope));
 
     return fail('Pass ?models=<brandId>, ?trims=<modelId> or ?palette=<modelId>', 400, 'MISSING_PARAM');
   } catch (err) {

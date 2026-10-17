@@ -189,9 +189,41 @@ async function linkedIds(table: string, column: string, modelId: string) {
   return (data as LooseRow[]).map((row) => row[column] as string);
 }
 
-/** What the listing form shows once a model is chosen. */
-export async function getModelPalette(modelId: string | null) {
+/**
+ * What the listing form shows once a model is chosen.
+ *
+ * ── Scoped to the CALLER's own catalog ──────────────────────────────────────
+ *
+ * `vendorId` is not decoration. Model ids are public — /api/marketplace/models
+ * is an unauthenticated route, because a buyer filtering the browse grid needs
+ * it — so without this check any signed-in seller could ask for a neighbour's
+ * model id and be told how many colours and years that showroom has recorded
+ * against it, with their ids. Ids are not names, and a list of another
+ * business's catalog ids is still that business's data.
+ *
+ * A model that is not the caller's answers with EMPTY lists rather than an
+ * error: the question "what does this model offer" is answered "nothing, as
+ * far as you are concerned", which tells the asker nothing they did not
+ * already supply. Platform-owned models (no owner) stay readable, as they are
+ * everywhere else.
+ *
+ * Pass null for staff, who legitimately work every showroom's catalog — the
+ * same convention getBrands and getModels already use.
+ */
+export async function getModelPalette(modelId: string | null, vendorId: string | null = null) {
   if (!modelId) return { colors: null, years: null };
+
+  if (vendorId) {
+    const { data: model } = await getMarketplaceDb()
+      .from('car_models')
+      .select('created_by_vendor_id')
+      .eq('id', modelId)
+      .maybeSingle();
+
+    if (model?.created_by_vendor_id && model.created_by_vendor_id !== vendorId) {
+      return { colors: [], years: [] };
+    }
+  }
 
   const [colors, years] = await Promise.all([
     linkedIds('model_colors', 'color_id', modelId),
