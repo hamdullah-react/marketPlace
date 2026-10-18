@@ -65,6 +65,7 @@ import DarkModeToggle from "./DarkModeToggle";
 import NotificationBell from "./NotificationBell";
 import { syncSavedCount, useSavedCount } from "./savedStore";
 import { signOut } from "../(auth)/_actions/auth";
+import { BRAND_FALLBACK } from "@/marketplace/lib/sitePages";
 
 /**
  * Loaded when it is first opened, not with the header.
