@@ -47,6 +47,7 @@ import {
 import ColorPicker from "./ColorPicker";
 import FaqListEditor from "@/marketplace/ui/FaqListEditor";
 import { faqEditorRows, listingFaqFallback } from "@/marketplace/lib/faq";
+import { SITE_URL } from "@/marketplace/lib/sitePages";
 
 const INITIAL = { ok: false, errors: {}, values: null, error: null };
 
@@ -158,7 +159,14 @@ const CONDITIONS = [
 ];
 
 /** Shown in the preview's URL line. Matches the action's own fallback. */
-const SITE_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL || "https://market-place-rose.vercel.app";
+/**
+ * The public origin, IMPORTED rather than re-derived.
+ *
+ * This file had its own copy of the expression, with its own fallback to a
+ * vercel.app address from a preview deployment — so the canonical a seller
+ * was shown could name a domain this marketplace does not own.
+ */
+const SITE_ORIGIN = SITE_URL;
 
 const TABS = [
   { id: "car", icon: Car, ar: "السيارة", en: "The car", fields: ["brandId", "modelId", "yearId", "city", "vendorId"] },
@@ -402,6 +410,10 @@ function ListingFormInstance({
   locale, vendors, brands: initialBrands, years: initialYears, colors: initialColors,
   attributeGroups = {}, optionKinds = [], assets = [], specGroups = [], existing = null,
   defaultVendorId = null, fieldMode = 'both', onSaved = null,
+  /* The marketplace’s own name and currency, for the SEO preview. Passed
+     in rather than read here: this is a client component, and the preview
+     has to agree with what the save action will generate. */
+  siteName = null, currency = null,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
@@ -1071,6 +1083,10 @@ function ListingFormInstance({
       price: Number(price) || 0,
       description: { ar: existing?.description?.ar ?? "", en: existing?.description?.en ?? "" },
       facts: formKinds.map((k) => optionName(k.kind, existing?.attributes?.[k.kind])).filter(Boolean),
+      /* The same two the save action passes. Without them the preview and
+         the saved row would disagree about the marketplace’s own name. */
+      siteName,
+      currency,
     });
 
     const lang = isAr ? "ar" : "en";
@@ -1086,6 +1102,7 @@ function ListingFormInstance({
   }, [
     brands, brandId, models, modelId, trims, trimId, years, yearId,
     city, condition, mileage, price, attributeGroups, formKinds, existing, isAr,
+    siteName, currency,
   ]);
 
   const autoSlug = listingStem({

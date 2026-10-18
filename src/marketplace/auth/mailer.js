@@ -29,6 +29,7 @@ import 'server-only';
  */
 
 import nodemailer from 'nodemailer';
+import { SITE_URL } from '@/marketplace/lib/sitePages';
 
 /* ── Transport ───────────────────────────────────────────────────────────── */
 
@@ -219,9 +220,9 @@ const BRAND = '#0B6B3A';
  */
 const SITE_HOST = (() => {
   try {
-    return new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app').host;
+    return new URL(SITE_URL).host;
   } catch {
-    return 'market-place-rose.vercel.app';
+    return '';
   }
 })();
 

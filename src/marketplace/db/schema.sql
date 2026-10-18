@@ -7505,3 +7505,166 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 32. SITE-WIDE SEO, THE ORGANIZATION, AND THE TAGS
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- §15 gave a listing its SEO, §27 gave a showroom its own, and page_seo gave
+-- every fixed page a full set. The SITE had four fields: a share image, an X
+-- handle and two verification strings.
+--
+-- Which meant the three things every page falls back to were borrowed from
+-- fields that exist for another purpose. The <title> of a page with no title
+-- of its own was the company NAME — not a sentence anybody searches for. The
+-- meta description was the TAGLINE, which is a line of marketing written for
+-- the hero, not the 155 characters under a search result. And there was no
+-- site-level keyword list at all.
+--
+-- Borrowing is the right FALLBACK when nothing else exists. It is the wrong
+-- place to stop, because a marketing team cannot fix any of it without editing
+-- the hero copy — two different jobs tied to one field.
+--
+-- Everything here is optional. Blank means "carry on borrowing", which is what
+-- the site did before this section existed, so an install that never opens the
+-- panel is no worse off than it was.
+
+-- ── The defaults every page inherits ────────────────────────────────────────
+
+alter table site_settings add column if not exists meta_title       jsonb;
+alter table site_settings add column if not exists meta_description jsonb;
+
+-- {ar: [...], en: [...]} — the same shape page_seo and listings use, so one
+-- keyword editor serves all three.
+alter table site_settings add column if not exists meta_keywords    jsonb not null default '{}'::jsonb;
+
+-- "%s | SAUDA" is written in code today. As a field it can be "%s — سيارات
+-- للبيع" in Arabic and something shorter in English, which is a real choice:
+-- Arabic spends the 60-character budget faster. %s is the page's own title.
+alter table site_settings add column if not exists title_template   jsonb;
+
+alter table site_settings add column if not exists og_type          text not null default 'website'
+  check (og_type in ('website', 'article', 'profile'));
+alter table site_settings add column if not exists twitter_card     text not null default 'summary_large_image'
+  check (twitter_card in ('summary', 'summary_large_image'));
+
+-- ── The kill switch ─────────────────────────────────────────────────────────
+--
+-- One switch that takes the WHOLE site out of search, whatever each page says.
+--
+-- This is for the staging copy and for the week before launch, and it is the
+-- most dangerous field on the page — which is why it is a column of its own
+-- rather than a flag inside a jsonb: a value that can silently become the
+-- string "false" (truthy) is not a value to hang a site's visibility on.
+--
+-- It can only ever take indexing AWAY. A page that is noindex stays noindex
+-- when this is on; nothing here turns a hidden page into a visible one.
+alter table site_settings add column if not exists seo_index        boolean not null default true;
+
+-- Extra Disallow lines for robots.txt, one per line, without the "Disallow:"
+-- prefix. The built-in list (dashboards, checkout, the API) stays in code and
+-- is not editable: those are not a matter of opinion, and a robots.txt that
+-- can be emptied from a form is one bad afternoon away from an indexed admin
+-- panel.
+alter table site_settings add column if not exists robots_extra     text;
+
+-- ── The organisation, as a search engine understands one ────────────────────
+--
+-- The home page already publishes an Organization block. These are the fields
+-- that make it a BUSINESS rather than a website with a logo: a knowledge panel
+-- and a map result want an address, hours, a phone and a founding date, and
+-- schema.org has a property for each.
+--
+-- legal_name is separate from `name` deliberately. The brand is "سودة"; the
+-- entity that holds the commercial registration has a longer formal name, and
+-- conflating the two is how a knowledge panel ends up labelled wrongly.
+alter table site_settings add column if not exists legal_name       jsonb;
+alter table site_settings add column if not exists cr_number        text;
+alter table site_settings add column if not exists vat_number       text;
+alter table site_settings add column if not exists founded_year     integer
+  check (founded_year is null or (founded_year between 1900 and 2100));
+
+-- [{ "days": [1,2,3,4,5], "opens": "09:00", "closes": "21:00" }], ISO weekday
+-- numbers. A list rather than seven columns, for the reason §29 made the
+-- social links a list: most businesses have two rows (weekdays, weekend) and a
+-- few have one per day, and neither shape should cost a migration.
+alter table site_settings add column if not exists opening_hours    jsonb not null default '[]'::jsonb;
+
+-- {"lat": 24.7136, "lng": 46.6753} — what puts the pin on the map.
+alter table site_settings add column if not exists geo              jsonb;
+
+-- schema.org's own vocabulary: "$" through "$$$$". Not a currency amount.
+alter table site_settings add column if not exists price_range      text;
+
+-- [{ "type": "customer support", "phone": "+966…", "email": "…",
+--    "languages": ["ar","en"] }] — so a result can show the right number for
+-- the right job instead of one switchboard line.
+alter table site_settings add column if not exists contact_points   jsonb not null default '[]'::jsonb;
+
+-- ── The rest of the verification services ───────────────────────────────────
+--
+-- Google and Bing were already here. Facebook's is what lets a shared link
+-- carry its own image rather than whatever the scraper guesses, once the
+-- domain is claimed in Business Manager.
+alter table site_settings add column if not exists yandex_site_verification     text;
+alter table site_settings add column if not exists pinterest_site_verification  text;
+alter table site_settings add column if not exists facebook_domain_verification text;
+
+-- ── Measurement ─────────────────────────────────────────────────────────────
+--
+-- There was NO analytics anywhere in this codebase — no GA4, no tag manager,
+-- no pixel. The site could be verified in Search Console and nothing could be
+-- learned about what happened after somebody arrived.
+--
+-- One jsonb rather than six columns, like `theme` and `billing` above: this is
+-- a bag of third-party ids that grows whenever marketing adopts another
+-- platform, and adding one should not be a migration.
+--
+--   { "ga4": "G-XXXX", "gtm": "GTM-XXXX", "meta_pixel": "…",
+--     "tiktok_pixel": "…", "snapchat_pixel": "…", "clarity": "…" }
+--
+-- IDS ONLY. Never a snippet of script copied from a vendor's dashboard and
+-- pasted into a form: that is arbitrary JavaScript on our own origin with
+-- every session cookie in reach, and "only admins can edit it" does not make
+-- it safe — it makes one compromised admin account the whole site. The app
+-- builds each tag from the id.
+alter table site_settings add column if not exists analytics        jsonb not null default '{}'::jsonb;
+
+-- ── Per-page crawl directives ───────────────────────────────────────────────
+--
+-- index/follow answers "may this page be listed at all". These are the
+-- follow-up questions, and they decide whether the result shows a useful
+-- preview or a bare link:
+--
+--   { "archive": false,             -- no cached copy
+--     "snippet": false,             -- no text preview at all
+--     "max_snippet": 160,           -- characters of preview
+--     "max_image_preview": "large", -- none | standard | large
+--     "max_video_preview": 0 }
+--
+-- An empty object says NOTHING, which is not the same as saying yes: a page
+-- with no directive gets the search engine's own default, whereas emitting
+-- "max-image-preview:standard" everywhere would quietly shrink the photo on
+-- every car in the results.
+alter table page_seo add column if not exists robots_directives jsonb not null default '{}'::jsonb;
+
+do $$
+declare
+  cols int;
+begin
+  select count(*) into cols
+  from information_schema.columns
+  where table_schema = 'public' and table_name = 'site_settings'
+    and column_name in (
+      'meta_title','meta_description','meta_keywords','title_template','og_type','twitter_card',
+      'seo_index','robots_extra','legal_name','cr_number','vat_number','founded_year',
+      'opening_hours','geo','price_range','contact_points','yandex_site_verification',
+      'pinterest_site_verification','facebook_domain_verification','analytics'
+    );
+
+  raise notice
+    'Site-wide SEO: %/20 columns on site_settings, plus page_seo.robots_directives. All optional — blank keeps exactly the behaviour the site had before. Admin → Settings → SEO defaults.',
+    cols;
+end $$;
+
+notify pgrst, 'reload schema';

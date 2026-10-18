@@ -7,7 +7,9 @@ import { getBrandBySlug, getBrandsIndex } from '@/marketplace/db/queries/cars';
 import { getCarsFacets } from '../../cars/_apicalls/carsPageApi';
 import CarsBrowse from '../../cars/_components/CarsBrowse';
 import ModelTrimBar from './_components/ModelTrimBar';
+import JsonLd from '../../../_components/JsonLd';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
+import { SITE_URL } from '@/marketplace/lib/sitePages';
 
 /**
  * One make's page: its logo and stock, then the full browse grid scoped to it.
@@ -55,9 +57,29 @@ export async function generateMetadata({ params }) {
     description: isAr
       ? `تصفّح ${brand.count} من سيارات ${name} المعروضة في ${siteName} من معارض موثوقة، بأسعار واضحة ومواصفات كاملة.`
       : `Browse ${brand.count} ${name} ${brand.count === 1 ? 'car' : 'cars'} listed on ${siteName} by verified showrooms, with clear pricing and full specifications.`,
-    alternates: { canonical: `/${locale}/marketplace/brands/${slug}` },
-    // noindex until real inventory replaces the seeded demo cars.
-    robots: { index: false, follow: false },
+    alternates: {
+      canonical: `/${locale}/marketplace/brands/${slug}`,
+      // Each language declares the other. Without this the two compete as
+      // duplicates of one another for the same make.
+      languages: {
+        ar: `/ar/marketplace/brands/${slug}`,
+        en: `/en/marketplace/brands/${slug}`,
+      },
+    },
+
+    openGraph: {
+      type: 'website',
+      title: isAr ? `سيارات ${name}` : `${name} Cars`,
+      url: `/${locale}/marketplace/brands/${slug}`,
+      images: brand.logoUrl ? [{ url: brand.logoUrl, alt: name }] : undefined,
+      locale: isAr ? 'ar_SA' : 'en_US',
+    },
+
+    /* Indexable. This read "noindex until real inventory replaces the seeded
+       demo cars" — the inventory is real now. An EMPTY make still cannot be
+       indexed: the page 404s when the make has no live car, so the rule keeps
+       enforcing itself without a flag to remember. */
+    robots: { index: true, follow: true },
   };
 }
 
@@ -123,7 +145,55 @@ export default async function BrandPage({ params, searchParams }) {
   const description =
     (isAr ? brand.description?.ar || brand.description?.en : brand.description?.en || brand.description?.ar) || '';
 
+  const path = `${SITE_URL}/${locale}/marketplace/brands/${slug}`;
+
+  /**
+   * What this page IS, in a crawler's vocabulary: a collection of one make's
+   * cars, the make itself as a Brand, and the trail back to the index.
+   *
+   * The cars are not listed item by item. Each one already publishes a full
+   * Car + Offer graph on its own page, and repeating a truncated copy of
+   * twenty of them here gives a search engine two descriptions of the same
+   * vehicle to reconcile — with this one going stale the moment a price
+   * changes. `numberOfItems` says how big the collection is without claiming
+   * to be the catalogue.
+   */
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        '@id': path,
+        url: path,
+        name: t(`سيارات ${name}`, `${name} Cars`),
+        description: description || undefined,
+        inLanguage: locale,
+        isPartOf: { '@type': 'WebSite', url: `${SITE_URL}/${locale}/marketplace` },
+        about: {
+          '@type': 'Brand',
+          name,
+          logo: brand.logoUrl || undefined,
+        },
+        mainEntity: {
+          '@type': 'ItemList',
+          numberOfItems: brand.count,
+          itemListOrder: 'https://schema.org/ItemListUnordered',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: t('السوق', 'Marketplace'), item: `${SITE_URL}/${locale}/marketplace` },
+          { '@type': 'ListItem', position: 2, name: t('الماركات', 'Brands'), item: `${SITE_URL}/${locale}/marketplace/brands` },
+          { '@type': 'ListItem', position: 3, name, item: path },
+        ],
+      },
+    ],
+  };
+
   return (
+    <>
+    <JsonLd data={jsonLd} />
     <CarsBrowse
       locale={locale}
       searchParams={searchParams}
@@ -207,6 +277,7 @@ export default async function BrandPage({ params, searchParams }) {
         </div>
       }
     />
+    </>
   );
 }
 

@@ -4,6 +4,7 @@ import HeaderSlot from '../_components/HeaderSlot';
 import { HeaderSkeleton } from '../_components/Skeletons';
 import MarketplaceFooter from '../_components/MarketplaceFooter';
 import CompareBar from '../_components/CompareBar';
+import AnalyticsTags from '../_components/AnalyticsTags';
 
 /**
  * Public chrome for (browse).
@@ -32,6 +33,11 @@ export default async function GroupLayout({ children, params }) {
           page sits under the bar. */}
       <div className="flex-1 pt-16 sm:pt-20">{children}</div>
       <MarketplaceFooter locale={locale} />
+
+      {/* The measurement tags, from Admin → Settings → Analytics. Mounted on
+          the PUBLIC groups only: the dashboards are the showroom+s own team,
+          and their clicks are noise in every number a marketer reads. */}
+      <AnalyticsTags />
       {/* Renders nothing until a car is ticked, and nothing on the compare
           page itself — see CompareBar. Mounted here rather than per page so
           a shortlist survives moving between the grid, a car and a

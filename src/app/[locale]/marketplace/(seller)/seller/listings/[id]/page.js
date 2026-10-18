@@ -5,6 +5,7 @@ import { getListingFormData } from '../../../_apicalls/formData';
 import ListingForm from '../../../_components/ListingForm';
 import SetupNotice from '../../../_components/SetupNotice';
 import EmptyCatalogNotice from '../../../_components/EmptyCatalogNotice';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 /**
  * This route's params are not known at build time, so under cacheComponents
@@ -35,6 +36,9 @@ export default async function EditListingPage({ params }) {
   const t = (ar, en) => (isAr ? ar : en);
 
   const data = await getListingFormData({ listingId: id, locale });
+  /* For the SEO preview: the generator names the marketplace and quotes a
+     currency, and both are settings now rather than literals. */
+  const site = await getSiteSettings().catch(() => null);
 
   // An empty catalog says nothing about whether THIS listing exists — the two
   // were tangled, so a missing listing rendered a setup notice instead of a
@@ -102,6 +106,8 @@ export default async function EditListingPage({ params }) {
       <div className="mt-6">
         <ListingForm
           locale={locale}
+          siteName={site?.name ?? null}
+          currency={site?.currency ?? null}
           vendors={data.vendors}
           brands={data.brands}
           years={data.years}

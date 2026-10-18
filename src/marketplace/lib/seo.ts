@@ -44,12 +44,10 @@ const WORDS = {
     buy: 'اشترِ',
     km: 'كم',
     price: 'السعر',
-    sar: 'ريال',
     vat: 'شامل الضريبة',
-    contact: 'تواصل مع البائع في سوق الرميح',
+    contactPrefix: 'تواصل مع البائع في',
     cars: 'سيارات للبيع',
     used: 'سيارات مستعملة',
-    market: 'سوق الرميح',
   },
   en: {
     forSale: 'for sale',
@@ -57,12 +55,10 @@ const WORDS = {
     buy: 'Buy a',
     km: 'km',
     price: 'Price',
-    sar: 'SAR',
     vat: 'VAT included',
-    contact: 'Contact the seller on SAUDA',
+    contactPrefix: 'Contact the seller on',
     cars: 'cars for sale',
     used: 'used cars',
-    market: 'SAUDA',
   },
 };
 
@@ -92,11 +88,36 @@ export type ListingSeoInput = {
   facts?: unknown[];
   mileage?: unknown;
   price?: unknown;
+
+  /**
+   * The marketplace's own name, {ar, en}, from site_settings.
+   *
+   * It used to be two literals in the table above — "سوق الرميح" and "SAUDA" —
+   * written into the generated description and the keyword list of EVERY car.
+   * Renaming the marketplace on Settings renamed it everywhere on the site
+   * except in the one place a search engine reads, and the Arabic literal was
+   * already a name this platform no longer uses.
+   */
+  siteName?: unknown;
+
+  /**
+   * What the price is quoted in, e.g. "SAR" or "AED" — site_settings.currency,
+   * or the listing's own. The word was "ريال"/"SAR" regardless, so a showroom
+   * billing in dirhams published a description saying riyals.
+   */
+  currency?: unknown;
 };
 
 export function listingSeo(input: ListingSeoInput = {}) {
   const build = (lang: string) => {
     const w = WORDS[lang as keyof typeof WORDS] ?? WORDS.ar;
+
+    /* The platform's name and its currency, both from site_settings and both
+       passed in: see the type above for what they used to be. Blank is a real
+       state — a database with no settings row yet — and the sentence simply
+       leaves that clause out rather than naming nothing. */
+    const site = pick(input.siteName, lang);
+    const currency = clean(input.currency) || 'SAR';
 
     const brand = pick(input.brand, lang);
     const model = pick(input.model, lang);
@@ -136,11 +157,11 @@ export function listingSeo(input: ListingSeoInput = {}) {
         : `${w.buy} ${[condition.toLowerCase(), car].filter(Boolean).join(' ')}${city ? ` ${w.in} ${city}` : ''}.`;
 
       const priceLine = input.price
-        ? ` ${w.price}: ${NUMBER.format(Number(input.price))} ${w.sar}, ${w.vat}.`
+        ? ` ${w.price}: ${NUMBER.format(Number(input.price))} ${currency}, ${w.vat}.`
         : '';
 
       description = clamp(
-        `${opening}${facts.length ? ` ${facts.join(' · ')}.` : ''}${priceLine} ${w.contact}.`,
+        `${opening}${facts.length ? ` ${facts.join(' · ')}.` : ''}${priceLine}${site ? ` ${w.contactPrefix} ${site}.` : ''}`,
         DESCRIPTION_MAX
       );
     }
@@ -162,7 +183,7 @@ export function listingSeo(input: ListingSeoInput = {}) {
       city ? `${[brand, model].filter(Boolean).join(' ')} ${w.in} ${city}` : '',
       city ? `${w.cars} ${w.in} ${city}` : w.cars,
       condition ? `${condition} ${brand}`.trim() : '',
-      w.market,
+      site,
     ]
       .map(clean)
       .filter((k, i, all) => k && all.indexOf(k) === i);

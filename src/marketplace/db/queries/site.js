@@ -105,7 +105,81 @@ function shapeSettings(row, ready) {
     currency: /^[A-Za-z]{3}$/.test(String(row?.currency ?? ''))
       ? String(row.currency).toUpperCase()
       : 'SAR',
+
+    /* ── §32: the site's own SEO, not borrowed from the hero copy ──────────
+     *
+     * Every one of these is OPTIONAL and every one reads through `?.` — the
+     * columns arrive with §32 of schema.sql, and a database where it has not
+     * been run yet returns a row without them. Each falls back to exactly what
+     * the site did before the section existed, which is why this can ship
+     * ahead of the SQL rather than behind it.
+     */
+    seo: {
+      title: bi(row?.meta_title),
+      description: bi(row?.meta_description),
+      keywords: row?.meta_keywords && typeof row.meta_keywords === 'object' ? row.meta_keywords : {},
+      titleTemplate: bi(row?.title_template),
+      ogType: row?.og_type || 'website',
+      twitterCard: row?.twitter_card || 'summary_large_image',
+      /* `!== false`, so a database without the column is VISIBLE rather than
+         hidden. A missing column must never be able to take a live site out of
+         the index. */
+      index: row?.seo_index !== false,
+      robotsExtra: text(row?.robots_extra),
+    },
+
+    /** The business behind the site, for the Organization graph. */
+    org: {
+      legalName: bi(row?.legal_name),
+      crNumber: text(row?.cr_number),
+      vatNumber: text(row?.vat_number),
+      foundedYear: Number.isFinite(Number(row?.founded_year)) ? Number(row.founded_year) : null,
+      openingHours: Array.isArray(row?.opening_hours) ? row.opening_hours : [],
+      geo:
+        Number.isFinite(Number(row?.geo?.lat)) && Number.isFinite(Number(row?.geo?.lng))
+          ? { lat: Number(row.geo.lat), lng: Number(row.geo.lng) }
+          : null,
+      priceRange: text(row?.price_range),
+      contactPoints: Array.isArray(row?.contact_points) ? row.contact_points : [],
+    },
+
+    yandexSiteVerification: row?.yandex_site_verification || null,
+    pinterestSiteVerification: row?.pinterest_site_verification || null,
+    facebookDomainVerification: row?.facebook_domain_verification || null,
+
+    /* Third-party measurement ids. Shaped rather than passed through, because
+       what renders a tag must never be handed an arbitrary string from a
+       column — see §32 on why these are ids and never snippets. */
+    analytics: analyticsOf(row?.analytics),
   };
+}
+
+/**
+ * The measurement ids, each checked against the SHAPE its vendor issues.
+ *
+ * A GA4 id is `G-` and then letters and digits; a container is `GTM-…`; a Meta
+ * pixel is a long number. Anything that does not match is dropped rather than
+ * rendered, which is the line between "an id in a script tag" and "whatever
+ * somebody typed in a script tag on our own origin".
+ */
+const ID_SHAPES = {
+  ga4: /^G-[A-Z0-9]{4,20}$/i,
+  gtm: /^GTM-[A-Z0-9]{4,20}$/i,
+  meta_pixel: /^\d{8,20}$/,
+  tiktok_pixel: /^[A-Z0-9]{10,30}$/i,
+  snapchat_pixel: /^[A-Za-z0-9-]{10,60}$/,
+  clarity: /^[a-z0-9]{6,20}$/i,
+};
+
+function analyticsOf(value) {
+  if (!value || typeof value !== 'object') return {};
+
+  const out = {};
+  for (const [key, pattern] of Object.entries(ID_SHAPES)) {
+    const id = text(value[key]).trim();
+    if (id && pattern.test(id)) out[key] = id;
+  }
+  return out;
 }
 
 function shapeLanguages(rows, ready) {

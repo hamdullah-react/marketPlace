@@ -4,6 +4,7 @@ import { getListingFormData } from '../../../_apicalls/formData';
 import ListingForm from '../../../_components/ListingForm';
 import SetupNotice from '../../../_components/SetupNotice';
 import EmptyCatalogNotice from '../../../_components/EmptyCatalogNotice';
+import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 /**
  * searchParams is read at the top of this component, so the shell cannot be
@@ -26,6 +27,9 @@ export default async function NewListingPage({ params, searchParams }) {
   const t = (ar, en) => (isAr ? ar : en);
 
   const data = await getListingFormData({ vendorId: sp?.vendor, locale });
+  /* For the SEO preview: the generator names the marketplace and quotes a
+     currency, and both are settings now rather than literals. */
+  const site = await getSiteSettings().catch(() => null);
 
   return (
     <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-8 lg:px-20 xl:px-28">
@@ -72,6 +76,8 @@ export default async function NewListingPage({ params, searchParams }) {
       <div className="mt-6">
         <ListingForm
           locale={locale}
+          siteName={site?.name ?? null}
+          currency={site?.currency ?? null}
           vendors={data.vendors}
           brands={data.brands}
           years={data.years}

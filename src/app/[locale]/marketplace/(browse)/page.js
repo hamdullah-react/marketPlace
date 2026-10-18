@@ -115,7 +115,13 @@ export default async function MarketplaceHomePage({ params }) {
 function HomeLayout({ skeleton = false, locale, isAr, t, siteName }) {
   return (
     <main className="pb-24">
-      <SeoJsonLd pageKey="home" locale={locale} />
+      {/* NOT in the skeleton. This layout is drawn twice — once as the Suspense
+          fallback, once with the data — and the fallback's copy stays in the
+          streamed HTML, so the page shipped the site's Organization and WebSite
+          graph TWICE with the same @id. Two nodes claiming one identity is a
+          conflict a crawler resolves by picking one, which is not a coin toss
+          worth leaving to it. */}
+      {skeleton ? null : <SeoJsonLd pageKey="home" locale={locale} />}
       {/* ── Hero ──────────────────────────────────────────────
           Full-bleed photograph, the words on top of it, the filter bar beneath
           them — one object rather than a stack of three.

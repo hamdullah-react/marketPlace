@@ -9,7 +9,8 @@ import { listingStem, slugify } from '@/marketplace/lib/slug';
 import { i18n } from '@/marketplace/lib/listing';
 import { listingSeo, keywordList } from '@/marketplace/lib/seo';
 import { routing } from '@/i18n/routing';
-import { getSiteLanguages } from '@/marketplace/db/queries/site';
+import { getSiteLanguages, getSiteSettings } from '@/marketplace/db/queries/site';
+import { SITE_URL } from '@/marketplace/lib/sitePages';
 
 /**
  * Creates or updates a car listing. One action for both — the only difference
@@ -79,7 +80,13 @@ const HANDLED_BY_NAME = ['condition'];
  * same value the proxy redirects `/` to. Reading it means the canonical follows
  * the setting instead of contradicting it.
  */
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app';
+/**
+ * The public origin, IMPORTED rather than re-derived.
+ *
+ * This file had its own copy of the expression, with its own fallback to a
+ * vercel.app address from a preview deployment — so the canonical a seller
+ * was shown could name a domain this marketplace does not own.
+ */
 
 const STATE_FOR_INTENT = {
   draft: 'draft',
@@ -559,6 +566,8 @@ export async function saveListing(prevState, formData) {
      * facts, so a generated description says something specific about the car
      * rather than being the same sentence on every listing.
      */
+    const site = await getSiteSettings().catch(() => null);
+
     const auto = listingSeo({
       brand: names.labels?.brand,
       model: names.labels?.model,
@@ -570,6 +579,11 @@ export async function saveListing(prevState, formData) {
       price: raw.price,
       description: { ar: raw.descriptionAr, en: raw.descriptionEn },
       facts: kindLabels,
+      /* §32: the platform’s own name and currency. Both used to be literals
+         inside listingSeo, so every generated description named a marketplace
+         this one is no longer called, priced in riyals whatever it bills in. */
+      siteName: site?.name,
+      currency: site?.currency,
     });
 
     /* Blank means "generate it", not "store an empty object" — so each side of

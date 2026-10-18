@@ -21,6 +21,7 @@ import {
 } from '@/marketplace/db/queries/forms';
 import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 import ViewBeacon from './_components/ViewBeacon';
+import { SITE_URL } from '@/marketplace/lib/sitePages';
 
 /**
  * This route is allowed to block — and that is the trade this page already
@@ -136,8 +137,14 @@ export async function generateMetadata({ params }) {
  * Absolute origin for the ids inside the JSON-LD graph. Structured data has to
  * carry absolute URLs — a relative one identifies nothing to a crawler that
  * fetched the page from somewhere else.
+ *
+ * IMPORTED rather than re-derived. This file had its own copy of the same
+ * expression, complete with its own fallback to a vercel.app address left
+ * over from a preview deployment — so on a deployment with no
+ * NEXT_PUBLIC_BASE_URL every car published an @id pointing at somebody
+ * else’s domain, while the rest of the site used sitePages’ value. One
+ * origin, one place.
  */
-const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app';
 
 /**
  * Render one JSON-LD node.

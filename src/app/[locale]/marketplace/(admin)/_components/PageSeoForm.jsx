@@ -94,6 +94,13 @@ export default function PageSeoForm({ locale = "ar", page, row = null, siteName,
   const [index, setIndex] = useState(row ? row.seo_index !== false : page.index);
   const [follow, setFollow] = useState(row ? row.seo_follow !== false : page.index);
   const [changefreq, setChangefreq] = useState(row?.seo_changefreq ?? page.changefreq);
+
+  /* §32 crawl directives. `archive: false` is what a stored row says; the
+     switch asks the question the other way round ("prevent it"), which is how
+     every search console words it. */
+  const [noArchive, setNoArchive] = useState(row?.robots_directives?.archive === false);
+  const [noSnippet, setNoSnippet] = useState(row?.robots_directives?.snippet === false);
+  const [imagePreview, setImagePreview] = useState(row?.robots_directives?.max_image_preview ?? "");
   const [priority, setPriority] = useState(Number(row?.seo_priority ?? page.priority).toFixed(1));
   const [json, setJson] = useState(row?.structured_data ? JSON.stringify(row.structured_data, null, 2) : "");
 
@@ -352,6 +359,69 @@ export default function PageSeoForm({ locale = "ar", page, row = null, siteName,
             hint={t("follow / nofollow", "follow / nofollow")}
           />
         </div>
+
+        {/* ── How the RESULT looks, once the page is listed ────────────────
+            index/follow answers whether it may appear at all; these four say
+            what appears. Each is left out of the saved row when it is in its
+            neutral position — "say nothing" and "say the default out loud"
+            are different instructions to a crawler. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SwitchRow
+            checked={noArchive} onChange={setNoArchive}
+            label={t("منع النسخة المحفوظة", "No cached copy")}
+            hint="noarchive"
+          />
+          <SwitchRow
+            checked={noSnippet} onChange={setNoSnippet}
+            label={t("منع عرض مقتطف نصّي", "No text preview")}
+            hint="nosnippet"
+          />
+        </div>
+        <input type="hidden" name="noArchive" value={noArchive ? "true" : "false"} />
+        <input type="hidden" name="noSnippet" value={noSnippet ? "true" : "false"} />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="max-snippet" className="text-xs">
+              {t("أقصى طول للمقتطف", "Maximum snippet length")}
+            </Label>
+            <Input
+              id="max-snippet" name="maxSnippet" dir="ltr" inputMode="numeric"
+              className="raised h-10 border-0"
+              placeholder={t("فارغ = بلا تحديد", "Blank = unspecified")}
+              defaultValue={row?.robots_directives?.max_snippet ?? ""}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              {t("عدد الأحرف. ١- يعني بلا حدّ، و٠ يمنع المقتطف.", "Characters. -1 means no limit, 0 suppresses the snippet.")}
+            </p>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label className="text-xs">{t("حجم الصورة في النتيجة", "Image size in the result")}</Label>
+            <Select
+              name="maxImagePreview" value={imagePreview} onValueChange={setImagePreview}
+              dir={isAr ? "rtl" : "ltr"}
+            >
+              <SelectTrigger className="raised h-10 w-full border-0">
+                <SelectValue>
+                  {imagePreview === "" ? t("غير محدّد", "Unspecified") : imagePreview}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="raised-card border-0">
+                <SelectItem value="" className="raised-hover">{t("غير محدّد", "Unspecified")}</SelectItem>
+                <SelectItem value="large" className="raised-hover">large</SelectItem>
+                <SelectItem value="standard" className="raised-hover">standard</SelectItem>
+                <SelectItem value="none" className="raised-hover">none</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {t(
+                "اتركه «غير محدّد» ما لم يكن هناك سبب. تحديده على كل الصفحات يصغّر صور السيارات في النتائج.",
+                "Leave it unspecified unless there is a reason. Setting it everywhere shrinks the car photos in results."
+              )}
+            </p>
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
             <Label className="text-xs">{t("معدّل التحديث", "How often it changes")}</Label>
@@ -423,6 +493,16 @@ export default function PageSeoForm({ locale = "ar", page, row = null, siteName,
             {problem ? t("JSON غير صحيح", "Not valid JSON") : t("JSON صحيح", "Valid JSON")}
           </p>
         ) : null}
+
+        {/* One row serves BOTH languages, so a real URL typed here would be the
+            Arabic one on the English page. These are filled in per request —
+            see fillTokens in seo/pageMetadata.js. */}
+        <p className="text-xs text-muted-foreground">
+          {t("متغيرات تُستبدل تلقائياً لكل لغة:", "Placeholders, filled in per language:")}{" "}
+          <code dir="ltr" className="font-mono">
+            {"{{locale}} {{url}} {{home}} {{siteUrl}} {{site}} {{title}} {{description}}"}
+          </code>
+        </p>
       </Section>
 
       {/* ── Save bar ─────────────────────────────────────────────────────── */}

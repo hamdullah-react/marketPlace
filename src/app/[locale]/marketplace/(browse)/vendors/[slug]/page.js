@@ -27,6 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import PhotoEditButton from './_components/PhotoEditButton';
 import EditSection from './_components/EditSection';
 import { socialLinksOf, PLATFORM_KEYS } from '@/marketplace/lib/social';
+import JsonLd from '../../../_components/JsonLd';
 import { SocialIcon } from '@/app/[locale]/marketplace/(seller)/_components/SocialLinksEditor';
 import RichTextRender, { hasRichText } from './_components/RichTextRender';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
@@ -52,7 +53,12 @@ const SITE_HOST = (() => {
   try {
     return new URL(SITE_URL).host;
   } catch {
-    return 'market-place-rose.vercel.app';
+    /* SITE_URL is unparseable only when NEXT_PUBLIC_BASE_URL is set to
+       something that is not a URL. The old fallback here was a vercel.app
+       address from a preview deployment, which showed a visitor a canonical
+       on a domain this marketplace does not own. An empty host renders as a
+       relative path, which is wrong in a different and much quieter way. */
+    return '';
   }
 })();
 
@@ -760,8 +766,80 @@ export default async function VendorPage({ params, searchParams }) {
       }
     : {};
 
+  /**
+   * The showroom AS A BUSINESS, which is the thing this page is about.
+   *
+   * AutoDealer is a LocalBusiness, so this is the one page on the marketplace
+   * that can carry an address, a phone number and opening hours into a map
+   * result — the "معارض سيارات في الرياض" search that lands on a storefront
+   * rather than on a car. Nothing here was emitted before: the page had rich
+   * metadata and no structured data at all.
+   *
+   * Every field is omitted when empty rather than sent blank. A LocalBusiness
+   * with `telephone: ""` is a worse answer than one with no telephone — the
+   * first is a claim that is wrong, the second is a gap.
+   */
+  const vendorUrl = `${SITE_URL}/${locale}/marketplace/vendors/${vendor.slug}`;
+  const ratingCount = Number(vendor.rating_count) || 0;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'AutoDealer',
+        '@id': `${vendorUrl}#dealer`,
+        name,
+        url: vendorUrl,
+        description: bio || undefined,
+        image: vendor.banner_url || vendor.logo_url || undefined,
+        logo: vendor.logo_url || undefined,
+        telephone: showPhone ? vendor.contact_phone || undefined : undefined,
+        address:
+          vendor.city || addressLine
+            ? {
+                '@type': 'PostalAddress',
+                streetAddress: addressLine || undefined,
+                addressLocality: say(addr.city) || vendor.city || undefined,
+                postalCode: addr.postal_code || undefined,
+                addressCountry: 'SA',
+              }
+            : undefined,
+        geo:
+          addr.lat && addr.lng
+            ? { '@type': 'GeoCoordinates', latitude: Number(addr.lat), longitude: Number(addr.lng) }
+            : undefined,
+        sameAs: socials.length ? socials.map((l) => l.href).filter(Boolean) : undefined,
+        /* Only with real ratings behind it. An aggregateRating of 0 from 0
+           reviews is the kind of markup that earns a manual action, not a
+           star. */
+        aggregateRating:
+          ratingCount > 0
+            ? {
+                '@type': 'AggregateRating',
+                ratingValue: Number(vendor.rating_avg),
+                reviewCount: ratingCount,
+              }
+            : undefined,
+        makesOffer:
+          stats.liveListings > 0
+            ? { '@type': 'OfferCatalog', name: t('السيارات المعروضة', 'Cars for sale'), numberOfItems: stats.liveListings }
+            : undefined,
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: t('السوق', 'Marketplace'), item: `${SITE_URL}/${locale}/marketplace` },
+          { '@type': 'ListItem', position: 2, name: t('المعارض', 'Showrooms'), item: `${SITE_URL}/${locale}/marketplace/vendors` },
+          { '@type': 'ListItem', position: 3, name, item: vendorUrl },
+        ],
+      },
+    ],
+  };
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pb-14">
+      <JsonLd data={jsonLd} />
+
       {/* ── Banner ──────────────────────────────────────────────────────── */}
       <div className="relative h-40 overflow-hidden rounded-b-2xl bg-linear-to-br from-brand-primary/15 to-brand-light/40 sm:h-56 dark:from-[#1c1420] dark:to-[#221a26]">
         {vendor.banner_url ? (

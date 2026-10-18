@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { localized } from '@/marketplace/lib/listing';
 import LanguageSwitcher from '../_components/LanguageSwitcher';
+import AnalyticsTags from '../_components/AnalyticsTags';
 
 /**
  * The chrome for the pricing page, and for anything else that sells the
@@ -54,6 +55,10 @@ export default async function PricingLayout({ children, params }) {
       dir={isAr ? 'rtl' : 'ltr'}
       className="marketplace-root flex min-h-screen flex-col bg-[var(--app-bg)] text-neutral-900 dark:bg-[var(--app-bg-dark)] dark:text-neutral-100"
     >
+      {/* The measurement tags, from Admin → Settings → Analytics — the same
+          set the browse pages carry, because this page is as public. */}
+      <AnalyticsTags />
+
       {/* The wash. Fixed and behind everything (-z-10), so it cannot intercept
           a press and does not scroll away from a long page. */}
       <div

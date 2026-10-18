@@ -38,41 +38,78 @@ export async function generateMetadata({ params }) {
 
   const site = await getSiteSettings();
   const siteName = isEn ? site.name.en : site.name.ar;
-  const description = isEn ? site.tagline.en : site.tagline.ar;
+  /* §32 first, the tagline second. The tagline is hero copy and was the only
+     thing here before there was a meta description to write. */
+  const pick = (v) => (isEn ? v?.en || v?.ar : v?.ar || v?.en) || '';
+  const description = pick(site.seo?.description) || pick(site.tagline);
+  const siteTitle = pick(site.seo?.title) || siteName;
   const handle = site.twitterHandle ? `@${site.twitterHandle.replace(/^@/, '')}` : undefined;
   const shareImage = site.defaultOgImageUrl ? [absoluteUrl(site.defaultOgImageUrl)] : undefined;
 
-  const verificationOther = site.bingSiteVerification ? { 'msvalidate.01': site.bingSiteVerification } : undefined;
+  /* All four services (§32). This layout REPLACES the root’s verification
+     block rather than merging with it — a field a child sets wins outright —
+     so listing only Bing here would have dropped the other three from every
+     page under /marketplace, which is every page there is. */
+  const otherVerification = {
+    ...(site.bingSiteVerification ? { 'msvalidate.01': site.bingSiteVerification } : {}),
+    ...(site.pinterestSiteVerification ? { 'p:domain_verify': site.pinterestSiteVerification } : {}),
+    ...(site.facebookDomainVerification
+      ? { 'facebook-domain-verification': site.facebookDomainVerification }
+      : {}),
+  };
+  const verificationOther = Object.keys(otherVerification).length ? otherVerification : undefined;
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: { default: siteName, template: `%s | ${siteName}` },
+    /* The site’s own search title and template (§32), not the company name
+       and a format string in the source. */
+    title: { default: siteTitle, template: pick(site.seo?.titleTemplate) || `%s | ${siteName}` },
     applicationName: siteName,
     description,
-    keywords: null,
+    /* Was `null`, which existed to CLEAR the parent repo’s long Arabic
+       keyword list from every English page. There is a site-wide list now
+       (§32) and a page with none of its own should inherit it, so the clear
+       becomes a value — still replacing whatever is above, never appending. */
+    keywords: Array.isArray(site.seo?.keywords?.[isEn ? 'en' : 'ar'])
+      && site.seo.keywords[isEn ? 'en' : 'ar'].length
+      ? site.seo.keywords[isEn ? 'en' : 'ar']
+      : null,
     openGraph: {
-      title: siteName,
+      title: siteTitle,
       description,
       siteName,
+      type: site.seo?.ogType || 'website',
       locale: isEn ? 'en_US' : 'ar_SA',
       images: shareImage,
     },
-    twitter: { title: siteName, description, site: handle, images: shareImage },
+    twitter: {
+      card: site.seo?.twitterCard || 'summary_large_image',
+      title: siteTitle,
+      description,
+      site: handle,
+      images: shareImage,
+    },
 
     icons: site.faviconUrl
       ? { icon: site.faviconUrl, shortcut: site.faviconUrl, apple: site.faviconUrl }
       : undefined,
 
     verification:
-      site.googleSiteVerification || verificationOther
-        ? { google: site.googleSiteVerification ?? undefined, other: verificationOther }
+      site.googleSiteVerification || site.yandexSiteVerification || verificationOther
+        ? {
+            google: site.googleSiteVerification ?? undefined,
+            yandex: site.yandexSiteVerification ?? undefined,
+            other: verificationOther,
+          }
         : undefined,
 
-    // The company name is a proper noun, but it has an English form — the
-    // inherited value was the Arabic one on every page.
-    authors: [{ name: isEn ? 'Sauda' : 'سوق الرميح' }],
-    creator: isEn ? 'Sauda' : 'سوق الرميح',
-    publisher: isEn ? 'Sauda' : 'سوق الرميح',
+    /* The publisher is the SITE's name, read from Settings like everything
+       else on this page. These three were literals — "Sauda" and "سوق الرميح",
+       a name this marketplace is no longer called — written into the <head> of
+       every page, where renaming the company on Settings could not reach them. */
+    authors: [{ name: siteName }],
+    creator: siteName,
+    publisher: siteName,
 
     // Pages opt in from Admin → Website content → Pages SEO.
     robots: { index: false, follow: false },

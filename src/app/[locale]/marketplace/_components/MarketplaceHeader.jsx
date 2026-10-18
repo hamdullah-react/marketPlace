@@ -157,7 +157,11 @@ export default function MarketplaceHeader({
   // From Admin → Settings, with the built-in mark as the fallback.
   const logo = brand?.logoUrl || "/sauda/logo.png";
   const darkLogo = brand?.logoDarkUrl || null;
-  const brandName = brand?.name || "Sauda";
+  /* The last-resort name, from ONE place (BRAND_FALLBACK). It was the
+     literal "Sauda" here, "سوق الرميح" in the admin shell and a third
+     spelling in sitePages — three answers to “what is this called when the
+     settings row is empty”. */
+  const brandName = brand?.name || (locale === "ar" ? BRAND_FALLBACK.name.ar : BRAND_FALLBACK.name.en);
   const pathname = usePathname() || "";
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);

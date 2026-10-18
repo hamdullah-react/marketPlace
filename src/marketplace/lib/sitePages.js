@@ -10,7 +10,17 @@
  * and by the admin forms (placeholders and the Google preview).
  */
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'https://market-place-rose.vercel.app').replace(/\/+$/, '');
+/**
+ * The public origin — THE one, imported everywhere rather than re-derived.
+ *
+ * The fallback is localhost, deliberately. It used to be a vercel.app address
+ * from a preview deployment, which is the worst possible default: a build with
+ * NEXT_PUBLIC_BASE_URL unset would publish canonicals, hreflang pairs, JSON-LD
+ * @ids and a sitemap all pointing at a domain this marketplace does not own,
+ * and every one of those would look perfectly healthy. localhost is wrong in a
+ * way somebody notices within a minute.
+ */
+export const SITE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 /** Cache tags for the `use cache` readers in db/queries/site.js. */
 export const SITE_TAGS = {
@@ -32,7 +42,7 @@ export const SITE_TAGS = {
  * anything at all.
  */
 export const BRAND_FALLBACK = {
-  name: { ar: 'سوق الرميح', en: 'Sauda' },
+  name: { ar: 'سودة', en: 'SAUDA' },
   tagline: {
     ar: 'سيارات جديدة ومستعملة من معارض موثوقة، بأسعار واضحة وتواصل مباشر مع البائع.',
     en: 'New and used cars from verified showrooms — clear pricing, and a direct line to the seller.',
@@ -63,7 +73,7 @@ export const SEO_PAGES = [
   {
     key: 'home', path: '', group: 'browse', index: false, changefreq: 'daily', priority: 1,
     label: { ar: 'الرئيسية', en: 'Home' },
-    title: { ar: 'سوق الرميح — سيارات جديدة ومستعملة', en: 'Sauda — New & Used Cars' },
+    title: { ar: 'سيارات جديدة ومستعملة في السعودية', en: 'New & Used Cars in Saudi Arabia' },
     description: {
       ar: 'اشترِ سيارتك القادمة من معارض موثوقة في السعودية. سيارات جديدة ومستعملة بأسعار واضحة وتواصل مباشر مع البائع.',
       en: 'Buy your next car from verified showrooms across Saudi Arabia. New and used cars with clear prices and a direct line to the seller.',
@@ -110,8 +120,8 @@ export const SEO_PAGES = [
     label: { ar: 'المعارض', en: 'Showrooms' },
     title: { ar: 'المعارض', en: 'Showrooms' },
     description: {
-      ar: 'تصفح معارض ووكلاء السيارات الموثوقين في سوق الرميح.',
-      en: 'Browse verified car showrooms and dealers on Sauda.',
+      ar: 'تصفّح معارض ووكلاء السيارات الموثوقين.',
+      en: 'Browse verified car showrooms and dealers.',
     },
   },
   {
@@ -134,24 +144,24 @@ export const SEO_PAGES = [
   },
   {
     key: 'sell', path: '/sell', group: 'selling', index: false, changefreq: 'monthly', priority: 0.7,
-    label: { ar: 'البيع في السوق', en: 'Sell on Sauda' },
-    title: { ar: 'بِع في سوق الرميح', en: 'Sell on Sauda' },
+    label: { ar: 'البيع في السوق', en: 'Sell your cars' },
+    title: { ar: 'بِع سياراتك', en: 'Sell your cars' },
     description: {
-      ar: 'اعرض سياراتك في سوق الرميح. افتح معرضك في دقائق وتواصل مع المشترين في كل السعودية.',
-      en: 'List your cars on Sauda. Open your showroom in minutes and reach buyers across Saudi Arabia.',
+      ar: 'اعرض سياراتك هنا. افتح معرضك في دقائق وتواصل مع المشترين في كل السعودية.',
+      en: 'List your cars here. Open your showroom in minutes and reach buyers across Saudi Arabia.',
     },
   },
   {
     key: 'sell-apply', path: '/sell/apply', group: 'selling', index: false, changefreq: 'monthly', priority: 0.4,
     label: { ar: 'طلب الانضمام كمعرض', en: 'Vendor application' },
     title: { ar: 'طلب الانضمام كمعرض', en: 'Vendor Application' },
-    description: { ar: 'قدّم طلب فتح معرضك في سوق الرميح.', en: 'Apply to open your showroom on Sauda.' },
+    description: { ar: 'قدّم طلب فتح معرضك.', en: 'Apply to open your showroom.' },
   },
   {
     key: 'fees', path: '/fees', group: 'selling', index: false, changefreq: 'monthly', priority: 0.4,
     label: { ar: 'الرسوم', en: 'Fees' },
     title: { ar: 'الرسوم', en: 'Fees' },
-    description: { ar: 'رسوم البيع في سوق الرميح.', en: 'What it costs to sell on Sauda.' },
+    description: { ar: 'ما تكلفة البيع هنا.', en: 'What it costs to sell here.' },
   },
   {
     // The highest-intent page a showroom can land on, which is why it outranks
@@ -161,33 +171,33 @@ export const SEO_PAGES = [
     label: { ar: 'الأسعار', en: 'Pricing' },
     title: { ar: 'أسعار الاشتراك للمعارض', en: 'Showroom subscription pricing' },
     description: {
-      ar: 'خطط الاشتراك للمعارض في سوق الرميح — الأسعار والمدد وما تشمله كل خطة. التصفّح والشراء مجاني للمشترين.',
-      en: 'Subscription plans for showrooms on Sauda — prices, lengths and what each plan includes. Browsing and buying stays free for buyers.',
+      ar: 'خطط الاشتراك للمعارض — الأسعار والمدد وما تشمله كل خطة. التصفّح والشراء مجاني للمشترين.',
+      en: 'Subscription plans for showrooms — prices, lengths and what each plan includes. Browsing and buying stays free for buyers.',
     },
   },
   {
     key: 'seller-terms', path: '/seller-terms', group: 'selling', index: false, changefreq: 'yearly', priority: 0.3,
     label: { ar: 'شروط البائع', en: 'Seller terms' },
     title: { ar: 'شروط البائع', en: 'Seller Terms' },
-    description: { ar: 'شروط وأحكام البيع في سوق الرميح.', en: 'The terms for selling on Sauda.' },
+    description: { ar: 'شروط وأحكام البيع.', en: 'The terms for selling here.' },
   },
   {
     key: 'about', path: '/about', group: 'info', index: false, changefreq: 'monthly', priority: 0.6,
     label: { ar: 'من نحن', en: 'About us' },
     title: { ar: 'من نحن', en: 'About us' },
-    description: { ar: 'تعرّف على سوق الرميح وفريقه.', en: 'Get to know Sauda and the team behind it.' },
+    description: { ar: 'تعرّف علينا وعلى الفريق.', en: 'Get to know us and the team behind it.' },
   },
   {
     key: 'how-it-works', path: '/how-it-works', group: 'info', index: false, changefreq: 'monthly', priority: 0.5,
     label: { ar: 'كيف يعمل', en: 'How it works' },
     title: { ar: 'كيف يعمل السوق', en: 'How It Works' },
-    description: { ar: 'كيف تشتري وتبيع في سوق الرميح خطوة بخطوة.', en: 'How buying and selling on Sauda works, step by step.' },
+    description: { ar: 'كيف تشتري وتبيع خطوة بخطوة.', en: 'How buying and selling works, step by step.' },
   },
   {
     key: 'help', path: '/help', group: 'info', index: false, changefreq: 'monthly', priority: 0.5,
     label: { ar: 'مركز المساعدة', en: 'Help centre' },
     title: { ar: 'مركز المساعدة', en: 'Help Centre' },
-    description: { ar: 'إجابات عن الأسئلة الشائعة حول سوق الرميح.', en: 'Answers to common questions about Sauda.' },
+    description: { ar: 'إجابات عن الأسئلة الشائعة.', en: 'Answers to common questions.' },
   },
   {
     /* Higher priority and a shorter changefreq than its neighbours: this is
@@ -196,13 +206,13 @@ export const SEO_PAGES = [
     key: 'faq', path: '/faq', group: 'info', index: false, changefreq: 'weekly', priority: 0.6,
     label: { ar: 'الأسئلة الشائعة', en: 'FAQ' },
     title: { ar: 'الأسئلة الشائعة', en: 'Frequently Asked Questions' },
-    description: { ar: 'إجابات عن أكثر ما يسأل عنه المشترون في سودة.', en: 'Answers to what buyers most often ask about Sauda.' },
+    description: { ar: 'إجابات عن أكثر ما يسأل عنه المشترون.', en: 'Answers to what buyers most often ask.' },
   },
   {
     key: 'buyer-protection', path: '/buyer-protection', group: 'info', index: false, changefreq: 'yearly', priority: 0.4,
     label: { ar: 'حماية المشتري', en: 'Buyer protection' },
     title: { ar: 'حماية المشتري', en: 'Buyer Protection' },
-    description: { ar: 'كيف يحميك سوق الرميح عند شراء سيارة.', en: 'How Sauda protects you when you buy a car.' },
+    description: { ar: 'كيف تُحمى عند شراء سيارة.', en: 'How you are protected when you buy a car.' },
   },
   {
     // The one page here that earns traffic before anybody is shopping for a
@@ -216,21 +226,21 @@ export const SEO_PAGES = [
     label: { ar: 'الأخبار', en: 'News' },
     title: { ar: 'الأخبار', en: 'News' },
     description: {
-      ar: 'أخبار وأدلة ومقارنات ونصائح لشراء وبيع السيارات في السعودية، من فريق سوق الرميح.',
-      en: 'News, guides, comparisons and advice on buying and selling cars in Saudi Arabia, from the Sauda team.',
+      ar: 'أخبار وأدلة ومقارنات ونصائح لشراء وبيع السيارات في السعودية، من فريق التحرير.',
+      en: 'News, guides, comparisons and advice on buying and selling cars in Saudi Arabia, from our editorial team.',
     },
   },
   {
     key: 'login', path: '/login', group: 'auth', index: false, changefreq: 'yearly', priority: 0.1,
     label: { ar: 'تسجيل الدخول', en: 'Login' },
     title: { ar: 'تسجيل الدخول', en: 'Login' },
-    description: { ar: 'سجّل الدخول إلى حسابك في سوق الرميح.', en: 'Sign in to your Sauda account.' },
+    description: { ar: 'سجّل الدخول إلى حسابك.', en: 'Sign in to your account.' },
   },
   {
     key: 'signup', path: '/signup', group: 'auth', index: false, changefreq: 'yearly', priority: 0.1,
     label: { ar: 'إنشاء حساب', en: 'Create account' },
     title: { ar: 'إنشاء حساب', en: 'Create an account' },
-    description: { ar: 'أنشئ حسابك في سوق الرميح.', en: 'Create your Sauda account.' },
+    description: { ar: 'أنشئ حسابك.', en: 'Create your account.' },
   },
   {
     key: 'forgot-password', path: '/forgot-password', group: 'auth', index: false, changefreq: 'yearly', priority: 0.1,

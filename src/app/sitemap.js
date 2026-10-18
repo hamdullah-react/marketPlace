@@ -4,6 +4,8 @@ import { PUBLIC_STATES } from '@/marketplace/lib/listing';
 import { getAllPageSeo, getSiteLanguages } from '@/marketplace/db/queries/site';
 import { listBlogSlugs } from '@/marketplace/db/queries/blog';
 import { SEO_PAGES, SITE_TAGS, SITE_URL, pagePath } from '@/marketplace/lib/sitePages';
+import { getBrandsIndex } from '@/marketplace/db/queries/cars';
+import { HELP_ARTICLES } from '@/marketplace/lib/help-articles';
 
 /**
  * /sitemap.xml
@@ -43,28 +45,108 @@ export default async function sitemap() {
     }));
   });
 
-  const { data: listings, error } = await getMarketplaceDb()
-    .from('listings')
-    .select('slug, updated_at, seo_index, seo_changefreq, seo_priority')
-    /* Sold cars included, and that is the point of keeping their page: the URL
-       holds its inbound links and its ranking, so dropping it from the sitemap
-       the day it sells throws away the thing the page was kept for. */
-    .in('state', PUBLIC_STATES)
-    .limit(5000);
+  /**
+   * ── Every car, not the first thousand ──────────────────────────────────
+   *
+   * `.limit(5000)` was a request, not a guarantee: PostgREST caps a response at
+   * PGRST_DB_MAX_ROWS — 1000 on this deployment — and returns exactly that many
+   * with a 200 and no warning. A marketplace with 1,400 cars would have
+   * published a sitemap listing 1,000 of them and looked completely healthy,
+   * with the missing 400 indistinguishable from cars that were never listed.
+   *
+   * So it pages until a short page comes back. Capped at 50,000 URLs, which is
+   * the protocol's own limit for a single sitemap file — past that the answer
+   * is a sitemap index, not a longer file.
+   */
+  const listings = [];
+  const PAGE = 1000;
+  const MAX = 50_000;
 
-  const cars = error
-    ? []
-    : (listings ?? [])
-        .filter((l) => l.slug && l.seo_index !== false)
-        .flatMap((l) =>
-          langs.enabled.map((code) => ({
-            url: `${SITE_URL}/${code}/marketplace/listing/${l.slug}`,
-            lastModified: l.updated_at ? new Date(l.updated_at) : undefined,
-            changeFrequency: l.seo_changefreq ?? 'weekly',
-            priority: Number(l.seo_priority ?? 0.5),
-            alternates: alternatesFor((c) => `/${c}/marketplace/listing/${l.slug}`),
-          }))
-        );
+  for (let from = 0; from < MAX; from += PAGE) {
+    const { data, error } = await getMarketplaceDb()
+      .from('listings')
+      .select('slug, updated_at, seo_index, seo_changefreq, seo_priority')
+      /* Sold cars included, and that is the point of keeping their page: the URL
+         holds its inbound links and its ranking, so dropping it from the sitemap
+         the day it sells throws away the thing the page was kept for. */
+      .in('state', PUBLIC_STATES)
+      .order('updated_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+
+    if (error) break;
+    listings.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE) break;
+  }
+
+  const cars = listings
+    .filter((l) => l.slug && l.seo_index !== false)
+    .flatMap((l) =>
+      langs.enabled.map((code) => ({
+        url: `${SITE_URL}/${code}/marketplace/listing/${l.slug}`,
+        lastModified: l.updated_at ? new Date(l.updated_at) : undefined,
+        changeFrequency: l.seo_changefreq ?? 'weekly',
+        priority: Number(l.seo_priority ?? 0.5),
+        alternates: alternatesFor((c) => `/${c}/marketplace/listing/${l.slug}`),
+      }))
+    );
+
+  /* ── The showrooms ───────────────────────────────────────────────────────
+     A storefront is a landing page in its own right — "معارض سيارات في جدة"
+     lands here rather than on a car — and it was in no sitemap at all. Its own
+     seo_index switch (§27) decides, exactly as a car's does. */
+  /* Read here rather than through getApprovedVendors: that query serves the
+     showroom GRID, whose SELECT deliberately carries no SEO columns, and a
+     sitemap that cannot see seo_index would quietly publish a storefront that
+     asked not to be listed. */
+  const { data: vendorRows } = await getMarketplaceDb()
+    .from('vendors')
+    .select('slug, updated_at, seo_index, seo_changefreq, seo_priority')
+    .eq('state', 'approved')
+    .limit(1000);
+
+  const showrooms = (vendorRows ?? [])
+    .filter((v) => v.slug && v.seo_index !== false)
+    .flatMap((v) =>
+      langs.enabled.map((code) => ({
+        url: `${SITE_URL}/${code}/marketplace/vendors/${v.slug}`,
+        lastModified: v.updated_at ? new Date(v.updated_at) : undefined,
+        changeFrequency: v.seo_changefreq ?? 'weekly',
+        priority: Number(v.seo_priority ?? 0.7),
+        alternates: alternatesFor((c) => `/${c}/marketplace/vendors/${v.slug}`),
+      }))
+    );
+
+  /* ── One page per make ───────────────────────────────────────────────────
+     getBrandsIndex only returns makes that HAVE a live car, which is the same
+     rule the page itself enforces by 404ing — so this cannot list a brand page
+     that renders as a 404. No lastModified: a make has no date of its own, and
+     inventing one from "now" tells a crawler to come back for a change that
+     did not happen. */
+  const brandRows = await getBrandsIndex().catch(() => []);
+
+  const brands = brandRows
+    .filter((b) => b.slug)
+    .flatMap((b) =>
+      langs.enabled.map((code) => ({
+        url: `${SITE_URL}/${code}/marketplace/brands/${b.slug}`,
+        changeFrequency: 'weekly',
+        priority: 0.6,
+        alternates: alternatesFor((c) => `/${c}/marketplace/brands/${b.slug}`),
+      }))
+    );
+
+  /* ── The help articles ───────────────────────────────────────────────────
+     Static text in the source, so there is no database read and no failure
+     mode — and they are the pages that can earn a search before the visitor
+     has heard of this marketplace. */
+  const help = HELP_ARTICLES.flatMap((a) =>
+    langs.enabled.map((code) => ({
+      url: `${SITE_URL}/${code}/marketplace/help/${a.slug}`,
+      changeFrequency: 'monthly',
+      priority: 0.4,
+      alternates: alternatesFor((c) => `/${c}/marketplace/help/${a.slug}`),
+    }))
+  );
 
   /* ── The articles ────────────────────────────────────────────────────────
      listBlogSlugs already filters to published AND indexable, and never throws:
@@ -84,5 +166,5 @@ export default async function sitemap() {
     }))
   );
 
-  return [...pages, ...cars, ...posts];
+  return [...pages, ...cars, ...showrooms, ...brands, ...help, ...posts];
 }

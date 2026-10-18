@@ -263,6 +263,25 @@ export const ERRORS = {
   SEO_PRIORITY_INVALID: { ar: 'اختر أولوية بين ٠ و١', en: 'Choose a priority between 0 and 1' },
   PAGE_UNKNOWN: { ar: 'هذه الصفحة غير موجودة', en: 'That page does not exist' },
 
+  // ── §32: the site's own SEO ──
+  TITLE_TEMPLATE_NEEDS_S: {
+    ar: 'يجب أن يحتوي قالب العنوان على %s — وهو موضع عنوان الصفحة نفسها',
+    en: 'The title template has to contain %s — that is where the page’s own title goes',
+  },
+  INVALID_YEAR: { ar: 'أدخل سنة بين ١٩٠٠ و٢١٠٠', en: 'Enter a year between 1900 and 2100' },
+  INVALID_COORDINATES: {
+    ar: 'أدخل إحداثيات صحيحة: خط العرض بين ٩٠- و٩٠، وخط الطول بين ١٨٠- و١٨٠',
+    en: 'Enter valid coordinates: latitude between -90 and 90, longitude between -180 and 180',
+  },
+  SEO_SNIPPET_INVALID: {
+    ar: 'طول المقتطف يجب أن يكون رقماً بين ١- و١٠٠٠٠ (١- يعني بلا حدّ)',
+    en: 'The snippet length has to be a number between -1 and 10000 (-1 means no limit)',
+  },
+  INVALID_TRACKING_ID: {
+    ar: 'معرّف التتبع غير صحيح. تأكد من نسخ المعرّف نفسه (مثل G-XXXX أو GTM-XXXX) وليس كود السكربت.',
+    en: 'That tracking id does not look right. Paste the id itself (like G-XXXX or GTM-XXXX), not the script snippet.',
+  },
+
   // ── the blog ──
   BLOG_TITLE_REQUIRED: {
     ar: 'اكتب عنوان المقال بلغة واحدة على الأقل',

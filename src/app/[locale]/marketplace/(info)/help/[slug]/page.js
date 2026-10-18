@@ -5,6 +5,8 @@ import { Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   HELP_ARTICLES, HELP_CATEGORIES, findArticle, articlesIn,
 } from '@/marketplace/lib/help-articles';
+import JsonLd from '../../../_components/JsonLd';
+import { SITE_URL } from '@/marketplace/lib/sitePages';
 
 /**
  * One help article.
@@ -23,10 +25,36 @@ export async function generateMetadata({ params }) {
   if (!article) return { title: 'Not found', robots: { index: false, follow: false } };
 
   const isAr = locale === 'ar';
+  const path = `/${locale}/marketplace/help/${slug}`;
+
   return {
     title: isAr ? article.titleAr : article.titleEn,
     description: isAr ? article.summaryAr : article.summaryEn,
-    robots: { index: false, follow: false },
+
+    /* A help article is the one kind of page here that can rank before anybody
+       is shopping: "how do I transfer ownership in Saudi Arabia" is typed by
+       people who have not heard of this marketplace. It had no canonical at
+       all, which for a page that exists at two URLs — one per language — is
+       how the two end up competing as duplicates of each other. */
+    alternates: {
+      canonical: path,
+      languages: {
+        ar: `/ar/marketplace/help/${slug}`,
+        en: `/en/marketplace/help/${slug}`,
+      },
+    },
+
+    openGraph: {
+      type: 'article',
+      title: isAr ? article.titleAr : article.titleEn,
+      description: isAr ? article.summaryAr : article.summaryEn,
+      url: path,
+      locale: isAr ? 'ar_SA' : 'en_US',
+    },
+
+    // Indexable: the text is ours, written by us, and true whenever it is read
+    // — it does not depend on the catalogue being real.
+    robots: { index: true, follow: true },
   };
 }
 
@@ -45,8 +73,44 @@ export default async function HelpArticlePage({ params }) {
   const category = HELP_CATEGORIES.find((c) => c.id === article.category);
   const siblings = articlesIn(article.category).filter((a) => a.slug !== article.slug);
 
+  const url = `${SITE_URL}/${locale}/marketplace/help/${slug}`;
+
+  /**
+   * TechArticle rather than Article: this is instructions for using a thing,
+   * which is the distinction schema.org draws, and it is what lets a how-to
+   * answer appear as one.
+   *
+   * No datePublished — the articles are a constant in the source, with no date
+   * to tell the truth about. A made-up one is worse than none: it would claim
+   * freshness this page has not earned, and go stale on its own.
+   */
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'TechArticle',
+        '@id': url,
+        url,
+        headline: t(article.titleAr, article.titleEn),
+        description: t(article.summaryAr, article.summaryEn),
+        inLanguage: locale,
+        articleSection: t(category?.ar, category?.en) || undefined,
+        isPartOf: { '@type': 'WebSite', url: `${SITE_URL}/${locale}/marketplace` },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: t('السوق', 'Marketplace'), item: `${SITE_URL}/${locale}/marketplace` },
+          { '@type': 'ListItem', position: 2, name: t('مركز المساعدة', 'Help centre'), item: `${SITE_URL}/${locale}/marketplace/help` },
+          { '@type': 'ListItem', position: 3, name: t(article.titleAr, article.titleEn), item: url },
+        ],
+      },
+    ],
+  };
+
   return (
     <main className="mx-auto w-full max-w-[760px] px-4 py-10 sm:px-8">
+      <JsonLd data={jsonLd} />
       <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Link href={`/${locale}/marketplace/help`} className="hover:text-brand-primary">
           {t('مركز المساعدة', 'Help centre')}

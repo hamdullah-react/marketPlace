@@ -1,17 +1,9 @@
 /**
- * Structured data for a blog page.
+ * The blog's structured data tag — the shared one, kept at this path because
+ * the blog pages import it from here.
  *
- * SeoJsonLd next door builds its graph from a page's SEO row, which is the right
- * answer for a fixed page and cannot describe an article — a BlogPosting needs
- * the headline, the date and the author of the row being rendered.
- *
- * `<` is escaped exactly as SeoJsonLd does it: a title an admin typed is data,
- * and data that can close a script tag is an injection.
+ * It used to be a second copy of the same six lines. Two implementations of
+ * "escape this and put it in a script tag" is one of them being fixed when the
+ * escaping rule changes.
  */
-export default function JsonLd({ data }) {
-  if (!data) return null;
-
-  const json = JSON.stringify(data).replace(/</g, '\\u003c');
-
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />;
-}
+export { default } from '../../../_components/JsonLd';

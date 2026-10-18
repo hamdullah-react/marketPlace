@@ -81,6 +81,94 @@ function keywords(fd, k) {
   return keywordList(value).map((w) => w.slice(0, 80)).slice(0, 25);
 }
 
+/**
+ * Opening hours as the Organization graph wants them.
+ *
+ * [{ days: [1..7], opens: "09:00", closes: "21:00" }] — ISO weekdays, Monday
+ * is 1. Anything malformed is DROPPED rather than corrected: a row with no
+ * days, or a closing time typed as "9pm", describes hours this business does
+ * not keep, and publishing wrong hours is worse than publishing none.
+ */
+function parseOpeningHours(raw) {
+  let sent = [];
+  try {
+    sent = JSON.parse(typeof raw === 'string' ? raw : '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(sent)) return [];
+
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  return sent
+    .map((r) => ({
+      days: Array.isArray(r?.days)
+        ? [...new Set(r.days.map(Number).filter((d) => Number.isInteger(d) && d >= 1 && d <= 7))].sort()
+        : [],
+      opens: String(r?.opens ?? '').trim(),
+      closes: String(r?.closes ?? '').trim(),
+    }))
+    .filter((r) => r.days.length && time.test(r.opens) && time.test(r.closes))
+    .slice(0, 7);
+}
+
+/** [{ type, phone, email, languages }] — a contactPoint per job. */
+function parseContactPoints(raw) {
+  let sent = [];
+  try {
+    sent = JSON.parse(typeof raw === 'string' ? raw : '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(sent)) return [];
+
+  return sent
+    .map((p) => ({
+      type: String(p?.type ?? '').trim().slice(0, 60),
+      phone: String(p?.phone ?? '').trim().slice(0, 40),
+      email: String(p?.email ?? '').trim().slice(0, 120),
+      languages: Array.isArray(p?.languages)
+        ? p.languages.map((l) => String(l).trim().slice(0, 8)).filter(Boolean).slice(0, 5)
+        : [],
+    }))
+    // A contact point with a label and no way to reach anybody is furniture.
+    .filter((p) => p.type && (p.phone || p.email))
+    .slice(0, 6);
+}
+
+/**
+ * The measurement ids, each checked against the SHAPE its vendor issues.
+ *
+ * The same patterns the reader applies (db/queries/site.js), enforced here as
+ * well so a bad id is refused at the form rather than silently dropped at
+ * render — an admin who pastes a GTM container into the GA4 box should be
+ * told, not left watching for data that will never arrive.
+ *
+ * Ids only, never a <script> — see §32. Nothing in this object is ever
+ * rendered as markup; the app builds each tag from the id itself.
+ */
+const ANALYTICS_IDS = {
+  ga4: /^G-[A-Z0-9]{4,20}$/i,
+  gtm: /^GTM-[A-Z0-9]{4,20}$/i,
+  meta_pixel: /^\d{8,20}$/,
+  tiktok_pixel: /^[A-Z0-9]{10,30}$/i,
+  snapchat_pixel: /^[A-Za-z0-9-]{10,60}$/,
+  clarity: /^[a-z0-9]{6,20}$/i,
+};
+
+function analyticsIds(sent) {
+  const out = {};
+  if (!sent || typeof sent !== 'object') return out;
+
+  for (const [key, pattern] of Object.entries(ANALYTICS_IDS)) {
+    const id = String(sent[key] ?? '').trim();
+    if (!id) continue;
+    if (!pattern.test(id)) throw new Invalid('INVALID_TRACKING_ID');
+    out[key] = id;
+  }
+  return out;
+}
+
 const dbFail = (error, fallback = 'SAVE_FAILED') =>
   bad(isMissingSchema(error) ? 'SITE_SETUP' : fallback, { detail: error.message });
 
@@ -193,6 +281,99 @@ export async function saveSiteSettings(prevState, formData) {
       }
       const theme = normalizeTheme(sent);
       row.theme = isDefaultTheme(theme) ? null : theme;
+    }
+
+    /* ── §32: the site's own SEO ─────────────────────────────────────────
+     *
+     * Same `has()` rule as everything above — the SEO tab posts these and no
+     * other tab does, so saving Contact cannot blank them.
+     *
+     * Every one is nullable and every empty value is stored as null rather
+     * than "", because null is what the readers treat as "fall back to what
+     * you did before" — an empty string is a title, and it is a blank one.
+     */
+    if (has('seoTitleAr') || has('seoTitleEn')) row.meta_title = bilingual(formData, 'seoTitle', 200);
+    if (has('seoDescriptionAr') || has('seoDescriptionEn')) {
+      row.meta_description = bilingual(formData, 'seoDescription', 400);
+    }
+    if (has('seoKeywordsAr') || has('seoKeywordsEn')) {
+      row.meta_keywords = { ar: keywords(formData, 'seoKeywordsAr'), en: keywords(formData, 'seoKeywordsEn') };
+    }
+    if (has('titleTemplateAr') || has('titleTemplateEn')) {
+      const tpl = bilingual(formData, 'titleTemplate', 100);
+      /* %s is where the page's own title goes. A template without it would
+         give every page on the site the SAME <title>, which is the single
+         worst thing a title field can do — so it is refused rather than
+         saved and discovered in Search Console three weeks later. */
+      for (const value of Object.values(tpl)) {
+        if (value && !value.includes('%s')) return bad('TITLE_TEMPLATE_NEEDS_S');
+      }
+      row.title_template = tpl;
+    }
+    if (has('siteOgType')) {
+      const value = str(formData, 'siteOgType');
+      row.og_type = OG_TYPES.includes(value) ? value : 'website';
+    }
+    if (has('siteTwitterCard')) {
+      const value = str(formData, 'siteTwitterCard');
+      row.twitter_card = TWITTER_CARDS.includes(value) ? value : 'summary_large_image';
+    }
+    if (has('siteSeoIndex')) row.seo_index = flag(formData, 'siteSeoIndex');
+    if (has('robotsExtra')) {
+      /* One path per line. Normalised here rather than at render time: a
+         robots.txt is generated from this verbatim, and a stray "Disallow:"
+         prefix typed by somebody copying from a guide would produce
+         "Disallow: Disallow: /x" — a line that silently matches nothing. */
+      const lines = str(formData, 'robotsExtra')
+        .split(/\r?\n/)
+        .map((l) => l.trim().replace(/^disallow:\s*/i, ''))
+        .filter(Boolean)
+        .slice(0, 50);
+      row.robots_extra = lines.length ? lines.join('\n') : null;
+    }
+
+    /* ── The business behind the site ─────────────────────────────────── */
+    if (has('legalNameAr') || has('legalNameEn')) row.legal_name = bilingual(formData, 'legalName', 200);
+    if (has('crNumber')) row.cr_number = str(formData, 'crNumber').slice(0, 40) || null;
+    if (has('vatNumber')) row.vat_number = str(formData, 'vatNumber').slice(0, 40) || null;
+    if (has('foundedYear')) {
+      const year = Number(str(formData, 'foundedYear'));
+      if (str(formData, 'foundedYear') && (!Number.isInteger(year) || year < 1900 || year > 2100)) {
+        return bad('INVALID_YEAR');
+      }
+      row.founded_year = str(formData, 'foundedYear') ? year : null;
+    }
+    if (has('priceRange')) row.price_range = str(formData, 'priceRange').slice(0, 20) || null;
+    if (has('geoLat') || has('geoLng')) {
+      const lat = Number(str(formData, 'geoLat'));
+      const lng = Number(str(formData, 'geoLng'));
+      const given = str(formData, 'geoLat') && str(formData, 'geoLng');
+      if (given && (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)) {
+        return bad('INVALID_COORDINATES');
+      }
+      row.geo = given ? { lat, lng } : null;
+    }
+    if (has('openingHours')) row.opening_hours = parseOpeningHours(formData.get('openingHours'));
+    if (has('contactPoints')) row.contact_points = parseContactPoints(formData.get('contactPoints'));
+
+    /* ── The remaining verification services ──────────────────────────── */
+    for (const [field, column] of Object.entries({
+      yandexSiteVerification: 'yandex_site_verification',
+      pinterestSiteVerification: 'pinterest_site_verification',
+      facebookDomainVerification: 'facebook_domain_verification',
+    })) {
+      if (has(field)) row[column] = str(formData, field).slice(0, 200) || null;
+    }
+
+    /* ── Measurement ──────────────────────────────────────────────────── */
+    if (has('analytics')) {
+      let sent = {};
+      try {
+        sent = JSON.parse(str(formData, 'analytics') || '{}');
+      } catch {
+        return bad('SAVE_FAILED');
+      }
+      row.analytics = analyticsIds(sent);
     }
   } catch (err) {
     if (err instanceof Invalid) return bad(err.code);
@@ -456,6 +637,29 @@ export async function savePageSeo(prevState, formData) {
       seo_changefreq: CHANGEFREQ.includes(changefreq) ? changefreq : page.changefreq,
       seo_priority: Math.round(priority * 10) / 10,
       structured_data: structured,
+
+      /* §32: what the RESULT looks like once the page is listed. Each one is
+         left OUT when the switch is in its neutral position, because "no
+         directive" and "the default" are different instructions — emitting
+         max-image-preview on every page would quietly shrink the photo on
+         every car in the results. */
+      robots_directives: (() => {
+        const out = {};
+        if (formData.has('noArchive') && flag(formData, 'noArchive')) out.archive = false;
+        if (formData.has('noSnippet') && flag(formData, 'noSnippet')) out.snippet = false;
+
+        const maxSnippet = str(formData, 'maxSnippet');
+        if (maxSnippet !== '') {
+          const n = Number(maxSnippet);
+          if (!Number.isInteger(n) || n < -1 || n > 10_000) throw new Invalid('SEO_SNIPPET_INVALID');
+          out.max_snippet = n;
+        }
+
+        const preview = str(formData, 'maxImagePreview');
+        if (['none', 'standard', 'large'].includes(preview)) out.max_image_preview = preview;
+
+        return out;
+      })(),
     };
   } catch (err) {
     if (err instanceof Invalid) return bad(err.code);
