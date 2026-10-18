@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { errorText } from "@/marketplace/lib/errors";
-import { ting, unlockAudio } from "../(seller)/_components/useLiveLeads";
+import { ting, unlockAudio } from "./notifySound";
 import { subscribeToPush, unsubscribeFromPush, sendTestPush } from "../_actions/notifications";
 
 /** base64url → Uint8Array, which is the only shape applicationServerKey takes. */

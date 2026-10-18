@@ -303,6 +303,22 @@ export default function ListingCard({
        already has the image, so it costs no request, and a car photo on
        another host needs no CORS for it to work.
 
+       ── Pointer devices only ──────────────────────────────────────────
+       Both layers are gated behind @media (hover: hover). The effect is
+       reachable ONLY by hovering, so on a touch screen it is two images that
+       can never be seen — and they were still being fetched: 24 of them on a
+       12-card grid, competing with the LCP photo for connections and for
+       optimiser CPU on exactly the devices the mobile score is measured on.
+
+       `hidden` + display:block under the query, not opacity: a lazy image
+       that is display:none never intersects the viewport, so the browser
+       never requests it. Hiding it any other way still downloads it.
+
+       The note below used to say this costs no request because the browser
+       already had the photo. That stopped being true when these were given
+       width={96}: a 96px rendition is a DIFFERENT /_next/image URL from the
+       card's own, so each layer became a request of its own.
+
        Two layers, both opacity-0 at rest:
          glow  OUTSIDE the card, behind it, so the colour spills around the
                edge. It needs this wrapper because the card is overflow-hidden.
@@ -320,7 +336,7 @@ export default function ListingCard({
           aria-hidden="true"
           width={96}
           height={72}
-          className="pointer-events-none absolute inset-x-4 top-10 bottom-6 h-[calc(100%-4rem)] w-[calc(100%-2rem)] scale-90 object-cover opacity-0 blur-2xl saturate-150 transition-all duration-500 group-hover/ambient:scale-105 group-hover/ambient:opacity-70 motion-reduce:transition-none"
+          className="pointer-events-none absolute inset-x-4 top-10 bottom-6 hidden h-[calc(100%-4rem)] w-[calc(100%-2rem)] scale-90 object-cover opacity-0 blur-2xl saturate-150 transition-all duration-500 group-hover/ambient:scale-105 group-hover/ambient:opacity-70 motion-reduce:transition-none [@media(hover:hover)]:block"
         />
       ) : null}
 
@@ -336,7 +352,7 @@ export default function ListingCard({
           aria-hidden="true"
           width={96}
           height={72}
-          className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-150 object-cover opacity-0 blur-3xl saturate-150 transition-opacity duration-500 group-hover:opacity-35 dark:group-hover:opacity-45 motion-reduce:transition-none"
+          className="pointer-events-none absolute inset-0 z-0 hidden h-full w-full scale-150 object-cover opacity-0 blur-3xl saturate-150 transition-opacity duration-500 group-hover:opacity-35 dark:group-hover:opacity-45 motion-reduce:transition-none [@media(hover:hover)]:block"
         />
       ) : null}
 

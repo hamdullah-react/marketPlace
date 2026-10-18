@@ -28,7 +28,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getMarketplaceAuthClient } from "@/marketplace/auth/browser";
 import { useOnChange } from "@/hooks/use-on-change";
-import { ting, unlockAudio } from "../../(seller)/_components/useLiveLeads";
+import { ting, unlockAudio } from "../../_components/notifySound";
 
 /**
  * @param onRevoked  called once this person is no longer an admin — their role

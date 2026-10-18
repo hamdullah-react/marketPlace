@@ -38,7 +38,7 @@ import { notificationText, timeAgo } from "@/marketplace/lib/notifications";
 import { markAllNotificationsRead } from "../_actions/notifications";
 import PushToggle from "./PushToggle";
 import PushPrompt from "./PushPrompt";
-import { ting, unlockAudio } from "../(seller)/_components/useLiveLeads";
+import { ting, unlockAudio } from "./notifySound";
 
 const INITIAL = { ok: false, error: null };
 
