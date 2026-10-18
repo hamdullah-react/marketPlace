@@ -172,7 +172,7 @@ function HomeLayout({ skeleton = false, locale, isAr, t, siteName }) {
           The content sits above the carousel, so without this the invisible
           column would swallow every click meant for the arrows and the dots.
         */}
-        <div className="pointer-events-none relative z-20 mx-auto flex w-full max-w-[1600px] flex-1 flex-col justify-end px-3 pb-8 pt-6 sm:px-8 sm:pb-12 sm:pt-8 lg:px-20 xl:px-28">
+        <div className="pointer-events-none relative z-20 mx-auto flex w-full max-w-[1600px] flex-1 flex-col justify-end px-3 pb-14 pt-6 sm:px-8 sm:pb-12 sm:pt-8 lg:px-20 xl:px-28">
           {/* ── The page's heading ───────────────────────────────
               Present, singular, and not drawn.
 
@@ -214,7 +214,14 @@ function HomeLayout({ skeleton = false, locale, isAr, t, siteName }) {
                    white outlines on the photograph, which made them the one
                    set of buttons on the page lit by nothing. */
                 /* py-2 on a phone, not py-1.5: at a 14px root these were
-                   17.5px tall and WCAG 2.2 asks 24 of a touch target. */
+                   17.5px tall and WCAG 2.2 asks 24 of a touch target.
+
+                   The 28px they get is only worth having if nothing sits on
+                   top of it. The carousel's dots are absolutely positioned
+                   16px from the bottom of the hero and are 28px tall, so with
+                   pb-8 this row ran straight through them and the usable
+                   height fell back to 17.5px — the audit failure this comment
+                   above was meant to have fixed. pb-14 clears them. */
                 className="raised inline-flex min-h-[24px] items-center rounded-full px-3 py-2 text-xs font-bold sm:px-4 sm:text-sm"
               >
                 {t(link.ar, link.en)}

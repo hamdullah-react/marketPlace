@@ -193,7 +193,7 @@ export default function HeroCarousel({ data, locale = "ar" }) {
       {/* ── Dots ───────────────────────────────────────────────────────────
           Position AND control. A wide pill marks where you are, so the row
           reads at a glance without counting. */}
-      <div className="pointer-events-auto absolute inset-x-0 bottom-4 z-30 flex items-center justify-center gap-0.5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex items-center justify-center gap-0.5">
         {slides.map((slide, i) => (
           <button
             key={slide.id}
@@ -216,7 +216,7 @@ export default function HeroCarousel({ data, locale = "ar" }) {
              * h-7, not h-6: the root font-size is 14px, so 1.5rem renders 21px —
              * three short. Measured, after h-6 failed the audit for exactly that.
              */
-            className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 before:block before:h-1.5 before:rounded-full before:transition-all before:duration-300 ${
+            className={`pointer-events-auto relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 before:block before:h-1.5 before:rounded-full before:transition-all before:duration-300 ${
               i === current
                 ? "before:w-6 before:bg-brand-primary dark:before:bg-[var(--brand-on-dark)]"
                 : "before:w-1.5 before:bg-brand-primary/30 hover:before:bg-brand-primary/60 dark:before:bg-white/30"

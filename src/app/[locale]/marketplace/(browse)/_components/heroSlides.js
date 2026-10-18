@@ -42,6 +42,21 @@ import Img from '@/marketplace/ui/Img';
  * `image` for your own uploads and the markup does not change.
  */
 
+/**
+ * ── Why every URL carries ?w=1920&q=80&auto=format&fit=crop ────────────────
+ *
+ * A bare images.unsplash.com URL serves the ORIGINAL — 3.9MB and 6000px wide
+ * for the first slide. next/image then has to download and re-encode that on
+ * the way to a 750px AVIF, and on a cold cache it does not finish: the
+ * optimiser aborts with a TimeoutError and the route answers 500, which is a
+ * broken hero and a console error in every audit.
+ *
+ * imgix does the downscale at the edge for free, so asking for 1920 turns a
+ * 3.9MB fetch into ~370KB and the optimiser has something it can work with.
+ * These are also the LCP element, so the saving is on the one image that the
+ * score is actually measured against.
+ */
+
 export const HERO_SLIDES = {
   /** Milliseconds between advances. Null turns autoplay off entirely. */
   intervalMs: 6000,
@@ -57,7 +72,7 @@ export const HERO_SLIDES = {
         ar: 'تصفّح سياراتنا أو اعرض سيارتك للبيع بكل سهولة.',
         en: 'Explore our collection of cars or sell your vehicle with ease.',
       },
-      image: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b',
+      image: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=1920&q=80&auto=format&fit=crop',
       alt: { ar: 'سيارة دفع رباعي فاخرة', en: 'A luxury SUV' },
     },
     {
@@ -70,7 +85,7 @@ export const HERO_SLIDES = {
         ar: 'كل معرض يمر بالتحقق قبل أن ينشر إعلانه الأول.',
         en: 'Every showroom is verified before its first listing goes live.',
       },
-      image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7',
+      image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1920&q=80&auto=format&fit=crop',
       alt: { ar: 'صالة عرض سيارات', en: 'A car showroom floor' },
     },
     {
@@ -83,7 +98,7 @@ export const HERO_SLIDES = {
         ar: 'موديلات هذا العام بضمان الوكيل وتواصل مباشر مع البائع.',
         en: "This year's models, under warranty, with a direct line to the seller.",
       },
-      image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70',
+      image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1920&q=80&auto=format&fit=crop',
       alt: { ar: 'سيارة رياضية جديدة', en: 'A new sports car' },
     },
     {
@@ -96,7 +111,7 @@ export const HERO_SLIDES = {
         ar: 'تقرير فحص وسجل واضح قبل أن تدفع ريالاً واحداً.',
         en: 'An inspection report and a clear history before you pay a riyal.',
       },
-      image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d',
+      image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=1920&q=80&auto=format&fit=crop',
       alt: { ar: 'سيارة مستعملة معروضة للبيع', en: 'A used car offered for sale' },
     },
     {
@@ -109,7 +124,7 @@ export const HERO_SLIDES = {
         ar: 'أنشئ متجرك، أضف إعلاناتك، وتابع طلبات المشترين في مكان واحد.',
         en: 'Open your store, add listings, and track buyer requests in one place.',
       },
-      image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
+      image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=1920&q=80&auto=format&fit=crop',
       alt: { ar: 'سيدان رياضية', en: 'A sports sedan' },
     },
   ],
