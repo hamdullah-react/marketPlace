@@ -141,6 +141,29 @@ const nextConfig = {
 
   images: {
     formats: ['image/avif', 'image/webp'],
+
+    /* ── 31 days, not the 4-hour default ───────────────────────────────────
+     *
+     * The storage bucket answers every object with `Cache-Control: no-cache`.
+     * Per the image docs the optimised copy's max-age is "either the
+     * minimumCacheTTL or the upstream image Cache-Control header, whichever is
+     * larger" — so upstream is saying the smallest possible thing and this
+     * value is the only one that counts.
+     *
+     * At the 4-hour default the optimiser goes back to origin for a photo
+     * nobody has changed, re-downloads it and re-encodes it to AVIF, six times
+     * a day, per size, per format. That work lands inside the LCP: the request
+     * is same-origin so the browser is not waiting on a connection, it is
+     * waiting on us to produce the file. It is most of the 1,350 ms "resource
+     * load duration" the audit attributes to the LCP image.
+     *
+     * The docs warn to keep this LOW because there is no cache invalidation.
+     * That warning does not apply here: uploads are content-addressed
+     * (b540de2afd934200-suzuki-jimny-…-f46f9f.jpg), so replacing a photo
+     * produces a new URL rather than new bytes behind an old one. There is
+     * nothing to invalidate.
+     */
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       // Where the marketplace's own uploads live — whichever Supabase this
       // deployment points at. The one host this app cannot work without.
