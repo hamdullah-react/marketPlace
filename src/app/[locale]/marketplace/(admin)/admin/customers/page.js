@@ -135,7 +135,16 @@ async function UsersSection({ searchParams, locale }) {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {u.avatarUrl ? (
-                        <Img src={u.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-9 shrink-0 rounded-full object-cover" />
+                        <Img
+                          src={u.avatarUrl}
+                          alt=""
+                          width={72}
+                          height={72}
+                          referrerPolicy="no-referrer"
+                          /* An identity provider’s URL — see ViewerAvatar. */
+                          unoptimized
+                          className="size-9 shrink-0 rounded-full object-cover"
+                        />
                       ) : (
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-xs font-bold text-brand-primary">
                           {initialsOf(u.name || u.email)}

@@ -140,15 +140,23 @@ function initialsOf(name = "") {
 }
 
 /**
- * Which logos skip the image optimiser.
+ * Which logos skip the image optimiser: SVG, and nothing else.
  *
- * SVG, because next/image cannot optimise it. And any uploaded logo (an
- * absolute URL from Admin → Settings), because the optimiser has to fetch it
- * server-side: when that fetch fails (it returned 500 for the Supabase logo)
- * the header shows an empty box. The browser loads it directly instead, the way
- * listing photos already load. Only the built-in /public logo is optimised.
+ * It used to be SVG **and every uploaded logo**, because the optimiser had
+ * once answered 500 for one and an empty box in the header is worse than a
+ * fat PNG. That is no longer true — the bucket is in next.config's
+ * remotePatterns now — and the workaround had become the single most
+ * expensive thing on the page:
+ *
+ *   the uploaded logo is a 341 KB PNG, drawn at 150×43, three times per page,
+ *   one of them eager. Through the optimiser the same file is 2.9 KB of AVIF.
+ *
+ * Measured against production before this line changed, not assumed. If the
+ * optimiser ever does fail for a logo again, the answer is to find out why —
+ * an unallowlisted host, a file it cannot decode — rather than to serve
+ * every visitor a third of a megabyte.
  */
-const loadDirect = (src) => /\.svg($|\?)/i.test(src ?? "") || /^https?:\/\//i.test(src ?? "");
+const loadDirect = (src) => /\.svg($|\?)/i.test(src ?? "");
 
 export default function MarketplaceHeader({
   locale = "ar", viewer = null, offerCount = 0, savedCount = 0, brand = null, languages = null,
@@ -966,8 +974,25 @@ function ViewerAvatar({ size = "h-8 w-8", viewer, broken, onBroken }) {
       <Img
         src={viewer.avatarUrl}
         alt=""
+        width={96}
+        height={96}
         referrerPolicy="no-referrer"
         onError={onBroken}
+        /**
+         * UNOPTIMISED, and this one is not a preference.
+         *
+         * An avatar comes from whichever identity provider the person signed
+         * in with — lh3.googleusercontent.com today, another host tomorrow —
+         * and next/image THROWS for a hostname that is not in next.config's
+         * remotePatterns rather than falling back to the plain URL. Chasing
+         * that by allowlisting hosts means a crash for every provider nobody
+         * thought of, and each entry is a standing permission to fetch and
+         * serve anything from that host.
+         *
+         * There is nothing to gain either way: the provider already serves
+         * these at 96px (`=s96-c` on Google's), which is the size rendered.
+         */
+        unoptimized
         className={`${size} shrink-0 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700`}
       />
     );

@@ -193,7 +193,7 @@ export default function HeroCarousel({ data, locale = "ar" }) {
       {/* ── Dots ───────────────────────────────────────────────────────────
           Position AND control. A wide pill marks where you are, so the row
           reads at a glance without counting. */}
-      <div className="pointer-events-auto absolute inset-x-0 bottom-4 z-30 flex items-center justify-center gap-1.5">
+      <div className="pointer-events-auto absolute inset-x-0 bottom-4 z-30 flex items-center justify-center gap-0.5">
         {slides.map((slide, i) => (
           <button
             key={slide.id}
@@ -203,10 +203,23 @@ export default function HeroCarousel({ data, locale = "ar" }) {
               isAr ? `الشريحة ${i + 1} من ${slides.length}` : `Slide ${i + 1} of ${slides.length}`
             }
             aria-current={i === current ? "true" : undefined}
-            className={`h-1.5 rounded-full transition-all duration-300 ${
+            /**
+             * The DOT stays 6px; the TARGET is 24.
+             *
+             * WCAG 2.2 asks for 24×24 and these were 5.3×5.3 — the smallest
+             * controls on the site, at the bottom edge of a hero, which is
+             * exactly where a thumb lands. Making the dot itself bigger would
+             * turn a row of markers into a row of buttons, so the hit area is
+             * a transparent pseudo-element over it and the dot is drawn by
+             * `before` at its original size.
+             *
+             * h-7, not h-6: the root font-size is 14px, so 1.5rem renders 21px —
+             * three short. Measured, after h-6 failed the audit for exactly that.
+             */
+            className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 before:block before:h-1.5 before:rounded-full before:transition-all before:duration-300 ${
               i === current
-                ? "w-6 bg-brand-primary dark:bg-[var(--brand-on-dark)]"
-                : "w-1.5 bg-brand-primary/30 hover:bg-brand-primary/60 dark:bg-white/30"
+                ? "before:w-6 before:bg-brand-primary dark:before:bg-[var(--brand-on-dark)]"
+                : "before:w-1.5 before:bg-brand-primary/30 hover:before:bg-brand-primary/60 dark:before:bg-white/30"
             }`}
           />
         ))}

@@ -34,8 +34,24 @@ import { SITE_URL, BRAND_FALLBACK } from '@/marketplace/lib/sitePages';
  * --font-almarai, and exactly two components ask for `font-noto`. The other
  * three were pure download weight on every marketplace page.
  */
+/**
+ * BOTH subsets, because this site is both languages.
+ *
+ * `subsets` is what next/font preloads. With only `arabic` declared, the four
+ * Arabic files were preloaded and the four LATIN ones — which Next generates
+ * either way — were discovered only when the stylesheet parsed. Every English
+ * page therefore painted its text in the fallback first and swapped to Almarai
+ * a moment later, on a site where half the traffic is English.
+ *
+ * The Latin files are the smaller pair of the two, so this costs little and
+ * removes the swap from /en.
+ */
 const almarai = Almarai({
-  subsets: ['arabic'],
+  subsets: ['arabic', 'latin'],
+  /* 300 looks unused — `font-light` appears nowhere — but globals.css sets
+     `font-weight: 300` directly in two places, so it stays. 500 and 600 are
+     asked for 641 times between them and this family has neither; the browser
+     already snaps those to 400 and 700, and nothing here can change that. */
   weight: ['300', '400', '700', '800'],
   display: 'swap',
   variable: '--font-almarai',
@@ -66,15 +82,19 @@ export async function generateViewport() {
     width: 'device-width',
     initialScale: 1,
     /**
-     * maximumScale 1 is what lets form controls be smaller than 16px on a phone.
+     * NO maximumScale. It used to be 1, and the reasoning was real: iOS Safari
+     * zooms into any input whose text is under 16px the moment it is focused,
+     * and capping the scale stops it.
      *
-     * iOS Safari zooms into any input whose text is under 16px the moment it is
-     * focused, and stays zoomed. With the page scale capped it does not, and since
-     * iOS 10 a pinch still zooms anyway — Apple ignores the cap for gestures. Some
-     * Android browsers DO honour it for pinch; that is the trade for a phone layout
-     * whose search box matches the rest of the page instead of towering over it.
+     * It also stops a person with low vision pinching to read the page. Some
+     * Android browsers honour the cap for gestures even though iOS ignores it,
+     * so the cost falls exactly on the people who need zoom most — and axe
+     * reports it outright ("maximum-scale on <meta> tag disables zooming on
+     * mobile devices"), which is the accessibility failure it is.
+     *
+     * The iOS problem is solved properly in globals.css instead: form controls
+     * are 16px on small screens, so there is nothing for Safari to zoom into.
      */
-    maximumScale: 1,
     themeColor: normalizeHex(site?.theme?.primary, '#0B6B3A'),
   };
 }

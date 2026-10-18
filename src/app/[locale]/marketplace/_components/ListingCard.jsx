@@ -362,7 +362,10 @@ export default function ListingCard({
         href={href}
         prefetch={false}
         title={isEnglish ? "View details" : "عرض التفاصيل"}
-        className="raised absolute end-2 top-2.5 z-30 flex h-6 w-6 items-center justify-center rounded-full sm:end-3 sm:top-4 sm:h-7 sm:w-7 md:h-8 md:w-8"
+        /* h-7, not h-6. The root font-size is 14px (globals.css), so a
+           1.5rem control renders 21px — three under the 24px WCAG 2.2 asks
+           of a touch target, which is what put 24 of these on the audit. */
+        className="raised absolute end-2 top-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-full sm:end-3 sm:top-4 sm:h-7 sm:w-7 md:h-8 md:w-8"
       >
         <Arrow className="h-3 w-3 sm:h-3.5 sm:w-3.5 transition-transform duration-300 group-hover:scale-110 md:h-4 md:w-4" />
         <span className="sr-only">{isEnglish ? "View details" : "عرض التفاصيل"}</span>
@@ -438,7 +441,10 @@ export default function ListingCard({
 
             <h2
               title={listing.title}
-              className="truncate text-[9px] font-bold leading-snug tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-brand-primary dark:text-neutral-50 dark:group-hover:text-white sm:text-[12px] md:text-[13px]"
+              /* min-h, because the LINK inside is the touch target and a
+                 9px line of text is 14px tall. The heading keeps its size;
+                 the row it sits on is what grows, by ten pixels. */
+              className="flex min-h-[24px] items-center truncate text-[9px] font-bold leading-snug tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-brand-primary dark:text-neutral-50 dark:group-hover:text-white sm:text-[12px] md:text-[13px]"
             >
               <CardLink compact={compact} href={href}>
                 {listing.title}
@@ -552,7 +558,7 @@ export default function ListingCard({
         <div className="absolute end-2 top-0 z-20 flex flex-col gap-1 sm:end-3">
           <button
             onClick={toggleFavorite}
-            className="raised flex h-6 w-6 items-center justify-center rounded-full sm:h-8 sm:w-8 md:h-9 md:w-9"
+            className="raised flex h-7 w-7 items-center justify-center rounded-full sm:h-8 sm:w-8 md:h-9 md:w-9"
             aria-label={
               isFavorite
                 ? isEnglish ? "Remove from wishlist" : "إزالة من المفضلة"
@@ -622,7 +628,7 @@ export default function ListingCard({
                states the button is REPORTING, and `raised` is the resting look
                every other control wears. A ticked compare that looked like the
                heart beside it would say nothing. */
-            className={`relative flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-300 md:h-9 md:w-9 ${
+            className={`relative flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full transition-all duration-300 md:h-9 md:w-9 ${
               compareFull
                 ? "bg-red-50 shadow-sm ring-2 ring-red-400 dark:bg-red-950/40"
                 : inCompare

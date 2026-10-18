@@ -213,7 +213,9 @@ function HomeLayout({ skeleton = false, locale, isAr, t, siteName }) {
                 /* `raised`, like every other control in the chrome. These were
                    white outlines on the photograph, which made them the one
                    set of buttons on the page lit by nothing. */
-                className="raised rounded-full px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
+                /* py-2 on a phone, not py-1.5: at a 14px root these were
+                   17.5px tall and WCAG 2.2 asks 24 of a touch target. */
+                className="raised inline-flex min-h-[24px] items-center rounded-full px-3 py-2 text-xs font-bold sm:px-4 sm:text-sm"
               >
                 {t(link.ar, link.en)}
               </Link>

@@ -2341,3 +2341,24 @@ input[cmdk-input]:focus-visible {
     transparent
   );
 }
+
+/* ── Form controls are 16px on a phone ──────────────────────────────────────
+ *
+ * Replaces `maximumScale: 1` in the root layout, which used to stop iOS Safari
+ * zooming into a focused input — and stopped everybody ELSE pinching to zoom
+ * as well, which is an accessibility failure axe reports by name.
+ *
+ * Safari zooms when a focused control's text is under 16px, so the fix is to
+ * not be under 16px. Only on small screens: from sm up the page is not being
+ * read on a phone and the smaller control is the better-looking one.
+ *
+ * 16px exactly, not 1rem — a root font-size change would otherwise quietly
+ * bring the zoom back.
+ */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

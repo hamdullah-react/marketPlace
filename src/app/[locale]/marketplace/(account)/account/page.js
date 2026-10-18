@@ -89,6 +89,10 @@ export default async function AccountPage({ params }) {
           {viewer.avatarUrl ? (
             <Img
               src={viewer.avatarUrl}
+              width={128}
+              height={128}
+              /* An identity provider’s URL — see ViewerAvatar. */
+              unoptimized
               alt=""
               referrerPolicy="no-referrer"
               className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-gray-200 dark:ring-gray-700"

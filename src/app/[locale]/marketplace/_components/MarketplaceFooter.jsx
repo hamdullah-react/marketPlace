@@ -94,10 +94,11 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
   const [site, faqRows] = await Promise.all([getSiteSettings(), getSiteFaqs()]);
   const siteName = isAr ? site.name.ar : site.name.en;
   const tagline = isAr ? site.tagline.ar : site.tagline.en;
-  // SVG and uploaded (absolute URL) logos load directly, not via the optimiser,
-  // which returns 500 when it cannot fetch the upload in time. See loadDirect in
-  // MarketplaceHeader.
-  const directLogo = /\.svg($|\?)/i.test(site.logoUrl) || /^https?:\/\//i.test(site.logoUrl);
+  // SVG only. The "uploaded logos too" half of this rule was a workaround for
+  // an optimiser failure that no longer happens, and it was costing every
+  // visitor a 341 KB PNG where 2.9 KB of AVIF does — see loadDirect in
+  // MarketplaceHeader for the measurement.
+  const directLogo = /\.svg($|\?)/i.test(site.logoUrl);
 
   // Admin → Settings → Contact & links: the same list a showroom keeps. The
   // built-in links are only used until that column exists.
@@ -297,7 +298,11 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
 
       {/* ── Legal bar ─────────────────────────────────────────────────── */}
       <div className="border-t border-brand-primary/10 bg-brand-primary/[0.04] dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-2 px-4 py-4 text-[11px] text-gray-500 sm:gap-3 sm:py-5 sm:text-xs dark:text-gray-400 sm:flex-row sm:px-8 lg:px-20 xl:px-28">
+        {/* gray-600, not gray-500. At 11px on the footer's pale green band
+            (#e1efe7) gray-500 measures 4.07:1 — under the 4.5:1 that text this
+            size needs — which is the one contrast failure on the page. The
+            darker step reads the same and passes. */}
+        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-2 px-4 py-4 text-[11px] text-gray-600 sm:gap-3 sm:py-5 sm:text-xs dark:text-gray-400 sm:flex-row sm:px-8 lg:px-20 xl:px-28">
           <p>
             © {year} {siteName}. {t("جميع الحقوق محفوظة.", "All rights reserved.")}
           </p>
