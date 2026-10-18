@@ -1,7 +1,7 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { PUBLIC_STATES } from '@/marketplace/lib/listing';
-import { getAllPageSeo, getSiteLanguages } from '@/marketplace/db/queries/site';
+import { getAllPageSeo, getSiteLanguages, getSiteSettings } from '@/marketplace/db/queries/site';
 import { listBlogSlugs } from '@/marketplace/db/queries/blog';
 import { SEO_PAGES, SITE_TAGS, SITE_URL, pagePath } from '@/marketplace/lib/sitePages';
 import { getBrandsIndex } from '@/marketplace/db/queries/cars';
@@ -25,7 +25,19 @@ export default async function sitemap() {
   cacheTag(SITE_TAGS.seo);
   cacheTag(SITE_TAGS.languages);
 
-  const [rows, langs] = await Promise.all([getAllPageSeo(), getSiteLanguages()]);
+  const [rows, langs, site] = await Promise.all([
+    getAllPageSeo(),
+    getSiteLanguages(),
+    getSiteSettings().catch(() => null),
+  ]);
+
+  /* ── The site-wide switch, honoured here too ──────────────────────────────
+     robots.txt already serves a flat refusal when Settings → SEO defaults
+     turns visibility off (§32). A sitemap that went on listing every URL
+     beside it would be the two files contradicting each other — and the
+     sitemap is the one a search console reads as a SUBMISSION, so it is the
+     half that gets reported as an error rather than quietly obeyed. */
+  if (site?.seo?.index === false) return [];
   const byKey = new Map(rows.map((r) => [r.page_key, r]));
   const alternatesFor = (build) => ({
     languages: Object.fromEntries(langs.enabled.map((code) => [code, `${SITE_URL}${build(code)}`])),
@@ -65,7 +77,7 @@ export default async function sitemap() {
   for (let from = 0; from < MAX; from += PAGE) {
     const { data, error } = await getMarketplaceDb()
       .from('listings')
-      .select('slug, updated_at, seo_index, seo_changefreq, seo_priority')
+      .select('slug, updated_at, seo_index, seo_changefreq, seo_priority, media')
       /* Sold cars included, and that is the point of keeping their page: the URL
          holds its inbound links and its ranking, so dropping it from the sitemap
          the day it sells throws away the thing the page was kept for. */
@@ -78,17 +90,39 @@ export default async function sitemap() {
     if ((data?.length ?? 0) < PAGE) break;
   }
 
+  /**
+   * The photos go in as well — the one asset a CAR marketplace has that a
+   * text site does not.
+   *
+   * A sitemap image entry gets a picture indexed that a crawl of the page
+   * might not reach, and image search is a real doorway to a listing: people
+   * look for what a car looks like in a colour long before they search its
+   * price. Next emits these as the sitemap-image extension.
+   *
+   * Five per car. Past that the returns fall away sharply and the file grows
+   * by a line per photo per language, and the order is the listing's own, so
+   * the primary photo leads.
+   */
+  const photosOf = (l) =>
+    (Array.isArray(l.media) ? l.media : [])
+      .map((m) => m?.url)
+      .filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u))
+      .slice(0, 5);
+
   const cars = listings
     .filter((l) => l.slug && l.seo_index !== false)
-    .flatMap((l) =>
-      langs.enabled.map((code) => ({
+    .flatMap((l) => {
+      const images = photosOf(l);
+
+      return langs.enabled.map((code) => ({
         url: `${SITE_URL}/${code}/marketplace/listing/${l.slug}`,
         lastModified: l.updated_at ? new Date(l.updated_at) : undefined,
         changeFrequency: l.seo_changefreq ?? 'weekly',
         priority: Number(l.seo_priority ?? 0.5),
         alternates: alternatesFor((c) => `/${c}/marketplace/listing/${l.slug}`),
-      }))
-    );
+        ...(images.length ? { images } : {}),
+      }));
+    });
 
   /* ── The showrooms ───────────────────────────────────────────────────────
      A storefront is a landing page in its own right — "معارض سيارات في جدة"
