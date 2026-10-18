@@ -90,6 +90,29 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '24mb',
     },
+
+    // ── The React Compiler's Rust port, instead of the Babel transform ──
+    //
+    // reactCompiler below says WHETHER the compiler runs; this says WHICH
+    // implementation does it. The Babel path hands every file with JSX or a
+    // hook to babel-plugin-react-compiler over in Node; this runs the same
+    // compiler as native code inside Turbopack, with no Node round trip.
+    //
+    // It is a build-time change and nothing else. The output is the same
+    // compiler's output, so no component memoises differently because of this
+    // line — if the build is green, the app is unchanged.
+    //
+    // Introduced in 16.3.0 and we are on 16.3.3, so it exists here; it would
+    // have thrown on the version this note was first written against. Still
+    // flagged experimental, and it is Turbopack-only — it THROWS under
+    // webpack rather than falling back. That is fine: Next 16 runs Turbopack
+    // by default for both `next dev` and `next build`, and neither script
+    // passes --webpack.
+    //
+    // babel-plugin-react-compiler is now redundant and stays in
+    // devDependencies on purpose: it is the only thing that would make a
+    // `--webpack` build work at all, and it costs nothing at runtime.
+    turbopackRustReactCompiler: true,
   },
 
   // ── React Compiler, ON ─────────────────────────────────────────────────
@@ -110,10 +133,10 @@ const nextConfig = {
   // those and they are now zero — that clean-up is what made this safe to turn
   // on, not the config line.
   //
-  // Runs through babel-plugin-react-compiler (a devDependency). Next only
-  // applies it to files with JSX or hooks, so the build cost is localised.
-  // experimental.turbopackRustReactCompiler would run the native Rust port
-  // instead and is faster, but it is experimental — worth revisiting.
+  // Next only applies it to files with JSX or hooks, so the build cost is
+  // localised. It no longer runs through babel-plugin-react-compiler:
+  // experimental.turbopackRustReactCompiler above now selects the native Rust
+  // port, which is what this note said was worth revisiting.
   reactCompiler: true,
 
   images: {
