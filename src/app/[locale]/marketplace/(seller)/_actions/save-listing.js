@@ -802,6 +802,25 @@ export async function saveListing(prevState, formData) {
     }
 
     revalidatePath('/[locale]/marketplace/cars', 'page');
+    /**
+     * The marketplace HOME page, which was missing.
+     *
+     * It renders the same ListingCard grid as /cars — featured cars, newest
+     * cars — off the same listings rows, and it is where most visitors land.
+     * Without this line a seller could change the cover photo, watch /cars and
+     * the car's own page update immediately, and still see the OLD photo on
+     * the front page for up to an hour, with nothing to explain the difference.
+     *
+     * Reported as "I changed the main image and it is not updating": the save
+     * was correct and the database was right, the front page simply had no
+     * reason to re-render.
+     */
+    revalidatePath('/[locale]/marketplace', 'page');
+    /**
+     * The showroom's own page, same reason: it lists that vendor's cars
+     * through getLiveListingCards, so a new cover photo belongs there too.
+     */
+    revalidatePath('/[locale]/marketplace/vendors/[slug]', 'page');
     revalidatePath('/[locale]/marketplace/seller/listings', 'page');
     // The edit form itself. Reopening a listing after saving it was showing
     // the pre-save row — variants included — until a hard refresh.
