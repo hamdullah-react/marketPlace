@@ -8,6 +8,7 @@
  * header is the vendor, its badge is live leads); this one is the platform.
  */
 
+import Img from '@/marketplace/ui/Img';
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLiveBoosts } from "./useLiveBoosts";
@@ -135,20 +136,18 @@ export default function AdminShell({
             <SidebarMenuItem>
               <SidebarMenuButton asChild size="lg" className="data-[slot=sidebar-menu-button]:!p-1.5">
                 <Link href={`/${locale}/marketplace/admin`}>
-                  {/* The logo from Admin → Settings → Branding. A plain <img>,
+                  {/* The logo from Admin → Settings → Branding. Through the Img wrapper (next/image),
                       not next/image: a sidebar chip gains nothing from the
                       optimiser, and a logo must not depend on it to appear. */}
                   {brand?.logoUrl ? (
                     <div className="raised flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg p-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Img
                         src={brand.logoUrl}
                         alt={brand?.name || ""}
                         className={`h-full w-full object-contain ${brand.logoDarkUrl ? "dark:hidden" : ""}`}
                       />
                       {brand.logoDarkUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={brand.logoDarkUrl} alt="" className="hidden h-full w-full object-contain dark:block" />
+                        <Img src={brand.logoDarkUrl} alt="" className="hidden h-full w-full object-contain dark:block" />
                       ) : null}
                     </div>
                   ) : (
@@ -394,8 +393,7 @@ function Avatar({ url }) {
     );
   }
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img src={url} alt="" referrerPolicy="no-referrer" className="aspect-square size-8 shrink-0 rounded-lg object-cover" />
+    <Img src={url} alt="" referrerPolicy="no-referrer" className="aspect-square size-8 shrink-0 rounded-lg object-cover" />
   );
 }
 

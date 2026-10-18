@@ -18,6 +18,7 @@
  *     double-pads everything and the table stops reaching the card edge.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { Suspense, use, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -246,8 +247,7 @@ function ShopHeader({ vendorPromise, locale, t }) {
     <SidebarMenuButton asChild size="lg" className="data-[slot=sidebar-menu-button]:!p-1.5">
       <Link href={`/${locale}/marketplace/seller`}>
         {vendor.logoUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
+          <Img
             src={vendor.logoUrl}
             alt=""
             className="aspect-square size-8 shrink-0 rounded-lg border bg-white object-contain p-0.5"
@@ -619,8 +619,7 @@ function VendorAvatar({ url }) {
   }
 
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
+    <Img
       src={url}
       alt=""
       referrerPolicy="no-referrer"

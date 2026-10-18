@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import { setRequestLocale } from 'next-intl/server';
 import {
@@ -114,8 +115,7 @@ export default async function AboutPage({ params }) {
 
         <div className="relative mx-auto flex max-w-[1100px] flex-col items-center px-4 pb-24 pt-14 text-center sm:px-8 sm:pb-28 sm:pt-20">
           <div className="raised-card rounded-2xl px-6 py-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={site.logoUrl} alt={siteName} className="h-11 w-auto max-w-[220px] object-contain sm:h-14" />
+            <Img src={site.logoUrl} alt={siteName} className="h-11 w-auto max-w-[220px] object-contain sm:h-14" />
           </div>
 
           <p className="mt-7 text-xs font-bold uppercase tracking-[0.25em] text-brand-gold">

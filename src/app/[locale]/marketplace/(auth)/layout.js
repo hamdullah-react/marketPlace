@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import { setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
@@ -42,8 +43,7 @@ export default async function AuthLayout({ children, params }) {
         href={`/${locale}/marketplace`}
         className="auth-halo flex flex-col items-center gap-2 text-lg font-bold text-brand-primary transition-opacity hover:opacity-80"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={site.logoUrl} alt="" className="h-12 w-auto max-w-[200px] object-contain" />
+        <Img src={site.logoUrl} alt="" className="h-12 w-auto max-w-[200px] object-contain" />
         <span>{name}</span>
       </Link>
 

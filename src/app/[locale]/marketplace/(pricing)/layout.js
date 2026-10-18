@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import { setRequestLocale } from 'next-intl/server';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -69,10 +70,9 @@ export default async function PricingLayout({ children, params }) {
       <header className="flex items-center gap-3 px-4 py-4 lg:px-6">
         <Link href={`/${locale}/marketplace`} className="flex items-center gap-2">
           {logo ? (
-            /* A plain <img>: a 32px-tall brand mark gains nothing from the
+            /* Through the Img wrapper (next/image): a 32px-tall brand mark gains little from the
                optimiser, and a logo must not depend on it to appear. */
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={logo} alt={brand} className="h-8 w-auto" />
+            <Img src={logo} alt={brand} className="h-8 w-auto" />
           ) : (
             <span className="text-lg font-bold text-brand-primary">{brand}</span>
           )}

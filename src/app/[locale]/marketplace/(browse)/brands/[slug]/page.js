@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
@@ -208,8 +209,7 @@ export default async function BrandPage({ params, searchParams }) {
         <div className="mb-6 flex flex-col items-center gap-5 rounded-2xl bg-white p-6 shadow-lg dark:bg-[#1a1a1a] sm:flex-row sm:items-start sm:p-8">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-gray-50 to-white p-3 ring-1 ring-gray-100 dark:from-white/5 dark:to-transparent dark:ring-white/10">
             {brand.logoUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={brand.logoUrl} alt="" className="h-full w-full object-contain" loading="eager" />
+              <Img src={brand.logoUrl} alt="" className="h-full w-full object-contain" loading="eager" />
             ) : (
               <Car className="h-12 w-12 text-gray-300" />
             )}

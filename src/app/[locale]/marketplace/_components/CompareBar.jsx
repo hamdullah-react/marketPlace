@@ -21,6 +21,7 @@
  * is being compared.
  */
 
+import Image from 'next/image';
 import { useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -54,11 +55,14 @@ export default function CompareBar({ locale = "ar" }) {
               className="relative flex shrink-0 items-center gap-2 rounded-xl border bg-white p-1.5 pe-7 dark:border-white/10 dark:bg-white/5"
             >
               <div className="h-9 w-12 shrink-0 overflow-hidden rounded-lg bg-brand-light/40 dark:bg-white/5">
+                {/* A tray thumbnail, rendered at 48×36 CSS px. It was loading
+                    the showroom's full upload to fill it. */}
                 {car.image ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <Image
                     src={car.image}
                     alt=""
+                    width={96}
+                    height={72}
                     loading="lazy"
                     className="h-full w-full object-contain"
                   />

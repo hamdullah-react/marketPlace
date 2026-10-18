@@ -22,6 +22,7 @@
  * Send enquiry / Call seller — same shape, same weight, different job.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useOnChange } from "@/hooks/use-on-change";
@@ -66,8 +67,7 @@ function Amount({ value, currency, locale = "ar", size = 18, glyphFirst = true, 
   }
 
   const h = Math.round((size * 20) / 18);
-  // eslint-disable-next-line @next/next/no-img-element
-  const glyph = <img src="/icons/Currency.svg" alt="SAR" width={size} height={h} className="inline-block" />;
+  const glyph = <Img src="/icons/Currency.svg" alt="SAR" width={size} height={h} className="inline-block" />;
 
   return (
     <>
@@ -268,8 +268,7 @@ export default function ListingFold({
         {/* ── Frame ──────────────────────────────────────────────────────── */}
         <div className="raised-card relative aspect-16/10 w-full overflow-hidden rounded-2xl">
           {current ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
+            <Img
               /* Transformed, not the raw upload: these are 200-270KB camera
                  JPEGs and the frame is at most 1600px wide, so the originals
                  cost several megabytes across a 25-photo gallery for pixels no
@@ -374,8 +373,7 @@ export default function ListingFold({
                 >
                   {/* 160x128 — twice the 80x64 the strip renders at, so it is
                       sharp on a 2x screen and nothing larger is fetched. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Img
                     src={thumbUrl(p.url, THUMB.gallery)}
                     alt=""
                     width={160}
@@ -413,8 +411,7 @@ export default function ListingFold({
             </div>
             {listing.brand?.logo ? (
               <div className="shrink-0 ltr:ml-2 rtl:mr-2 sm:ltr:ml-3 sm:rtl:mr-3 lg:ltr:ml-4 lg:rtl:mr-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Img
                   src={listing.brand.logo}
                   alt={listing.brand.name}
                   width={50}
@@ -541,8 +538,7 @@ export default function ListingFold({
                     <>
                       {v.image ? (
                         <div className="mb-1 h-10 w-full overflow-hidden rounded-xl bg-white">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                          <Img
                             src={thumbUrl(v.image, THUMB.gallery)}
                             alt=""
                             className="h-full w-full object-contain"
@@ -757,8 +753,7 @@ export default function ListingFold({
             <X className="h-6 w-6" />
           </button>
 
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Img
             src={thumbUrl(current.url, THUMB.hero)}
             alt={current.alt || listing.title}
             className="max-h-full max-w-full object-contain"

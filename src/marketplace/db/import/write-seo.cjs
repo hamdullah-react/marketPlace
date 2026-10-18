@@ -1123,12 +1123,193 @@ async function scrubSourceBrand() {
     if (t.patch.meta_title) console.log(`     → ${t.patch.meta_title.en ?? t.patch.meta_title.ar}`);
   }
 
-  if (DRY || !touched.length) return;
-
-  for (const t of touched) {
-    await rest(`listings?id=eq.${t.id}`, { method: 'PATCH', body: t.patch, prefer: 'return=minimal' });
+  if (!DRY && touched.length) {
+    for (const t of touched) {
+      await rest(`listings?id=eq.${t.id}`, { method: 'PATCH', body: t.patch, prefer: 'return=minimal' });
+    }
+    console.log(`Written. ${touched.length} cars cleaned.`);
   }
-  console.log(`Written. ${touched.length} cars cleaned.`);
+
+  await photoAlts();
+}
+
+/**
+ * ── Alt text, which is the only thing image search can read ───────────────
+ *
+ * Every scraped photo arrived with the alt text it was written with on the
+ * site it came from:
+ *
+ *   "جيتور G700 2026 Thumbnail Image Photo - Alromaih Cars"
+ *
+ * Three things wrong with that, in rising order of cost:
+ *
+ *   · "Thumbnail Image Photo" describes the FILE, not the car. Alt text is
+ *     read aloud to somebody who cannot see the picture and indexed as the
+ *     description of it; "photo" is the one word it can safely assume.
+ *   · The Arabic and the English were the SAME string — the Arabic alt was
+ *     half English.
+ *   · It names the dealership the car was scraped from. On a photo that is
+ *     now in our own sitemap, which is to say: published to Google Images as
+ *     a picture belonging to somebody else's showroom.
+ *
+ * Rewritten from the car's own catalog row — make, model, trim, year, and
+ * whether the shot is inside or outside — so each photo says what it is, in
+ * each language, and no two cars share a description.
+ *
+ * `category` is already on every media item (the importer filed them into
+ * Exterior and Interior folders), so the inside/outside half costs nothing to
+ * know.
+ */
+async function photoAlts() {
+  const label = (value, lang) => value?.[lang] || value?.en || value?.ar || '';
+
+  const WORDS = {
+    ar: { exterior: 'من الخارج', interior: 'من الداخل', photo: 'صورة', of: 'للون' },
+    en: { exterior: 'exterior', interior: 'interior', photo: 'photo', of: 'in' },
+  };
+
+  /** "Jetour G700 Comfort 2026 — exterior photo 2" */
+  const altFor = (car, lang, category, n, colour) => {
+    const w = WORDS[lang];
+    const name = [
+      label(car.brand?.name, lang),
+      label(car.model?.name, lang),
+      label(car.trim?.name, lang),
+      car.year?.value,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    if (!name) return null;
+
+    const where = category === 'interior' ? w.interior : w.exterior;
+    const paint = colour ? ` ${w.of} ${label(colour, lang)}` : '';
+
+    return lang === 'ar'
+      ? `${w.photo} ${name}${paint} ${where}${n > 1 ? ` ${n}` : ''}`
+      : `${name}${paint} — ${where} ${w.photo}${n > 1 ? ` ${n}` : ''}`;
+  };
+
+  const select =
+    'id,slug,media,brand:car_brands(name),model:car_models(name),trim:car_trims(name),year:car_years(value)';
+  const cars = await rest(`listings?select=${select}&limit=5000`);
+
+  const listingPatches = [];
+  let photos = 0;
+
+  for (const car of cars) {
+    const media = Array.isArray(car.media) ? car.media : [];
+    if (!media.length) continue;
+
+    /* Numbered per category, so a car has "exterior photo", "exterior photo
+       2" rather than "photo 7" — a count that means something to a reader. */
+    const seen = { exterior: 0, interior: 0 };
+
+    const next = media.map((item) => {
+      const category = item?.category === 'interior' ? 'interior' : 'exterior';
+      seen[category] += 1;
+
+      const ar = altFor(car, 'ar', category, seen[category], null);
+      const en = altFor(car, 'en', category, seen[category], null);
+      if (!ar && !en) return item;
+
+      photos += 1;
+      return { ...item, alt: { ...(ar ? { ar } : {}), ...(en ? { en } : {}) } };
+    });
+
+    if (JSON.stringify(next) !== JSON.stringify(media)) {
+      listingPatches.push({ id: car.id, slug: car.slug, media: next });
+    }
+  }
+
+  /* The colour variants, which get the colour named in the alt — that IS the
+     difference between those photos and the ones above. */
+  const byListing = new Map(cars.map((c) => [c.id, c]));
+  const variants = await rest(
+    'listing_variants?select=id,listing_id,media,color:car_colors(name)&limit=5000'
+  );
+
+  const variantPatches = [];
+  let variantPhotos = 0;
+
+  for (const v of variants) {
+    const car = byListing.get(v.listing_id);
+    const media = Array.isArray(v.media) ? v.media : [];
+    if (!car || !media.length) continue;
+
+    const seen = { exterior: 0, interior: 0 };
+
+    const next = media.map((item) => {
+      const category = item?.category === 'interior' ? 'interior' : 'exterior';
+      seen[category] += 1;
+
+      const ar = altFor(car, 'ar', category, seen[category], v.color?.name);
+      const en = altFor(car, 'en', category, seen[category], v.color?.name);
+      if (!ar && !en) return item;
+
+      variantPhotos += 1;
+      return { ...item, alt: { ...(ar ? { ar } : {}), ...(en ? { en } : {}) } };
+    });
+
+    if (JSON.stringify(next) !== JSON.stringify(media)) variantPatches.push({ id: v.id, media: next });
+  }
+
+  console.log(
+    `\nPhoto alt text: ${photos} listing photo(s) across ${listingPatches.length} car(s), ` +
+      `${variantPhotos} colour photo(s) across ${variantPatches.length} variant(s)`
+  );
+  const sample = listingPatches[0]?.media?.[0]?.alt;
+  if (sample) console.log(`   e.g. ${sample.en}\n        ${sample.ar}`);
+
+  if (DRY) return;
+
+  for (const p of listingPatches) {
+    await rest(`listings?id=eq.${p.id}`, { method: 'PATCH', body: { media: p.media }, prefer: 'return=minimal' });
+  }
+  for (const p of variantPatches) {
+    await rest(`listing_variants?id=eq.${p.id}`, { method: 'PATCH', body: { media: p.media }, prefer: 'return=minimal' });
+  }
+  console.log('Written.');
+
+  await libraryAlts();
+}
+
+/**
+ * The same photos as they appear in the seller's MEDIA LIBRARY.
+ *
+ * media_assets is a separate row per file (§6) and carries its own alt — the
+ * one a seller sees when they pick a picture, and the one that travels if they
+ * attach it to another listing. It was scraped too, so it names the same
+ * dealership 343 times.
+ *
+ * Matched by storage path rather than by listing: a library row knows which
+ * file it is, and the listing media above has just been given a correct
+ * description of that exact file.
+ */
+async function libraryAlts() {
+  const cars = await rest('listings?select=media&limit=5000');
+
+  const byPath = new Map();
+  for (const car of cars) {
+    for (const item of Array.isArray(car.media) ? car.media : []) {
+      if (item?.path && item?.alt) byPath.set(item.path, item.alt);
+    }
+  }
+
+  const assets = await rest('media_assets?select=id,storage_path,alt&limit=5000');
+  const patches = assets
+    .filter((a) => byPath.has(a.storage_path))
+    .map((a) => ({ id: a.id, alt: byPath.get(a.storage_path) }))
+    .filter((p) => JSON.stringify(p.alt) !== JSON.stringify(assets.find((a) => a.id === p.id)?.alt));
+
+  console.log(`Media library: ${patches.length} of ${assets.length} file(s) re-described`);
+
+  if (DRY || !patches.length) return;
+
+  for (const p of patches) {
+    await rest(`media_assets?id=eq.${p.id}`, { method: 'PATCH', body: { alt: p.alt }, prefer: 'return=minimal' });
+  }
+  console.log('Written.');
 }
 
 main().catch((e) => {

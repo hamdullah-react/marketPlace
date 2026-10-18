@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 /**
  * The hero carousel's slides.
  *
@@ -35,7 +36,7 @@
  * ── The images ──────────────────────────────────────────────────────────────
  *
  * Remote placeholder photography, plainly temporary. Rendered with a plain
- * <img> rather than next/image on purpose: next/image would need each host
+ * Plain URLs rather than next/image imports on purpose: next/image would need each host
  * added to `remotePatterns` in next.config.mjs, and adding a host for
  * throwaway art is a config change somebody has to remember to undo. Swap
  * `image` for your own uploads and the markup does not change.

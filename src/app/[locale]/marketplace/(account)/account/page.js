@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
@@ -86,8 +87,7 @@ export default async function AccountPage({ params }) {
       <div className="raised-card rounded-2xl p-5 sm:p-6">
         <div className="flex items-center gap-4">
           {viewer.avatarUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
+            <Img
               src={viewer.avatarUrl}
               alt=""
               referrerPolicy="no-referrer"
@@ -299,10 +299,9 @@ async function Overview({ viewer, locale, t, isAr }) {
                 >
                   <span className="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-white/10">
                     {car.image ? (
-                      /* A plain <img>: marketplace media is on its own Supabase
+                      /* Through the Img wrapper (next/image): marketplace media is on its own Supabase
                          host, which is not in next.config's remotePatterns. */
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={car.image} alt={car.imageAlt || ''} loading="lazy" className="h-full w-full object-contain" />
+                      <Img src={car.image} alt={car.imageAlt || ''} loading="lazy" className="h-full w-full object-contain" />
                     ) : (
                       <Car className="h-6 w-6 text-gray-400" />
                     )}

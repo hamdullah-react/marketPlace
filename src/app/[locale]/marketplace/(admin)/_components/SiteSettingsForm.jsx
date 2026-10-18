@@ -18,6 +18,7 @@
  * never discards a translation that was already written.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -182,8 +183,7 @@ export default function SiteSettingsForm({ locale = "ar", row = null, languages 
             {/* What the header will look like. */}
             <div className="flex flex-wrap items-center gap-4 rounded-lg bg-linear-to-b from-[var(--surface-header-from)] to-[var(--surface-header-to)] px-4 py-3 dark:from-[var(--surface-dark-from)] dark:to-[var(--surface-dark-to)]">
               {logo ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={logo} alt="" className="h-10 w-auto max-w-[180px] object-contain" />
+                <Img src={logo} alt="" className="h-10 w-auto max-w-[180px] object-contain" />
               ) : (
                 <span className="text-xs text-muted-foreground">{t("الشعار الافتراضي", "Default logo")}</span>
               )}

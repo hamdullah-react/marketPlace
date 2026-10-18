@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
@@ -223,16 +224,27 @@ async function Grid({ searchParams, locale, t }) {
                 keeps the same footprint, so rows never change height. */}
             <div className="relative h-16 bg-linear-to-br sm:h-24 from-brand-primary/10 to-brand-light/30 dark:from-[#1c1420] dark:to-[#221a26]">
               {v.banner_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={v.banner_url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                <Image
+                  src={v.banner_url}
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                />
               ) : null}
             </div>
 
             <div className="p-2.5 sm:p-4">
               <div className="-mt-7 mb-1.5 flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border-2 sm:-mt-10 sm:mb-2 sm:h-14 sm:w-14 sm:rounded-xl border-white bg-white shadow-xs dark:border-[#161616] dark:bg-[#252525]">
                 {v.logo_url ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={v.logo_url} alt="" loading="lazy" className="h-full w-full object-contain" />
+                  <Image
+                    src={v.logo_url}
+                    alt=""
+                    width={96}
+                    height={96}
+                    unoptimized={/\.svg(\?|#|$)/i.test(v.logo_url)}
+                    className="h-full w-full object-contain"
+                  />
                 ) : (
                   <Store className="h-4 w-4 text-brand-primary sm:h-6 sm:w-6" />
                 )}

@@ -22,6 +22,7 @@
  * component and are already focusable.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
@@ -118,7 +119,7 @@ export default function HeroCarousel({ data, locale = "ar" }) {
                   next.config's remotePatterns — see the note there, it is meant
                   to come out with the placeholder art.
 
-                  ── What it buys over a bare <img> ─────────────────────────
+                  ── What it buys over a bare <Img> ─────────────────────────
 
                   AVIF and WebP, generated per width, from one source file. On a
                   photograph this wide that is usually the difference between

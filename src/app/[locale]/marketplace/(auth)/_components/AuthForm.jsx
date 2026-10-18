@@ -14,6 +14,7 @@
  * its locale strings and its submit button, kept in step by hand.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertCircle, MailCheck, Eye, EyeOff, Store } from "lucide-react";
@@ -84,7 +85,7 @@ const MESSAGES = {
  *
  * Four paths in its own brand colours, because that is what Google's branding
  * terms require and because a monochrome stand-in reads as a disabled button.
- * Inline rather than a file: an <img> here is a second request for under a
+ * Inline rather than a file: an image file here would be a second request for under a
  * kilobyte.
  */
 function GoogleMark() {

@@ -16,11 +16,12 @@
  * ── The screenshot is fetched through a signed link ─────────────────────────
  *
  * Receipts are in a private bucket, so there is no permanent src to put in an
- * <img>. The route mints an hour-long signature at click time and checks who is
+ * an image tag. The route mints an hour-long signature at click time and checks who is
  * asking — see /api/marketplace/payments/[id]/view. Opened in a new tab rather
  * than inlined, so a bank statement is never sitting on screen behind somebody.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import {

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
@@ -460,11 +461,14 @@ async function VendorGrid({ locale, t }) {
             {/* The logo when there is one, the initial when there is not —
                 rather than an empty circle, which reads as a failed image. */}
             {v.logo ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              /* A 32–48px avatar. unoptimized for SVG, which the optimiser
+                 refuses and which has nothing to resize. */
+              <Image
                 src={v.logo}
                 alt=""
-                loading="lazy"
+                width={96}
+                height={96}
+                unoptimized={/.svg(?|#|$)/i.test(v.logo)}
                 className="h-8 w-8 shrink-0 rounded-full border sm:h-12 sm:w-12 border-neutral-200 object-cover dark:border-neutral-700"
               />
             ) : (
@@ -543,11 +547,13 @@ async function SellCtaCar({ locale }) {
   if (!car) return null;
 
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
+    /* A full-width panel on a phone, about half that on a desktop. */
+    <Image
       src={car.image}
       alt={car.imageAlt || car.title}
-      loading="lazy"
+      width={640}
+      height={480}
+      sizes="(max-width: 768px) 90vw, 420px"
       className="h-full w-full object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)]"
     />
   );

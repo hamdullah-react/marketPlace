@@ -7,6 +7,7 @@
  * (a cached read).
  */
 
+import Img from '@/marketplace/ui/Img';
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -219,7 +220,7 @@ export default async function MarketplaceFooter({ locale = "ar" }) {
 
                     These were <Image> tags pointing at flat black SVGs, with
                     `dark:invert` to make them white again — which is the whole
-                    reason they could not take the brand colour: an <img> is a
+                    reason they could not take the brand colour: an <Img> is a
                     picture, and nothing in CSS can recolour its pixels.
 
                     Using the same file as a MASK inverts the relationship. The

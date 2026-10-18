@@ -27,6 +27,7 @@
  * event, or opening the promotions would open the car.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { forwardRef } from "react";
 import { Star, Tag, Percent, Sparkles, CircleDot } from "lucide-react";
 import {
@@ -73,8 +74,7 @@ const Mark = forwardRef(function Mark({ entry, size = "card", ...rest }, ref) {
       role="img"
     >
       {entry.iconUrl ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={entry.iconUrl} alt="" className={`${glyph} object-contain`} loading="lazy" />
+        <Img src={entry.iconUrl} alt="" className={`${glyph} object-contain`} loading="lazy" />
       ) : (
         <Icon className={glyph} aria-hidden="true" />
       )}

@@ -32,6 +32,8 @@
  * and the address bar is always the link to share.
  */
 
+import Img from '@/marketplace/ui/Img';
+import Image from 'next/image';
 import SpecIcon from "@/marketplace/ui/SpecIcon";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
@@ -495,8 +497,7 @@ export default function CompareTable({
             {cars.length === 2 && index === 0 ? (
               <div className="absolute -end-6 top-1/2 z-10 -translate-y-1/2">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-brand-primary bg-white shadow-lg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/icons/Vs.svg" alt="VS" width={24} height={24} />
+                  <Img src="/icons/Vs.svg" alt="VS" width={24} height={24} />
                 </div>
               </div>
             ) : null}
@@ -686,10 +687,13 @@ export default function CompareTable({
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl dark:bg-[#141414] md:p-6">
             <div className="flex flex-col items-center gap-4">
               {adding.image ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
+                /* The confirm dialog: a 96px-tall preview of the car being
+                   added, which was loading the full upload. */
+                <Image
                   src={adding.image}
                   alt=""
+                  width={384}
+                  height={288}
                   className="h-24 w-full rounded-xl object-contain"
                 />
               ) : (

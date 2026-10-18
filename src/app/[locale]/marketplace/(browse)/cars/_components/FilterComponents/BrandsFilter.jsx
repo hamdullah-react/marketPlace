@@ -12,6 +12,7 @@
  * a rail whose first section is forty rows long buries every section under it.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import { ChevronDown, Car } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -66,8 +67,7 @@ export default function BrandsFilter({
                       rows do not jump about as the images arrive. */}
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center">
                     {brand.logoUrl ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
+                      <Img
                         src={brand.logoUrl}
                         alt=""
                         className="max-h-8 max-w-8 object-contain"

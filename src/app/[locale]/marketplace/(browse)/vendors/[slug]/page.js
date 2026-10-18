@@ -1,5 +1,6 @@
-import Link from 'next/link';
+import Img from '@/marketplace/ui/Img';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
@@ -843,8 +844,16 @@ export default async function VendorPage({ params, searchParams }) {
       {/* ── Banner ──────────────────────────────────────────────────────── */}
       <div className="relative h-40 overflow-hidden rounded-b-2xl bg-linear-to-br from-brand-primary/15 to-brand-light/40 sm:h-56 dark:from-[#1c1420] dark:to-[#221a26]">
         {vendor.banner_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={vendor.banner_url} alt="" className="h-full w-full object-cover" />
+          <Image
+            src={vendor.banner_url}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover"
+            /* The banner is the first thing painted on a storefront, so it is
+               the LCP element there. */
+            priority
+          />
         ) : null}
 
         {/* `end-3`, not `right-3` — a logical inset flips itself in Arabic,
@@ -883,8 +892,14 @@ export default async function VendorPage({ params, searchParams }) {
         <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end">
           <div className="raised-card relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl sm:h-28 sm:w-28">
             {vendor.logo_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={vendor.logo_url} alt="" className="h-full w-full object-contain" />
+              <Image
+                src={vendor.logo_url}
+                alt=""
+                width={128}
+                height={128}
+                unoptimized={/\.svg(\?|#|$)/i.test(vendor.logo_url)}
+                className="h-full w-full object-contain"
+              />
             ) : (
               <Store className="h-10 w-10 text-brand-primary" />
             )}
@@ -1523,8 +1538,7 @@ export default async function VendorPage({ params, searchParams }) {
               <CardContent>
                 {vendor.og_image_url || vendor.banner_url || vendor.logo_url ? (
                   <div className="overflow-hidden rounded-lg border">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Img
                       src={vendor.og_image_url || vendor.banner_url || vendor.logo_url}
                       alt=""
                       className="aspect-[1.91/1] w-full bg-muted object-cover"

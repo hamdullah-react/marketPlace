@@ -12,6 +12,7 @@
  * a reference count and deactivate is offered as the softer path.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
@@ -538,8 +539,7 @@ export default function CatalogManager({
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           {row[iconField] || row.logo_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={thumbUrl(row[iconField] || row.logo_url, THUMB.icon)} alt=""
+                            <Img src={thumbUrl(row[iconField] || row.logo_url, THUMB.icon)} alt=""
                               className="h-7 w-7 shrink-0 rounded object-contain" />
                           ) : row.hex ? (
                             <span className="h-7 w-7 shrink-0 rounded border" style={{ backgroundColor: row.hex }} />

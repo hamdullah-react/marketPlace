@@ -9,12 +9,13 @@
  * dashboard.
  *
  * It draws the button and nothing else. The photo itself stays server-rendered
- * markup in the page: duplicating it here would mean two <img> tags to keep in
+ * markup in the page: duplicating it here would mean two image tags to keep in
  * step, and the one a visitor sees would be the one nobody was looking at.
- * After a save the action revalidates the route and the server's own <img>
+ * After a save the action revalidates the route and the server's own image
  * comes back with the new URL.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState, startTransition } from "react";
 import { Pencil, Images, Loader2, AlertCircle, Trash2 } from "lucide-react";
 import MediaGallery from "@/app/[locale]/marketplace/(seller)/_components/MediaGallery";

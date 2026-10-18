@@ -18,6 +18,7 @@
  * the open/closed state would go with it.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { ChevronDown } from "lucide-react";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
@@ -56,8 +57,7 @@ export default function FilterSection({
                 /* An uploaded catalog icon, not a lucide mark — kept as a plain
                    img because next/image would want a configured domain for a
                    16px decoration. */
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={iconSrc} alt="" width={14} height={14} className="h-3.5 w-3.5" />
+                <Img src={iconSrc} alt="" width={14} height={14} className="h-3.5 w-3.5" />
               ) : Icon ? (
                 <Icon className="h-3.5 w-3.5 text-brand-primary" />
               ) : (

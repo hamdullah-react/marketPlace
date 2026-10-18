@@ -8,6 +8,7 @@
  * page, and the autoplay speed.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -101,8 +102,7 @@ export default function HeroSlidesManager({ locale = "ar", slides = [], interval
                 <TableRow key={slide.id}>
                   <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={slide.image} alt="" className="h-16 w-36 rounded-md border object-cover" />
+                    <Img src={slide.image} alt="" className="h-16 w-36 rounded-md border object-cover" />
                   </TableCell>
                   <TableCell className="max-w-md whitespace-normal">
                     <p className="font-medium text-brand-primary">
@@ -325,8 +325,7 @@ function SlideDialog({ locale, slide, onClose, mode = "both" }) {
           {/* ── Preview — drawn like the home page hero ─────────────────── */}
           <div className="relative aspect-[16/7] w-full overflow-hidden rounded-xl bg-neutral-900">
             {image ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <Img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : null}
             <div className="absolute inset-0 bg-linear-to-b from-black/35 via-black/20 to-black/45" />
             <div
@@ -455,8 +454,7 @@ function DeleteSlideDialog({ locale, slide, onClose }) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={slide.image} alt="" className="aspect-[16/7] w-full rounded-lg border object-cover" />
+        <Img src={slide.image} alt="" className="aspect-[16/7] w-full rounded-lg border object-cover" />
 
         {remove.result?.error ? (
           <p className="text-sm text-red-600">{errorText(remove.result.error, locale)}</p>

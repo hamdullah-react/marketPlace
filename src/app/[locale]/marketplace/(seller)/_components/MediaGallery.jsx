@@ -20,6 +20,7 @@
  * variants rather than re-uploaded each time.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "react";
 import {
   Upload, Trash2, Check, Loader2, ImageIcon, AlertCircle, X, Sparkles,
@@ -861,8 +862,7 @@ export default function MediaGallery({
                     className="block h-full w-full cursor-pointer"
                     aria-pressed={mode === "pick" ? picked : undefined}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Img
                       src={thumbUrl(asset.url, THUMB.grid)}
                       alt={asset.alt_en || asset.filename || ""}
                       className="h-full w-full bg-gray-50 object-cover dark:bg-[#141414]"
@@ -1112,8 +1112,7 @@ export default function MediaGallery({
                   </div>
                 ) : null}
 
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Img
                   src={preview.url}
                   alt={preview.filename || ""}
                   onLoad={() => setPreviewReady(true)}

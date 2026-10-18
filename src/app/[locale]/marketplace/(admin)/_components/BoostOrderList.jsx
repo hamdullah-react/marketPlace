@@ -24,6 +24,7 @@
  * database.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, ChevronUp, ChevronDown, Loader2, CheckCircle2, AlertCircle, ImageOff} from "lucide-react";
@@ -166,8 +167,7 @@ export default function BoostOrderList({ locale = "ar", rows = [] }) {
                 to 404, and it reads as "no photo" rather than "something
                 failed". */}
             {row.image ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <Img
                 src={row.image}
                 alt=""
                 loading="lazy"

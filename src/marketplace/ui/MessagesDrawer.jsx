@@ -36,6 +36,7 @@
  * connection costs freshness and never correctness.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -677,15 +678,19 @@ export default function MessagesDrawer({
                                   className="group relative block overflow-hidden rounded-lg"
                                   title={t("تنزيل", "Download")}
                                 >
-                                  {/* A plain <img>, not next/image: the source is
+                                  {/* Through the Img wrapper (next/image), not next/image: the source is
                                       a redirect to a URL signed for an hour, so
                                       there is nothing stable for the optimiser
                                       to cache or re-request. */}
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
+                                  <Img
                                     src={`${href}&preview=1`}
                                     alt={file.name || t("صورة", "Picture")}
                                     loading="lazy"
+                                    /* A signed URL that expires in an hour, so
+                                       there is nothing worth caching a resized
+                                       copy of — and the route already serves
+                                       the bytes itself. */
+                                    unoptimized
                                     className="max-h-56 w-full object-cover"
                                     onError={() =>
                                       setBroken((current) => {

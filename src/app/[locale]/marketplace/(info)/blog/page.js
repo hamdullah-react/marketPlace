@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Suspense } from 'react';
@@ -114,7 +115,7 @@ async function Banner({ locale, t, isAr }) {
   return (
     <section className="relative isolate flex min-h-[240px] flex-col justify-end overflow-hidden bg-neutral-900 sm:min-h-[360px] lg:min-h-[460px]">
           {/* next/image, exactly as the home carousel does it.
-              ── What it buys over a bare <img> ─────────────────────────────
+              ── What it buys over a bare <Img> ─────────────────────────────
               AVIF and WebP generated per width from the one file an admin
               uploaded. On a photograph this wide that is usually the difference
               between ~300KB and ~60KB, and it is the single biggest thing

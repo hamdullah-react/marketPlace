@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import { BadgeCheck, Car, EyeOff, MessageSquare, Store } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -99,8 +100,7 @@ export default function ReviewCard({
               className="flex items-center gap-2 hover:text-brand-primary"
             >
               {cover ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={cover} alt="" loading="lazy" className="h-8 w-10 rounded object-cover" />
+                <Img src={cover} alt="" loading="lazy" className="h-8 w-10 rounded object-cover" />
               ) : (
                 <Car className="h-4 w-4" />
               )}

@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+import Img from '@/marketplace/ui/Img';
 
 /**
  * A catalog icon, painted in the CURRENT brand colour.
@@ -6,7 +6,7 @@
  * One component for every place a spec or category mark is drawn — the car
  * page's tiles and groups, the listing card's fact row, the compare table and
  * the seller's spec editor — so how these are coloured is one decision rather
- * than six copies of an <img>.
+ * than six copies of an image tag.
  *
  * ── The colour is resolved per REQUEST, not per import ─────────────────────
  *
@@ -25,7 +25,7 @@
  *
  * ── What is NOT sent through the route ─────────────────────────────────────
  *
- * Anything that is not an SVG in our own storage is rendered directly. A
+ * Anything that is not an SVG in our own storage is rendered as it is. A
  * raster icon has nothing to substitute, and a URL on somebody else's host is
  * refused by the route anyway — it only accepts this deployment's bucket, so
  * it cannot be used as an open proxy.
@@ -53,11 +53,25 @@ export default function SpecIcon({ src, className = '', alt = '' }) {
     : src;
 
   return (
-    <img
+    <Img
       src={href}
       alt={alt}
       loading="lazy"
       className={`shrink-0 object-contain ${className}`}
+      /**
+       * UNOPTIMISED, and this is the one icon on the platform where it has to
+       * be said out loud.
+       *
+       * Next skips the optimiser by itself for a URL ending in `.svg`. This
+       * one does not end in .svg — it is `/api/marketplace/icon?u=…`, because
+       * the colour is substituted per request — so the optimiser would fetch
+       * it, find `image/svg+xml` and refuse it with a 400, and every spec icon
+       * on the site would disappear at once.
+       *
+       * There is nothing to optimise anyway: a vector is a vector at every
+       * size, and the route already caches its own output.
+       */
+      unoptimized
     />
   );
 }

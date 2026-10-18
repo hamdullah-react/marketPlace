@@ -46,9 +46,11 @@
  *     seller flagged "show on card", with the icons uploaded there.
  */
 
+import Img from '@/marketplace/ui/Img';
 import SpecIcon from "@/marketplace/ui/SpecIcon";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Heart, ArrowUpRight, ArrowUpLeft, ArrowLeftRight, Eye } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import {
@@ -110,6 +112,18 @@ function CardLink({ compact, href, className, title, children }) {
 
 /** The icon row holds four. A fifth wraps and breaks the card's fixed height. */
 const MAX_FACTS = 4;
+
+/**
+ * A vector, which next/image cannot and need not resize.
+ *
+ * Half the brand logos and every category icon on this platform are SVG, and
+ * the optimiser answers 400 for them unless `dangerouslyAllowSVG` is set —
+ * which is a setting that lets any allowlisted host serve script-bearing
+ * markup through our own origin, so it stays off.
+ */
+function isVector(url) {
+  return typeof url === "string" && /.svg(?|#|$)/i.test(url);
+}
 
 export default function ListingCard({
   listing, locale = "ar", priority = false, cardSpecs = [], saved = null,
@@ -309,12 +323,15 @@ export default function ListingCard({
        ------------------------------------------------------------------ */
     <div className="group/ambient relative h-full w-full">
       {listing.image ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
+        /* The ambient glow: the same photo, blurred past recognition. It is
+           never READ, only sensed — so a 96px source is indistinguishable
+           from the 3 MB original it used to download, twice, per card. */
+        <Image
           src={listing.image}
           alt=""
           aria-hidden="true"
-          loading="lazy"
+          width={96}
+          height={72}
           className="pointer-events-none absolute inset-x-4 top-10 bottom-6 h-[calc(100%-4rem)] w-[calc(100%-2rem)] scale-90 object-cover opacity-0 blur-2xl saturate-150 transition-all duration-500 group-hover/ambient:scale-105 group-hover/ambient:opacity-70 motion-reduce:transition-none"
         />
       ) : null}
@@ -322,12 +339,15 @@ export default function ListingCard({
     <div className="car-card raised-card group relative z-10 flex h-full w-full flex-col overflow-hidden rounded-2xl transition-transform duration-500 hover:-translate-y-1 sm:rounded-[22px] md:rounded-[26px]">
 
       {listing.image ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
+        /* The ambient glow: the same photo, blurred past recognition. It is
+           never READ, only sensed — so a 96px source is indistinguishable
+           from the 3 MB original it used to download, twice, per card. */
+        <Image
           src={listing.image}
           alt=""
           aria-hidden="true"
-          loading="lazy"
+          width={96}
+          height={72}
           className="pointer-events-none absolute inset-0 z-0 h-full w-full scale-150 object-cover opacity-0 blur-3xl saturate-150 transition-opacity duration-500 group-hover:opacity-35 dark:group-hover:opacity-45 motion-reduce:transition-none"
         />
       ) : null}
@@ -401,11 +421,15 @@ export default function ListingCard({
                 {listing.brand ? (
                   <span className="flex h-3 shrink-0 items-center sm:h-3.5 md:h-4">
                     {listing.brand.logo ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
+                      /* SVG logos go through UNOPTIMISED: Next’s optimiser
+                         refuses a vector (400) unless dangerouslyAllowSVG is
+                         on, and there is nothing in one to resize. */
+                      <Image
                         src={listing.brand.logo}
                         alt={listing.brand.name ?? ""}
-                        loading="lazy"
+                        width={48}
+                        height={16}
+                        unoptimized={isVector(listing.brand.logo)}
                         className="max-h-3 w-auto max-w-7 object-contain sm:max-h-3.5 sm:max-w-10 md:max-h-4 md:max-w-12"
                       />
                     ) : (
@@ -464,14 +488,35 @@ export default function ListingCard({
           className="relative z-10 block h-[96px] w-full sm:h-[130px] transition-transform duration-500 group-hover:scale-105 md:h-[160px]"
         >
           {listing.image ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
+            /**
+             * next/image, where this was a plain <Img> pointing straight at the
+             * bucket.
+             *
+             * The box is 96–160 CSS px tall and the card is at most ~380 wide,
+             * and it was loading the showroom's ORIGINAL upload — a 2–3 MB
+             * photo — then throwing almost all of it away in the browser. A
+             * grid of twenty cars cost tens of megabytes to paint a page of
+             * thumbnails, and on the home page it is the largest cost there is.
+             *
+             * `fill` rather than width/height: the parent is already a fixed,
+             * responsive box (h-[96px] → md:h-[160px]) and it is `relative`, so
+             * the image fills it and `sizes` tells the optimiser which width to
+             * actually serve at each breakpoint. Getting `sizes` wrong is the
+             * one way to make next/image slower than the <Img> it replaced —
+             * omit it and it serves a 3840-wide file into a 160px box.
+             */
+            <Image
               src={listing.image}
               alt={listing.imageAlt}
-              className={`h-full w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)] ${
+              fill
+              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 320px"
+              className={`object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)] ${
                 sold ? "opacity-55 grayscale" : ""
               }`}
-              loading={priority ? "eager" : "lazy"}
+              /* The first card is the LCP element on the home page and on every
+                 grid. `priority` preloads it and skips lazy-loading; the other
+                 nineteen stay lazy. */
+              priority={priority}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center rounded-2xl bg-black/[0.03] text-xs text-gray-400 dark:bg-white/5 dark:text-gray-500">
@@ -682,7 +727,7 @@ export default function ListingCard({
               <div className="flex w-full min-w-0 items-center justify-center gap-0.5 sm:gap-1">
                 {/* No fallback glyph: a spec without artwork shows its value
                     alone rather than a generic icon that looks wrong. */}
-                {/* Masked, not <img>, so the mark takes the brand colour from
+                {/* Masked, not <Img>, so the mark takes the brand colour from
                     the theme instead of whatever colour the catalog file was
                     drawn in — see SpecIcon. */}
                 {f.icon ? (

@@ -42,6 +42,7 @@
  * would have broken that alignment on every page in the segment.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -174,7 +175,7 @@ export default function MarketplaceHeader({
   // drawer is 320px wide and a second open accordion pushes everything below
   // it off the bottom of a phone.
   const [openSection, setOpenSection] = useState(null);
-  // Google's avatar URLs expire and are rate limited, so the <img> can 404 on a
+  // Google's avatar URLs expire and are rate limited, so the <Img> can 404 on a
   // perfectly valid session. Without this the circle renders empty and the
   // header looks broken rather than merely photo-less.
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -406,7 +407,7 @@ export default function MarketplaceHeader({
   /**
    * Photo, then initials, then the generic mark.
    *
-   * A plain <img>, not next/image: this is 32 pixels from a host that is not in
+   * Through the Img wrapper (next/image), not next/image: this is 32 pixels from a host that is not in
    * the remotePatterns allow-list, and routing it through the optimizer would
    * add a round trip through our own server to save nothing.
    *
@@ -657,6 +658,11 @@ export default function MarketplaceHeader({
                     className="raised flex h-8 items-center gap-1.5 rounded-full px-0.5 sm:h-10 sm:pe-2 sm:ps-1"
                     aria-expanded={profileOpen}
                     aria-haspopup="menu"
+                    /* Its only contents are an avatar and a chevron, both of
+                       them images — so without this a screen reader announces
+                       "button" and nothing else, and the one control that
+                       reaches the whole account is unreachable by name. */
+                    aria-label={t("حسابي", "Account menu")}
                   >
                     <ViewerAvatar size="h-7 w-7 sm:h-8 sm:w-8" {...avatarProps} />
                     <ChevronDown
@@ -950,15 +956,14 @@ export default function MarketplaceHeader({
  * MODULE SCOPE — see the note where it is used. Keeping the element identity
  * stable across renders is what stops the browser re-fetching the photo every
  * time the header re-renders, and it is also what makes the onError latch
- * work: a remounted <img> would retry the broken URL forever.
+ * work: a remounted <Img> would retry the broken URL forever.
  */
 function ViewerAvatar({ size = "h-8 w-8", viewer, broken, onBroken }) {
   const initials = viewer ? initialsOf(viewer.name) : null;
 
   if (viewer?.avatarUrl && !broken) {
     return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img
+      <Img
         src={viewer.avatarUrl}
         alt=""
         referrerPolicy="no-referrer"

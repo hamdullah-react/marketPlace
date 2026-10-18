@@ -18,6 +18,7 @@
  * in this list; the second is offered a "Name it" action rather than hidden.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -234,8 +235,7 @@ export default function KindManager({
                       <TableRow key={k.kind}>
                         <TableCell>
                           {k.iconUrl ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
+                            <Img
                               src={thumbUrl(k.iconUrl, THUMB.icon)}
                               alt=""
                               className="h-8 w-8 rounded object-contain"

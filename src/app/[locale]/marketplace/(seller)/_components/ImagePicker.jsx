@@ -15,6 +15,7 @@
  * native form action only submits real inputs.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import { ImagePlus, X, Images, Pencil, Trash2 } from "lucide-react";
 import MediaGallery from "./MediaGallery";
@@ -86,8 +87,7 @@ export default function ImagePicker({
       <div className={`${box} group relative overflow-hidden rounded-lg border bg-muted`}>
         {url ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thumbUrl(url, THUMB.icon)} alt="" className="h-full w-full object-contain" />
+            <Img src={thumbUrl(url, THUMB.icon)} alt="" className="h-full w-full object-contain" />
 
             {/* Controls appear over the image; on touch they are always visible
                 since there is no hover to reveal them. */}

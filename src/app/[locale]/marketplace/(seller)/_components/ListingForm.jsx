@@ -13,6 +13,7 @@
  * field, side by side, so nothing is filled in only one language by accident.
  */
 
+import Img from '@/marketplace/ui/Img';
 import {
   useState, useEffect, useMemo, useRef, useActionState, createContext, useContext,
 } from "react";
@@ -269,8 +270,7 @@ function OptionTiles({ name, options, value, onChange, locale }) {
               }`}
             >
               {o.icon_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={o.icon_url} alt="" className={`h-4 w-4 object-contain ${active ? "brightness-0 invert" : ""}`} />
+                <Img src={o.icon_url} alt="" className={`h-4 w-4 object-contain ${active ? "brightness-0 invert" : ""}`} />
               ) : null}
               {localized(o.name, locale) || o.slug}
             </button>
@@ -1501,8 +1501,7 @@ function ListingFormInstance({
                           {shots.map((m, i) => (
                             <div key={m.id}
                               className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={thumbUrl(m.url, THUMB.grid)} alt="" className="h-full w-full object-cover" loading="lazy" />
+                              <Img src={thumbUrl(m.url, THUMB.grid)} alt="" className="h-full w-full object-cover" loading="lazy" />
                               {/* The cover photo, chosen not inferred. Exactly
                                   one can hold it — setMain clears the rest. */}
                               {isMain(m) ? (
@@ -1657,8 +1656,7 @@ function ListingFormInstance({
                       {v.media.length ? (
                         <div className="mt-2 flex gap-1.5 overflow-x-auto">
                           {v.media.map((m, mi) => (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img key={mi} src={thumbUrl(m.url, THUMB.icon)} alt="" className="h-12 w-12 shrink-0 rounded object-cover" loading="lazy" />
+                            <Img key={mi} src={thumbUrl(m.url, THUMB.icon)} alt="" className="h-12 w-12 shrink-0 rounded object-cover" loading="lazy" />
                           ))}
                         </div>
                       ) : null}

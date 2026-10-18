@@ -28,6 +28,8 @@
  * that also has to show the box you are typing into.
  */
 
+import Img from '@/marketplace/ui/Img';
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -219,11 +221,16 @@ export default function SearchModal({ open, onClose, locale = "ar" }) {
     >
       <span className="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-white/10">
         {car.image ? (
-          /* A plain <img>: marketplace media is on its own Supabase host, which
+          /* Through the Img wrapper (next/image): marketplace media is on its own Supabase host, which
              is not in next.config's remotePatterns, so next/image refuses it.
              Same call ListingCard makes. */
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={car.image} alt={car.imageAlt || ""} loading="lazy" className="h-full w-full object-contain" />
+          <Image
+            src={car.image}
+            alt={car.imageAlt || ""}
+            width={96}
+            height={72}
+            className="h-full w-full object-contain"
+          />
         ) : (
           <Car className="h-6 w-6 text-gray-400" />
         )}

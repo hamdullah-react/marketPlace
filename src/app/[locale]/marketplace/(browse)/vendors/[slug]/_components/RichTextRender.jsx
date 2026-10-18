@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 /**
  * The About document, drawn as React elements.
  *
@@ -25,7 +26,6 @@
  * this is the thing standing between a stored value and a buyer's browser.
  */
 
-/* eslint-disable @next/next/no-img-element */
 
 const SAFE_LINK = /^(https?:|mailto:|tel:)/i;
 
@@ -172,12 +172,18 @@ function renderNode(node, key) {
        * the height.
        */
       return (
-        <img
+        <Img
           key={key}
           src={src}
           alt={node.attrs?.alt ?? ''}
           className="my-4 h-auto max-h-80 w-auto max-w-full rounded-lg"
           loading="lazy"
+          /* UNOPTIMISED, and it has to be: this src comes out of a showroom’s
+             own About document and may point at any host on the internet.
+             next/image THROWS for a host that is not in remotePatterns — it
+             does not degrade — so optimising here would turn one pasted image
+             into a 500 on somebody’s storefront. */
+          unoptimized
         />
       );
     }

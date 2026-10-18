@@ -30,6 +30,7 @@
  * question.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Sparkles, TriangleAlert, Check } from "lucide-react";
 import {
@@ -169,11 +170,10 @@ export default function BackgroundStudio({
                 <figcaption className="text-xs font-medium text-muted-foreground">
                   {t("الأصلية", "Original")}
                 </figcaption>
-                {/* Plain <img>: these are blob and storage URLs sized by the
+                {/* Through the Img wrapper: these are blob and storage URLs sized by the
                     box, so next/image would add a loader and a remotePatterns
                     entry for no benefit. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Img
                   src={asset.url}
                   alt=""
                   className="aspect-[4/3] w-full rounded-lg border object-cover"
@@ -203,8 +203,7 @@ export default function BackgroundStudio({
                   }}
                 >
                   {result ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Img
                       src={result.url}
                       alt=""
                       className="h-full w-full object-contain drop-shadow-[0_12px_18px_rgba(0,0,0,0.16)]"

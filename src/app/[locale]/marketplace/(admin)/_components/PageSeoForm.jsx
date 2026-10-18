@@ -9,6 +9,7 @@
  * page's built-in text, shown as its placeholder.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { createContext, useContext, useState } from "react";
 import Link from "next/link";
 import SharedBilingualField from "../../(seller)/_components/BilingualField";
@@ -177,8 +178,7 @@ export default function PageSeoForm({ locale = "ar", page, row = null, siteName,
           <div className="overflow-hidden rounded-lg border bg-white dark:bg-[#161616]" dir={lang === "ar" ? "rtl" : "ltr"}>
             <div className="relative aspect-[1200/630] w-full bg-muted">
               {shareImage ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={shareImage} alt="" className="h-full w-full object-cover" />
+                <Img src={shareImage} alt="" className="h-full w-full object-cover" />
               ) : (
                 <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
                   {t("لا توجد صورة مشاركة", "No share image")}

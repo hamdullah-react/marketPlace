@@ -1,3 +1,4 @@
+import Img from '@/marketplace/ui/Img';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
@@ -110,12 +111,11 @@ async function BrandsGrid({ locale }) {
             >
               <div className="relative flex aspect-square items-center justify-center bg-linear-to-br from-gray-50 to-white p-6 dark:from-white/5 dark:to-transparent">
                 {b.logoUrl ? (
-                  /* A plain <img>: these are on the marketplace's own Supabase
+                  /* Through the Img wrapper (next/image): these are on the marketplace's own Supabase
                      host, which is not in next.config's remotePatterns, so
                      next/image would refuse them outright. Same call the
                      listing cards make. */
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
+                  <Img
                     src={b.logoUrl}
                     alt=""
                     loading="lazy"

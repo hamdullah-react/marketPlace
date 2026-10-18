@@ -8,6 +8,7 @@
  * surrounding form submits it like any other field.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -99,8 +100,7 @@ export default function SiteImageField({
 
       <div className={`${BOXES[shape] ?? BOXES.square} raised relative overflow-hidden rounded-lg`}>
         {url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={url} alt="" className={`h-full w-full ${cover ? "object-cover" : "object-contain p-1.5"}`} />
+          <Img src={url} alt="" className={`h-full w-full ${cover ? "object-cover" : "object-contain p-1.5"}`} />
         ) : (
           <button
             type="button"

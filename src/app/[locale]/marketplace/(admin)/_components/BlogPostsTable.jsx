@@ -18,6 +18,7 @@
  * has to move with it — both, together, or not at all.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { startTransition, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -207,8 +208,7 @@ export default function BlogPostsTable({ locale = "ar", items = [] }) {
                             so the rows do not change height down the table. */}
                         <span className="flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/5 dark:bg-white/5">
                           {post.cover_url || post.banner_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
+                            <Img
                               src={post.cover_url || post.banner_url}
                               alt=""
                               loading="lazy"

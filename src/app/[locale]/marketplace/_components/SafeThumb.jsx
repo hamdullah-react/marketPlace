@@ -1,5 +1,6 @@
 "use client";
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
 
@@ -9,7 +10,7 @@ import { thumbUrl, THUMB } from "@/marketplace/lib/image";
  * It asks for the resized copy first (thumbUrl → /_next/image). That resize has
  * to download the ORIGINAL before it can shrink it, and a seller's phone photo
  * is often 3–4 MB — measured at 8 seconds, past the optimizer's upstream
- * timeout. The first request for such a photo fails, and a plain <img> would
+ * timeout. The first request for such a photo fails, and a plain <Img> would
  * show a broken icon until someone reloaded after the cache warmed.
  *
  * So on error it switches once to the original file, which always loads. If
@@ -23,8 +24,7 @@ export default function SafeThumb({ src, size = THUMB.icon, alt = "", className 
   }
 
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
+    <Img
       src={stage === 0 ? thumbUrl(src, size) : src}
       alt={alt}
       loading="lazy"

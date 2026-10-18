@@ -22,6 +22,7 @@
  * navigation per pixel.
  */
 
+import Img from '@/marketplace/ui/Img';
 import { useState } from "react";
 import { formatPrice } from "@/marketplace/lib/listing";
 import { Minus, Plus } from "lucide-react";
@@ -107,8 +108,7 @@ export default function RangeSlider({
       <span className="flex items-center justify-center gap-1 text-[10px] font-bold text-brand-primary">
         {isSar ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/Currency.svg" alt="" className="h-3 w-3" />
+            <Img src="/icons/Currency.svg" alt="" className="h-3 w-3" />
             {fmt(n)}
           </>
         ) : (
