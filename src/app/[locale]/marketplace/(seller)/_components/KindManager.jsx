@@ -236,7 +236,9 @@ export default function KindManager({
                         <TableCell>
                           {k.iconUrl ? (
                             <Img
-                              src={thumbUrl(k.iconUrl, THUMB.icon)}
+                              src={k.iconUrl}
+            width={128}
+            height={96}
                               alt=""
                               className="h-8 w-8 rounded object-contain"
                             />

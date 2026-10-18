@@ -1,3 +1,4 @@
+import { isVector } from '@/marketplace/ui/Img';
 import Img from '@/marketplace/ui/Img';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -897,7 +898,7 @@ export default async function VendorPage({ params, searchParams }) {
                 alt=""
                 width={128}
                 height={128}
-                unoptimized={/\.svg(\?|#|$)/i.test(vendor.logo_url)}
+                unoptimized={isVector(vendor.logo_url)}
                 className="h-full w-full object-contain"
               />
             ) : (

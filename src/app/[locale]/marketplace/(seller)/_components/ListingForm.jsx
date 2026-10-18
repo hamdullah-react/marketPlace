@@ -1501,7 +1501,9 @@ function ListingFormInstance({
                           {shots.map((m, i) => (
                             <div key={m.id}
                               className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-                              <Img src={thumbUrl(m.url, THUMB.grid)} alt="" className="h-full w-full object-cover" loading="lazy" />
+                              <Img src={m.url}
+            width={240}
+            height={180} alt="" className="h-full w-full object-cover" loading="lazy" />
                               {/* The cover photo, chosen not inferred. Exactly
                                   one can hold it — setMain clears the rest. */}
                               {isMain(m) ? (
@@ -1656,7 +1658,9 @@ function ListingFormInstance({
                       {v.media.length ? (
                         <div className="mt-2 flex gap-1.5 overflow-x-auto">
                           {v.media.map((m, mi) => (
-                            <Img key={mi} src={thumbUrl(m.url, THUMB.icon)} alt="" className="h-12 w-12 shrink-0 rounded object-cover" loading="lazy" />
+                            <Img key={mi} src={m.url}
+            width={128}
+            height={96} alt="" className="h-12 w-12 shrink-0 rounded object-cover" loading="lazy" />
                           ))}
                         </div>
                       ) : null}

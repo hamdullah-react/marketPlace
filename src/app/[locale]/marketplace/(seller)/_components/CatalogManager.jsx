@@ -539,7 +539,9 @@ export default function CatalogManager({
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           {row[iconField] || row.logo_url ? (
-                            <Img src={thumbUrl(row[iconField] || row.logo_url, THUMB.icon)} alt=""
+                            <Img src={row[iconField] || row.logo_url}
+            width={128}
+            height={96} alt=""
                               className="h-7 w-7 shrink-0 rounded object-contain" />
                           ) : row.hex ? (
                             <span className="h-7 w-7 shrink-0 rounded border" style={{ backgroundColor: row.hex }} />

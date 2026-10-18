@@ -46,7 +46,7 @@
  *     seller flagged "show on card", with the icons uploaded there.
  */
 
-import Img from '@/marketplace/ui/Img';
+import Img, { isVector } from '@/marketplace/ui/Img';
 import SpecIcon from "@/marketplace/ui/SpecIcon";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
@@ -112,18 +112,6 @@ function CardLink({ compact, href, className, title, children }) {
 
 /** The icon row holds four. A fifth wraps and breaks the card's fixed height. */
 const MAX_FACTS = 4;
-
-/**
- * A vector, which next/image cannot and need not resize.
- *
- * Half the brand logos and every category icon on this platform are SVG, and
- * the optimiser answers 400 for them unless `dangerouslyAllowSVG` is set —
- * which is a setting that lets any allowlisted host serve script-bearing
- * markup through our own origin, so it stays off.
- */
-function isVector(url) {
-  return typeof url === "string" && /.svg(?|#|$)/i.test(url);
-}
 
 export default function ListingCard({
   listing, locale = "ar", priority = false, cardSpecs = [], saved = null,

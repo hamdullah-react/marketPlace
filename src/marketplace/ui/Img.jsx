@@ -1,21 +1,38 @@
-import NextImage from 'next/image';
+import Image from 'next/image';
 
 /**
- * next/image, with the two things that otherwise stop it being usable here.
+ * A vector or an inline image — something the optimiser cannot resize.
+ *
+ * Next already skips optimisation for a src whose path ENDS in `.svg`, so this
+ * exists for the two cases that test does not catch: a cache-busted
+ * `logo.svg?v=2`, and a URL carrying a fragment. Exported rather than repeated
+ * at each call site, because it was repeated at four of them and two of those
+ * copies had lost a backslash in transit — `/.svg(?|#|$)/` is not a regex, it
+ * is a SyntaxError at module load, and a module that throws while loading
+ * surfaces as a ChunkLoadError on the page that imported it.
+ */
+export function isVector(url) {
+  return typeof url === 'string' && /\.svg(\?|#|$)/i.test(url);
+}
+
+/**
+ * next/image, with a default size so it can be dropped in where an <img> was.
  *
  * ── Why a wrapper and not next/image directly ──────────────────────────────
  *
- * `<Image>` REFUSES to render without `width` and `height`, or `fill`. That is
- * the right default for a page being written from scratch and the wrong one
- * for forty existing call sites whose size is already decided by a className —
- * `h-10 w-auto`, `h-full w-full object-contain`, a grid cell. Converting each
- * by hand would mean inventing an intrinsic size per image and getting some of
- * them wrong, silently, in a way only a stretched photo would reveal.
+ * Per the docs (02-components/image.md): "You **must** set both `width` and
+ * `height` properties unless the image is statically imported" or has `fill`.
+ * That is the right rule for a page written from scratch and an awkward one
+ * for eighty existing call sites whose size is already decided by a className
+ * — `h-10 w-auto`, `h-full w-full object-contain`, a grid cell. Converting
+ * each by hand would mean inventing an intrinsic size per image and getting
+ * some of them wrong, silently, in a way only a stretched photo reveals.
  *
- * So the size here is a BUDGET, not a layout instruction: it tells the
- * optimiser the largest width worth fetching, and CSS goes on deciding how big
- * the picture actually is. 512 covers every thumbnail, avatar and logo on this
- * platform; anything larger — a gallery frame, a hero — passes its own.
+ * The docs are also explicit that these two "do not determine the rendered
+ * size of the image, which is controlled by CSS" — they are the aspect ratio
+ * the browser reserves space with, and the width budget the optimiser serves
+ * against. 512 covers every thumbnail, avatar and logo on this platform;
+ * anything bigger — a gallery frame, a hero — passes its own.
  *
  * ── What it also gets right by default ─────────────────────────────────────
  *
@@ -47,7 +64,7 @@ export default function Img({
   if (!src) return null;
 
   return (
-    <NextImage
+    <Image
       src={src}
       alt={alt}
       width={width}

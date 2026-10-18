@@ -273,7 +273,9 @@ export default function ListingFold({
                  JPEGs and the frame is at most 1600px wide, so the originals
                  cost several megabytes across a 25-photo gallery for pixels no
                  screen can show. */
-              src={thumbUrl(current.url, THUMB.hero)}
+              src={current.url}
+              width={1600}
+              height={1200}
               alt={current.alt || listing.title}
               className="absolute inset-0 h-full w-full object-contain"
               loading="eager"
@@ -374,7 +376,7 @@ export default function ListingFold({
                   {/* 160x128 — twice the 80x64 the strip renders at, so it is
                       sharp on a 2x screen and nothing larger is fetched. */}
                   <Img
-                    src={thumbUrl(p.url, THUMB.gallery)}
+                    src={p.url}
                     alt=""
                     width={160}
                     height={128}
@@ -539,7 +541,9 @@ export default function ListingFold({
                       {v.image ? (
                         <div className="mb-1 h-10 w-full overflow-hidden rounded-xl bg-white">
                           <Img
-                            src={thumbUrl(v.image, THUMB.gallery)}
+                            src={v.image}
+                            width={160}
+                            height={120}
                             alt=""
                             className="h-full w-full object-contain"
                             loading="lazy"
@@ -754,7 +758,9 @@ export default function ListingFold({
           </button>
 
           <Img
-            src={thumbUrl(current.url, THUMB.hero)}
+            src={current.url}
+            width={1600}
+            height={1200}
             alt={current.alt || listing.title}
             className="max-h-full max-w-full object-contain"
           />

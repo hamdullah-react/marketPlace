@@ -87,7 +87,9 @@ export default function ImagePicker({
       <div className={`${box} group relative overflow-hidden rounded-lg border bg-muted`}>
         {url ? (
           <>
-            <Img src={thumbUrl(url, THUMB.icon)} alt="" className="h-full w-full object-contain" />
+            <Img src={url}
+            width={128}
+            height={96} alt="" className="h-full w-full object-contain" />
 
             {/* Controls appear over the image; on touch they are always visible
                 since there is no hover to reveal them. */}

@@ -1,3 +1,4 @@
+import { isVector } from '@/marketplace/ui/Img';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -242,7 +243,7 @@ async function Grid({ searchParams, locale, t }) {
                     alt=""
                     width={96}
                     height={96}
-                    unoptimized={/\.svg(\?|#|$)/i.test(v.logo_url)}
+                    unoptimized={isVector(v.logo_url)}
                     className="h-full w-full object-contain"
                   />
                 ) : (

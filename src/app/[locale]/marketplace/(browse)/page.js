@@ -1,3 +1,4 @@
+import { isVector } from '@/marketplace/ui/Img';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -468,7 +469,7 @@ async function VendorGrid({ locale, t }) {
                 alt=""
                 width={96}
                 height={96}
-                unoptimized={/.svg(?|#|$)/i.test(v.logo)}
+                unoptimized={isVector(v.logo)}
                 className="h-8 w-8 shrink-0 rounded-full border sm:h-12 sm:w-12 border-neutral-200 object-cover dark:border-neutral-700"
               />
             ) : (

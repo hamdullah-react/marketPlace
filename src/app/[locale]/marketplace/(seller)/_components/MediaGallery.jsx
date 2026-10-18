@@ -863,7 +863,9 @@ export default function MediaGallery({
                     aria-pressed={mode === "pick" ? picked : undefined}
                   >
                     <Img
-                      src={thumbUrl(asset.url, THUMB.grid)}
+                      src={asset.url}
+            width={240}
+            height={180}
                       alt={asset.alt_en || asset.filename || ""}
                       className="h-full w-full bg-gray-50 object-cover dark:bg-[#141414]"
                       loading="lazy"
