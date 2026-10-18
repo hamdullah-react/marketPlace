@@ -2058,8 +2058,35 @@ function ListingFormInstance({
                 )}
               </p>
               <label className={label} htmlFor="canonicalUrl">{t("الرابط الأساسي", "Canonical URL")}</label>
+              {/*
+                type="text", NOT type="url" — this field silently killed the
+                whole form.
+
+                HTML5 `type="url"` demands an ABSOLUTE url, scheme and all. A
+                canonical stored as "/ar/marketplace/listing/suzuki-jimny-…"
+                is perfectly valid — Next resolves a relative canonical against
+                metadataBase — but the browser marks the control invalid.
+
+                And this tab is the LAST one, so the field is display:none
+                whenever the seller is anywhere else. Native validation then
+                refuses to submit and cannot focus the offending control to say
+                why, leaving only a console line:
+
+                  An invalid form control with name='canonicalUrl'
+                  is not focusable.
+
+                The seller sees a live button that does nothing at all — no
+                error, no spinner, no save. Every other validated field here
+                (city, price, mileage) is covered by `blockers`, which disables
+                the button and names what is missing; this one is OPTIONAL, so
+                the button stayed enabled and the submit died in silence.
+
+                inputMode keeps the url keyboard on a phone. The shape of the
+                value is the server's business: save-listing fills in an
+                absolute url of its own when this is left blank.
+              */}
               <input
-                id="canonicalUrl" name="canonicalUrl" type="url" dir="ltr"
+                id="canonicalUrl" name="canonicalUrl" type="text" inputMode="url" dir="ltr"
                 className={`${field} font-mono text-xs`}
                 defaultValue={existing?.canonical_url ?? ""}
                 placeholder={`${SITE_ORIGIN}/ar/marketplace/listing/…`}
