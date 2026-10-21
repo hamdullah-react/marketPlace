@@ -394,7 +394,34 @@ function Avatar({ url }) {
     );
   }
   return (
-    <Img src={url} alt="" referrerPolicy="no-referrer" className="aspect-square size-8 shrink-0 rounded-lg object-cover" />
+      /*
+        UNOPTIMISED, for the same reason ViewerAvatar in MarketplaceHeader is.
+
+        An avatar comes from whichever identity provider the person signed in
+        with — lh3.googleusercontent.com today, another host tomorrow — and
+        next/image THROWS for a hostname that is not in next.config's
+        remotePatterns rather than falling back to the plain URL:
+
+          Invalid src prop (https://lh3.googleusercontent.com/a/…) on
+          `next/image`, hostname "lh3.googleusercontent.com" is not configured
+
+        Allowlisting the host would fix today's provider and crash on the next
+        one, and each remotePatterns entry is a standing permission to fetch
+        and re-serve anything from that host. An avatar is already a small,
+        CDN-served square, so there is nothing for the optimiser to win here.
+
+        width/height are the intrinsic hint only; the real size is the
+        className. 96 matches ViewerAvatar so a retina 32px box has pixels.
+      */
+    <Img
+      src={url}
+      alt=""
+      width={96}
+      height={96}
+      unoptimized
+      referrerPolicy="no-referrer"
+      className="aspect-square size-8 shrink-0 rounded-lg object-cover"
+    />
   );
 }
 
