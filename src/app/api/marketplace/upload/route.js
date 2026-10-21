@@ -171,8 +171,25 @@ export async function POST(request) {
 
   if (!file || typeof file === 'string') return fail('No file supplied', 400, 'NO_FILE');
   if (!vendorId) return fail('No showroom to upload to', 403, 'NO_VENDOR');
-  if (!ALLOWED.includes(file.type)) {
-    return fail(`Unsupported type ${file.type}. Allowed: JPEG, PNG, WebP, AVIF, SVG.`, 415, 'BAD_TYPE');
+  /**
+   * The browser's guess, corrected by the extension when it has none.
+   *
+   * `file.type` is routinely EMPTY for an SVG dragged out of a file manager,
+   * and an empty string is in no allowlist — so a perfectly good logo was
+   * refused with "Unsupported type ." naming nothing. The extension is only
+   * consulted when the browser declined to say; it is not a security claim,
+   * because sharp decides what a file really is by reading it.
+   */
+  const declared = String(file.type || '').toLowerCase();
+  const byName = /\.svg$/i.test(file.name ?? '') ? 'image/svg+xml' : null;
+  const mime = ALLOWED.includes(declared) ? declared : byName;
+
+  if (!mime) {
+    return fail(
+      `Unsupported type ${file.type || 'unknown'}. Allowed: JPEG, PNG, WebP, AVIF, SVG.`,
+      415,
+      'BAD_TYPE'
+    );
   }
   if (file.size > MAX_BYTES) {
     return fail(`File is ${(file.size / 1048576).toFixed(1)} MB; the limit is 8 MB.`, 413, 'TOO_LARGE');
@@ -235,7 +252,7 @@ export async function POST(request) {
 
     /* Converted BEFORE the key is built: the extension has to describe what is
        actually in the object, or every later reader disagrees about its type. */
-    const out = await toFormat(raw, file.type, String(form.get('format') || 'avif'));
+    const out = await toFormat(raw, mime, String(form.get('format') || 'avif'));
 
     /**
      * The limit, applied to what we are about to STORE.

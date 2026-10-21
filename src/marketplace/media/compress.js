@@ -113,8 +113,24 @@ function canvasToBlob(canvas, type, quality) {
 export async function compressImage(file, { crop = null, maxEdge = MAX_EDGE, quality = QUALITY } = {}) {
   const img = await loadImage(file);
 
-  const sourceWidth = crop ? Math.round(crop.width) : img.naturalWidth;
-  const sourceHeight = crop ? Math.round(crop.height) : img.naturalHeight;
+  /**
+   * ── An SVG may have no size of its own ──────────────────────────────────
+   *
+   * A vector written with only a viewBox and no width/height reports
+   * naturalWidth 0 in some browsers (Firefox most reliably). Drawing that to a
+   * canvas produces an empty picture, silently — the upload "works" and the
+   * seller gets a blank square.
+   *
+   * So a sizeless source is rasterised at a sane default instead. 1024 is big
+   * enough for a logo on a card at 2x and small enough that a pathological
+   * SVG cannot ask for a canvas the tab cannot allocate.
+   */
+  const RASTER_FALLBACK = 1024;
+  const naturalWidth = img.naturalWidth || RASTER_FALLBACK;
+  const naturalHeight = img.naturalHeight || RASTER_FALLBACK;
+
+  const sourceWidth = crop ? Math.round(crop.width) : naturalWidth;
+  const sourceHeight = crop ? Math.round(crop.height) : naturalHeight;
 
   if (!sourceWidth || !sourceHeight) {
     throw new Error('That image has no dimensions to work with.');
@@ -154,8 +170,8 @@ export async function compressImage(file, { crop = null, maxEdge = MAX_EDGE, qua
     height: target.height,
     originalBytes: file.size,
     bytes: blob.size,
-    originalWidth: img.naturalWidth,
-    originalHeight: img.naturalHeight,
+    originalWidth: naturalWidth,
+    originalHeight: naturalHeight,
     /* Can be NEGATIVE, and the dialog shows it honestly rather than hiding it.
        A small PNG screenshot re-encoded as WebP sometimes grows, and a number
        that only ever reads as a saving is a number nobody can trust. */
@@ -171,7 +187,13 @@ export async function compressImage(file, { crop = null, maxEdge = MAX_EDGE, qua
  * content-type sniffing, a seller downloading it again — disagree about what
  * the file is.
  */
-export function blobToFile(blob, originalName = 'image') {
+export function blobToFile(blob, originalName = 'image', ext = null) {
   const stem = originalName.replace(/\.[^.]+$/, '') || 'image';
-  return new File([blob], `${stem}.webp`, { type: blob.type, lastModified: Date.now() });
+  /* The extension follows the BYTES. Uploading WebP called `photo.jpg` makes
+     the storage key, the content-type sniffing and a seller re-downloading it
+     all disagree about what the file is. When the caller does not say, it is
+     read off the blob's own type. */
+  const fromType = String(blob.type || '').split('/')[1]?.replace('svg+xml', 'svg');
+  const suffix = ext || fromType || 'webp';
+  return new File([blob], `${stem}.${suffix}`, { type: blob.type, lastModified: Date.now() });
 }

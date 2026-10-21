@@ -16,6 +16,7 @@ import {
   LayoutDashboardIcon, UsersIcon, ShieldCheckIcon, SparklesIcon, HomeIcon,
   StoreIcon, BadgeDollarSignIcon, ChevronsUpDownIcon, LogOutIcon, UserIcon,
   LayoutTemplateIcon, ImagesIcon, FileTextIcon, NewspaperIcon, SearchCheckIcon, SettingsIcon, ChevronDownIcon,
+  NetworkIcon,
   HelpCircle as HelpCircleIcon,
   StarIcon, WalletIcon, CalendarClockIcon,
 } from "lucide-react";
@@ -67,6 +68,9 @@ const NAV_CONTENT = {
     { href: "/marketplace/admin/content/faq", icon: HelpCircleIcon, ar: "الأسئلة الشائعة", en: "FAQ" },
     { href: "/marketplace/admin/content/blog", icon: NewspaperIcon, ar: "الأخبار", en: "News" },
     { href: "/marketplace/admin/content/seo", icon: SearchCheckIcon, ar: "تحسين محركات البحث", en: "Pages SEO" },
+    /* Directly under Pages SEO, because it is what those settings ADD UP TO —
+       the switches are set there and their effect is read here. */
+    { href: "/marketplace/admin/content/sitemap", icon: NetworkIcon, ar: "خريطة الموقع", en: "Sitemap" },
   ],
 };
 

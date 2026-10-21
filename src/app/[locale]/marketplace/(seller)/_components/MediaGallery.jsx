@@ -47,6 +47,31 @@ const ImageEditorDialog = dynamic(() => import("./ImageEditorDialog"), { ssr: fa
 
 /** What may be stored, matching the upload route. Shown before anything is sent. */
 const MAX_STORED_BYTES = 1024 * 1024;
+
+/**
+ * ── Recognising a file, when the browser will not ───────────────────────────
+ *
+ * `file.type` is the browser's guess and it is routinely EMPTY for an SVG
+ * dragged out of a file manager, or served as text/plain by some sources. The
+ * old filter was `f.type.startsWith("image/")`, so those files were dropped on
+ * the floor with no message at all — the seller dragged a logo in and nothing
+ * whatsoever happened.
+ *
+ * So the extension is consulted whenever the type is missing or unhelpful.
+ * Nothing here is a security boundary: the route re-checks, and sharp decides
+ * what a file really is by reading it.
+ */
+const IMAGE_EXT = /\.(jpe?g|png|webp|avif|gif|svg)$/i;
+
+function isSvg(file) {
+  return file?.type === "image/svg+xml" || /\.svg$/i.test(file?.name ?? "");
+}
+
+function isImage(file) {
+  if (!file) return false;
+  if (typeof file.type === "string" && file.type.startsWith("image/")) return true;
+  return IMAGE_EXT.test(file.name ?? "");
+}
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -373,7 +398,7 @@ export default function MediaGallery({
         return;
       }
 
-      const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      const list = Array.from(files).filter(isImage);
       if (!list.length) return;
 
       setErrors([]);
@@ -390,7 +415,11 @@ export default function MediaGallery({
        * SVG is passed through untouched either way: it is a vector, and a
        * canvas would rasterise away the one property it was chosen for.
        */
-      if (!precompressed && !skipEditor && list.length === 1 && list[0].type !== "image/svg+xml") {
+      /* SVG included: the dialog offers "keep vector" (uploaded byte for byte)
+         or rasterise to AVIF/WebP, which is what makes an SVG croppable. A
+         BATCH still skips it, and batched SVGs are passed through untouched
+         by the compression guard below. */
+      if (!precompressed && !skipEditor && list.length === 1) {
         setEditing(list[0]);
         return;
       }
@@ -411,7 +440,7 @@ export default function MediaGallery({
            * losing the seller's photo.
            */
           let toSend = file;
-          if (!precompressed && file.type !== "image/svg+xml") {
+          if (!precompressed && !isSvg(file)) {
             try {
               const out = await compressImage(file);
               if (out.bytes > MAX_STORED_BYTES) {
@@ -856,7 +885,12 @@ export default function MediaGallery({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          /* Spelled out rather than "image/*": a native file dialog does
+             not reliably offer SVG under the wildcard, so a seller looking for
+             their logo simply could not see it. The list matches ALLOWED in
+             the upload route, and `.svg` is there for the dialogs that filter
+             on extension instead of type. */
+          accept="image/jpeg,image/png,image/webp,image/avif,image/svg+xml,.svg"
           multiple
           className="hidden"
           onChange={(e) => { upload(e.target.files); e.target.value = ""; }}
@@ -1299,7 +1333,11 @@ export default function MediaGallery({
           maxBytes={MAX_STORED_BYTES}
           onCancel={() => setEditing(null)}
           onConfirm={(result) => {
-            const file = blobToFile(result.blob, editing.name);
+            /* The extension follows the FORMAT the seller picked, so a kept
+               vector stays `logo.svg` and a rasterised one becomes
+               `logo.webp` — the route reads the type from the bytes either
+               way, but a name that lies is a name somebody later trusts. */
+            const file = blobToFile(result.blob, editing.name, result.format === "svg" ? "svg" : null);
             setEditing(null);
             upload([file], { precompressed: true, format: result.format });
           }}

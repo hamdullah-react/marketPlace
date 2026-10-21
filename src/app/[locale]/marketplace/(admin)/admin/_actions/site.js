@@ -674,6 +674,63 @@ export async function savePageSeo(prevState, formData) {
   return ok({ saved: true });
 }
 
+/**
+ * Put ONE page into the sitemap, or take it out — from the sitemap screen.
+ *
+ * ── Why this is not a sitemap-only switch ───────────────────────────────────
+ *
+ * It writes `seo_index`, the same column the page's own SEO form writes, and
+ * that column means two things at once: the page carries a noindex robots tag
+ * AND it is left out of sitemap.xml.
+ *
+ * Splitting them was considered and is the wrong answer. A sitemap that lists
+ * a page the page itself tells crawlers not to index is a contradiction, and
+ * it is the half a search console reads as a SUBMISSION — so it gets reported
+ * as an error rather than quietly obeyed. Keeping one switch is what stops an
+ * admin producing that state by accident.
+ *
+ * It does mean the label has to be honest about the consequence, which is why
+ * the UI says "removed from the sitemap AND marked noindex" rather than
+ * implying this only tidies a file.
+ *
+ * ── Upsert, because most pages have no row ──────────────────────────────────
+ *
+ * A page_seo row exists only once somebody has customised that page, so the
+ * common case here is a page with no row at all. PostgREST's upsert writes the
+ * columns in the payload and leaves the rest alone on conflict, so toggling a
+ * page that HAS a row cannot wipe the title and description somebody wrote.
+ */
+export async function setPageIndexed(pageKey, indexed) {
+  const { viewer, denied } = await guard();
+  if (denied) return denied;
+
+  const page = SEO_PAGE_BY_KEY[pageKey];
+  if (!page) return bad('PAGE_UNKNOWN');
+
+  const { error } = await getMarketplaceDb()
+    .from('page_seo')
+    .upsert({ page_key: pageKey, seo_index: !!indexed }, { onConflict: 'page_key' });
+
+  if (error) return dbFail(error);
+
+  await writeAudit(viewer, 'site.seo.index', 'page_seo', null, null, {
+    page: pageKey,
+    indexed: !!indexed,
+  });
+
+  /* The sitemap's own cache tag, plus the page itself and both admin screens
+     that show the switch. Without the first the file would keep its old
+     contents for the rest of the hour. */
+  refresh(
+    SITE_TAGS.seo,
+    [pageRoute(page), 'page'],
+    SEO_ADMIN,
+    ['/[locale]/marketplace/admin/content/sitemap', 'page']
+  );
+
+  return ok({ pageKey, indexed: !!indexed });
+}
+
 export async function resetPageSeo(prevState, formData) {
   const { viewer, denied } = await guard();
   if (denied) return denied;

@@ -101,11 +101,38 @@ export default function ImageEditorDialog({
   const [appliedCrop, setAppliedCrop] = useState(null);
 
   const [maxEdge, setMaxEdge] = useState(MAX_EDGE);
-  const [format, setFormat] = useState("avif");
+  /* An SVG defaults to STAYING an SVG. Rasterising a logo throws away the one
+     property it was chosen for, so converting is offered and never assumed. */
+  const [format, setFormat] = useState(() =>
+    (file?.type === "image/svg+xml" || /\.svg$/i.test(file?.name ?? "")) ? "svg" : "avif"
+  );
 
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  /**
+   * The picture on the stage once something has been DONE to it.
+   *
+   * The crop used to be reported with a "Cropped · 1920×1080" badge over the
+   * untouched original, which is a caption claiming something the picture
+   * contradicts — the seller crops, sees the same photo, and presses Crop
+   * again. Showing the real output is the only version of this that can be
+   * trusted, and it is also the only way to notice a crop that went wrong.
+   *
+   * Null means "nothing done yet", and the stage falls back to the original.
+   */
+  const [outUrl, setOutUrl] = useState(null);
+
+  /* An object URL per render of the output. Revoked when it is replaced, or
+     the dialog leaks one decoded bitmap per crop. */
+  const showOutput = (blob) => {
+    setOutUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return blob ? URL.createObjectURL(blob) : null;
+    });
+  };
+  useEffect(() => () => { if (outUrl) URL.revokeObjectURL(outUrl); }, [outUrl]);
 
   /**
    * The object URL, created IN THE EFFECT — and it has to be.
@@ -162,20 +189,75 @@ export default function ImageEditorDialog({
    * events; the invalidation belongs where the event is.
    */
   const chooseSize = (value) => { setMaxEdge(value); setResult(null); };
-  const chooseFormat = (value) => { setFormat(value); setResult(null); };
-  const applyCrop = () => { setAppliedCrop(areaPixels); setResult(null); setMode("preview"); };
-  const resetCrop = () => { setAppliedCrop(null); setResult(null); };
 
-  const sourceFormat = formatName(file?.type);
+  const chooseFormat = (value) => {
+    setFormat(value);
+    setResult(null);
+    /* Going back to the vector throws away any raster preview: it was made by
+       a canvas that is no longer part of the answer. */
+    if (value === "svg") { setAppliedCrop(null); showOutput(null); }
+  };
+
+  /**
+   * Apply the crop AND draw it, so the stage shows what was actually cut.
+   *
+   * The draw is the real pipeline at a modest size rather than a cheap
+   * approximation — if this picture and the uploaded one could differ, the
+   * preview would be decoration.
+   */
+  const applyCrop = async () => {
+    setAppliedCrop(areaPixels);
+    setResult(null);
+    setMode("preview");
+    if (!areaPixels) return;
+    try {
+      const out = await compressImage(file, { crop: areaPixels, maxEdge: 1200 });
+      showOutput(out.blob);
+    } catch {
+      /* The crop is still applied and Compress will report the real error;
+         falling back to the original beats an empty stage. */
+      showOutput(null);
+    }
+  };
+
+  const resetCrop = () => { setAppliedCrop(null); setResult(null); showOutput(null); };
+
+  const sourceIsSvg =
+    file?.type === "image/svg+xml" || /\.svg$/i.test(file?.name ?? "");
+  const sourceFormat = sourceIsSvg ? "SVG" : formatName(file?.type);
   const alreadyModern = file?.type === "image/avif" || file?.type === "image/webp";
+
+  /* Keeping the vector means no canvas, so no crop and nothing to compress. */
+  const keepingVector = sourceIsSvg && format === "svg";
 
   const compress = async () => {
     if (!file) return;
     setBusy(true);
     setError(null);
     try {
-      const out = await compressImage(file, { crop: appliedCrop, maxEdge });
-      setResult(out);
+      if (keepingVector) {
+        /**
+         * Nothing to do, and saying so is the honest result.
+         *
+         * An SVG kept as an SVG is uploaded byte for byte: there is no canvas,
+         * no re-encode and no saving to report. The button still has to work,
+         * because Upload stays disabled until there IS a result — so this
+         * produces one describing the file as it stands.
+         */
+        setResult({
+          blob: file,
+          bytes: file.size,
+          originalBytes: file.size,
+          saved: 0,
+          width: null,
+          height: null,
+          vector: true,
+        });
+      } else {
+        const out = await compressImage(file, { crop: appliedCrop, maxEdge });
+        setResult(out);
+        showOutput(out.blob);
+      }
     } catch (err) {
       setError(err.message);
       setResult(null);
@@ -234,21 +316,26 @@ export default function ImageEditorDialog({
                optimiser to fetch, cache or re-serve. */
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={src}
+              src={outUrl ?? src}
               alt=""
-              onLoad={(e) =>
+              onLoad={(e) => {
+                /* Only the ORIGINAL reports the facts row's dimensions; the
+                   output's own size is shown beside the compressed bytes. */
+                if (outUrl) return;
                 setNatural({
                   width: e.currentTarget.naturalWidth,
                   height: e.currentTarget.naturalHeight,
-                })
-              }
+                });
+              }}
               className="h-full w-full object-contain"
             />
           )}
 
-          {appliedCrop && mode !== "crop" ? (
+          {outUrl && mode !== "crop" ? (
             <span className="absolute bottom-2 start-2 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white">
-              {t("تم القص", "Cropped")} · {Math.round(appliedCrop.width)}×{Math.round(appliedCrop.height)}
+              {appliedCrop
+                ? `${t("بعد القص", "Cropped")} · ${Math.round(appliedCrop.width)}×${Math.round(appliedCrop.height)}`
+                : t("بعد الضغط", "Compressed")}
             </span>
           ) : null}
         </div>
@@ -325,7 +412,10 @@ export default function ImageEditorDialog({
                   <span className="text-xs font-semibold text-gray-500">
                     {t("التحويل إلى", "Convert to")}
                   </span>
-                  {FORMATS.map((f) => (
+                  {(sourceIsSvg
+                    ? [{ id: "svg", label: "SVG", ar: "يبقى متجهاً", en: "Keep vector" }, ...FORMATS]
+                    : FORMATS
+                  ).map((f) => (
                     <button
                       key={f.id}
                       type="button"
@@ -341,7 +431,19 @@ export default function ImageEditorDialog({
                     </button>
                   ))}
                 </div>
-                {!alreadyModern ? (
+                {sourceIsSvg ? (
+                  <p className="text-[11px] text-gray-500">
+                    {keepingVector
+                      ? t(
+                          "ملفك SVG متجه: يُرفع كما هو بلا قص ولا ضغط، ويبقى حاداً عند أي حجم. اختر AVIF أو WebP إذا كنت تريد قصه.",
+                          "Your file is a vector SVG: it uploads untouched, with no crop and no compression, and stays sharp at any size. Pick AVIF or WebP if you want to crop it."
+                        )
+                      : t(
+                          `سيتم تحويل الـ SVG إلى ${format.toUpperCase()} — يمكن قصه وضغطه، لكنه يفقد الحدّة عند التكبير.`,
+                          `The SVG will be rasterised to ${format.toUpperCase()} — croppable and compressible, but it stops being sharp at any size.`
+                        )}
+                  </p>
+                ) : !alreadyModern ? (
                   <p className="text-[11px] text-gray-500">
                     {t(
                       `ملفك بصيغة ${sourceFormat}. سيتم تحويله إلى ${format.toUpperCase()} — أصغر حجماً وأفضل لسرعة الصفحة وللظهور في البحث.`,
@@ -351,13 +453,14 @@ export default function ImageEditorDialog({
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className={`flex flex-wrap items-center gap-2 ${keepingVector ? "opacity-40" : ""}`}>
                 <span className="text-xs font-semibold text-gray-500">{t("المقاس", "Size")}</span>
                 {SIZES.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => chooseSize(s.value)}
+                    disabled={keepingVector}
                     aria-pressed={maxEdge === s.value}
                     className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
                       maxEdge === s.value
@@ -386,10 +489,15 @@ export default function ImageEditorDialog({
                     <span className={tooLarge ? "font-bold text-red-600" : "font-bold text-green-700 dark:text-green-400"}>
                       <span className="font-mono">{formatBytes(result.bytes)}</span>{" "}
                       <span className="font-normal opacity-70">
-                        {result.width}×{result.height} · {format.toUpperCase()}
+                        {result.width && result.height ? `${result.width}×${result.height} · ` : ""}
+                        {format.toUpperCase()}
                       </span>
                     </span>
-                    {result.saved > 0 ? (
+                    {result.vector ? (
+                      <span className="text-gray-500">
+                        {t("يُرفع كما هو", "Uploaded as-is")}
+                      </span>
+                    ) : result.saved > 0 ? (
                       <span className="text-gray-500">
                         {t("توفير", "Saved")}{" "}
                         <strong>{Math.round((result.saved / result.originalBytes) * 100)}%</strong>
@@ -467,7 +575,9 @@ export default function ImageEditorDialog({
               <button
                 type="button"
                 onClick={() => setMode("crop")}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-white/10"
+                disabled={keepingVector}
+                title={keepingVector ? t("حوّلها إلى AVIF أو WebP لقصها", "Convert to AVIF or WebP to crop it") : undefined}
+                className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-white/10"
               >
                 <CropIcon className="h-4 w-4" />
                 {appliedCrop ? t("تعديل القص", "Edit crop") : t("قص", "Crop")}
@@ -480,7 +590,9 @@ export default function ImageEditorDialog({
                 className="flex items-center gap-2 rounded-lg border border-brand-primary px-4 py-2 text-sm font-bold text-brand-primary hover:bg-brand-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Minimize2 className="h-4 w-4" />}
-                {result ? t("إعادة الضغط", "Compress again") : t("ضغط الصورة", "Compress")}
+                {keepingVector
+                  ? t("تأكيد", "Confirm")
+                  : result ? t("إعادة الضغط", "Compress again") : t("ضغط الصورة", "Compress")}
               </button>
 
               {/* Disabled until compressed — see the note at the top. The title
