@@ -34,6 +34,19 @@ import {
 } from "../_actions/media";
 import { subscribeMedia, getMediaVersion, getServerMediaVersion } from "./mediaStore";
 import BackgroundStudio from "./BackgroundStudio";
+import dynamic from "next/dynamic";
+import { compressImage, blobToFile, formatBytes } from "@/marketplace/media/compress";
+
+/**
+ * The cropper is ~30 KB and is of no use to a seller who is not editing a
+ * photo this second, so it is fetched when one is opened. ssr:false because it
+ * measures a DOM box that does not exist on the server — the same reason the
+ * header's search dialog is loaded this way.
+ */
+const ImageEditorDialog = dynamic(() => import("./ImageEditorDialog"), { ssr: false });
+
+/** What may be stored, matching the upload route. Shown before anything is sent. */
+const MAX_STORED_BYTES = 1024 * 1024;
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -168,6 +181,9 @@ export default function MediaGallery({
      belongs to ONE tab rather than to the row. */
   const [folderMenu, setFolderMenu] = useState(null);
   const [uploading, setUploading] = useState([]);
+  /* The one file being cropped, and the queue behind it. A seller who picks a
+     single photo gets the editor; a drag of twenty skips it (see `upload`). */
+  const [editing, setEditing] = useState(null);
   const [errors, setErrors] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState(null);
@@ -345,7 +361,13 @@ export default function MediaGallery({
   const isSelected = (asset) => selected.some((s) => same(s, asset));
 
   const upload = useCallback(
-    async (files) => {
+    /**
+     * `precompressed` is set by the crop dialog, whose output has ALREADY been
+     * resized and encoded. Without it the blob would be put through the
+     * compressor a second time — re-encoding a lossy image to the same lossy
+     * format, which sharpens the first pass's artefacts and buys nothing.
+     */
+    async (files, { precompressed = false, skipEditor = false, format = null } = {}) => {
       if (!vendorId) {
         setErrors([t("اختر البائع أولاً", "Pick a seller first")]);
         return;
@@ -355,14 +377,65 @@ export default function MediaGallery({
       if (!list.length) return;
 
       setErrors([]);
+
+      /**
+       * ── ONE photo opens the editor; a batch does not ────────────────────
+       *
+       * Nobody is going to crop twenty photos one at a time, and a dialog that
+       * appears twenty times is a dialog that gets dismissed twenty times. So a
+       * single pick — which is the cover shot, the one worth a minute — gets
+       * the cropper, and a drag of several is compressed with the defaults and
+       * sent straight through.
+       *
+       * SVG is passed through untouched either way: it is a vector, and a
+       * canvas would rasterise away the one property it was chosen for.
+       */
+      if (!precompressed && !skipEditor && list.length === 1 && list[0].type !== "image/svg+xml") {
+        setEditing(list[0]);
+        return;
+      }
+
       setUploading((u) => [...u, ...list.map((f) => f.name)]);
 
       // Sequential, not Promise.all: a seller dragging 20 photos on a phone
       // connection would otherwise open 20 sockets and stall them all.
       for (const file of list) {
         try {
+          /**
+           * Shrunk here, before it crosses the network.
+           *
+           * The server re-encodes to AVIF regardless, so this is not what makes
+           * the stored file small — it is what stops five megabytes per photo
+           * being uploaded from a forecourt to produce sixty kilobytes. An SVG
+           * is left alone, and a failure falls back to the original rather than
+           * losing the seller's photo.
+           */
+          let toSend = file;
+          if (!precompressed && file.type !== "image/svg+xml") {
+            try {
+              const out = await compressImage(file);
+              if (out.bytes > MAX_STORED_BYTES) {
+                setErrors((e) => [
+                  ...e,
+                  `${file.name}: ${t(
+                    `حجم الملف كبير جداً (${formatBytes(out.bytes)} بعد الضغط، والحد ${formatBytes(MAX_STORED_BYTES)})`,
+                    `File size is too high (${formatBytes(out.bytes)} after compression, limit ${formatBytes(MAX_STORED_BYTES)})`
+                  )}`,
+                ]);
+                continue;
+              }
+              toSend = blobToFile(out.blob, file.name);
+            } catch {
+              // Compression is an optimisation, not a gate. The route still
+              // converts, and still enforces the limit on what it stores.
+            }
+          }
+
           const body = new FormData();
-          body.append("file", file);
+          body.append("file", toSend);
+          /* The seller's choice from the dialog. Omitted for a batch, where
+             the route's own default (AVIF) applies. */
+          if (format) body.append("format", format);
           body.append("vendorId", vendorId);
           body.append("kind", kind);
           if (listingId) body.append("listingId", listingId);
@@ -873,6 +946,37 @@ export default function MediaGallery({
                   </button>
                 </div>
 
+                {/* ── What this file WEIGHS ──────────────────────────────
+                    Along the bottom edge, where it never covers the subject.
+
+                    A seller cannot otherwise tell a 48 KB AVIF from a 5 MB
+                    JPEG — they look identical in a 240px tile — and the whole
+                    point of the upload pipeline is invisible without it. It is
+                    also how an old, heavy library becomes visible: anything
+                    uploaded before the conversion existed still reads in
+                    megabytes here.
+
+                    size_bytes is null on rows written before the route
+                    recorded it, so the badge is skipped rather than printing
+                    a confident "0 B" about a file nobody measured. */}
+                {asset.size_bytes ? (
+                  <span
+                    className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white"
+                    title={[
+                      formatBytes(asset.size_bytes),
+                      asset.width && asset.height ? `${asset.width}×${asset.height}` : null,
+                      asset.mime_type,
+                    ].filter(Boolean).join(" · ")}
+                  >
+                    <span className="font-mono">{formatBytes(asset.size_bytes)}</span>
+                    {asset.mime_type ? (
+                      <span className="opacity-75">
+                        {String(asset.mime_type).split("/")[1]?.replace("svg+xml", "svg").toUpperCase()}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : null}
+
                 {/* The first pick is the main photo — say so, don't make them guess. */}
                 {picked ? (
                   <span className="raised-solid absolute inset-s-1.5 top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-primary px-1.5 text-[11px] font-bold text-white">
@@ -1176,9 +1280,31 @@ export default function MediaGallery({
         asset={studioAsset}
         open={!!studioAsset}
         onOpenChange={(next) => { if (!next) setStudioAsset(null); }}
-        onSave={(file) => upload([file])}
+        /* skipEditor: asking somebody to crop a cutout they have just made is
+           a second dialog for a decision they already took. It is still
+           compressed on the way out like everything else. */
+        onSave={(file) => upload([file], { skipEditor: true })}
         locale={locale}
       />
+
+      {/* ── Crop, resize and compress, before anything is uploaded ─────────
+          Mounted only while a file is being edited, so the cropper chunk is
+          fetched on first use and never on a dashboard nobody uploads from.
+          The result goes through the SAME upload() as everything else, with
+          `precompressed` set so it is not encoded a second time. */}
+      {editing ? (
+        <ImageEditorDialog
+          file={editing}
+          locale={locale}
+          maxBytes={MAX_STORED_BYTES}
+          onCancel={() => setEditing(null)}
+          onConfirm={(result) => {
+            const file = blobToFile(result.blob, editing.name);
+            setEditing(null);
+            upload([file], { precompressed: true, format: result.format });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

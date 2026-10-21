@@ -33,13 +33,105 @@ import { ok, fail } from '@/app/api/marketplace/_lib/response';
 // and the Node runtime is the default for route handlers anyway. Buffer and the
 // Supabase storage client both work without declaring it.
 
+import sharp from 'sharp';
+
+/** What a seller may HAND US. The browser has already shrunk a photo long
+ *  before this, so anything near the ceiling is a file that skipped the
+ *  uploader — a drag onto a stale tab, or a direct POST. */
 const MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * What may be STORED, after conversion.
+ *
+ * The check that matters, and it is deliberately on the OUTPUT. A 5 MB camera
+ * photo is an ordinary thing for a showroom to have and a terrible thing to
+ * serve, and refusing it on the way in would mean no phone on the forecourt
+ * can upload anything. Re-encoded to AVIF the same photo is 40-90 KB, so this
+ * limit only ever catches what is still enormous once the work is done.
+ */
+const MAX_STORED_BYTES = 1024 * 1024;
+
+/** Nothing wider than this is stored. A card is 320px; 2000 is already generous. */
+const MAX_EDGE = 2000;
+
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/svg+xml'];
 
+/**
+ * Everything raster becomes AVIF. SVG is passed through untouched.
+ *
+ * ── Why convert at rest, when next/image converts on the way out ────────────
+ *
+ * next/image already serves AVIF from a JPEG source, so this looks like work
+ * the framework is doing anyway. It is not the same work:
+ *
+ *   · the optimiser's output is a CACHE. It expires, and every miss re-reads
+ *     the 5 MB original and re-encodes it — which is most of the LCP cost this
+ *     project spent a day tracing.
+ *   · the storage bucket is public. A listing photo's own URL is shared, hot-
+ *     linked and crawled directly, and that URL serves what is in the bucket.
+ *   · a backup, an export and a seller's own download are all the stored file.
+ *
+ * ── SVG is not re-encoded, on purpose ───────────────────────────────────────
+ *
+ * It is a vector — rasterising a brand logo to AVIF throws away the one
+ * property it was chosen for. SVGs are also already tiny, and the ones here
+ * are marks rather than photographs.
+ *
+ * ── A failure here does not fail the upload ────────────────────────────────
+ *
+ * sharp refusing a file (a CMYK JPEG, an animation, something truncated) is a
+ * reason to store the original, not to lose the seller's photo. The limit is
+ * then applied to whatever we ended up with, so nothing oversized gets in
+ * through the fallback.
+ */
+async function toFormat(bytes, mime, want = 'avif') {
+  if (mime === 'image/svg+xml') {
+    return { bytes, mime, width: null, height: null, converted: false };
+  }
+
+  /* The seller picked this in the upload dialog. Anything unrecognised falls
+     back to AVIF rather than erroring: the field arrives from a browser like
+     any other, and a bad value is not a reason to lose the photo. */
+  const target = want === 'webp' ? 'webp' : 'avif';
+
+  try {
+    const pipeline = sharp(bytes, { failOn: 'none' })
+      // EXIF orientation is applied and then dropped with the rest of the
+      // metadata. Without this a portrait phone photo is stored sideways the
+      // moment anything reads it without honouring the tag — and the metadata
+      // being dropped is the point: a camera writes GPS into it, and a
+      // showroom should not be publishing the coordinates of its forecourt.
+      .rotate()
+      .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+      .toFormat(target, target === 'avif' ? { quality: 62, effort: 4 } : { quality: 80 });
+
+    const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+    return {
+      bytes: data,
+      mime: `image/${target}`,
+      width: info.width,
+      height: info.height,
+      converted: true,
+    };
+  } catch {
+    // Store what we were given. The size check below still applies to it.
+    const meta = await sharp(bytes, { failOn: 'none' }).metadata().catch(() => ({}));
+    return {
+      bytes,
+      mime,
+      width: meta.width ?? null,
+      height: meta.height ?? null,
+      converted: false,
+    };
+  }
+}
+
 /** Keeps the extension, drops everything a storage key shouldn't carry. */
-function safeName(name = 'file') {
+function safeName(name = 'file', forceExt = null) {
   const dot = name.lastIndexOf('.');
-  const ext = dot > -1 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : 'jpg';
+  const ext = forceExt
+    ? forceExt
+    : dot > -1 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : 'jpg';
   const stem = (dot > -1 ? name.slice(0, dot) : name)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -139,13 +231,45 @@ export async function POST(request) {
     const folder = listingId
       ? `listings/${listingId}`
       : folderSlug || 'gallery';
-    const storagePath = `${folder}/${stamp}-${safeName(file.name)}`;
+    const raw = Buffer.from(await file.arrayBuffer());
 
-    const bytes = Buffer.from(await file.arrayBuffer());
+    /* Converted BEFORE the key is built: the extension has to describe what is
+       actually in the object, or every later reader disagrees about its type. */
+    const out = await toFormat(raw, file.type, String(form.get('format') || 'avif'));
+
+    /**
+     * The limit, applied to what we are about to STORE.
+     *
+     * A seller who reaches this has an image that is still over a megabyte as
+     * AVIF at 2000px — a huge panorama, or a screenshot of a screenshot. The
+     * message says the compressed size rather than the original, because the
+     * original is not the number they can do anything about.
+     */
+    if (out.bytes.length > MAX_STORED_BYTES) {
+      return fail(
+        `File size is too high: ${(out.bytes.length / 1048576).toFixed(1)} MB after compression, and the limit is 1 MB. Crop it tighter or choose a smaller size.`,
+        413,
+        'TOO_LARGE'
+      );
+    }
+
+    const ext =
+      out.mime === 'image/avif' ? 'avif'
+      : out.mime === 'image/webp' ? 'webp'
+      : out.mime === 'image/svg+xml' ? 'svg'
+      : null;
+    const storagePath = `${folder}/${stamp}-${safeName(file.name, ext)}`;
 
     const { error: uploadError } = await db.storage
       .from(bucket)
-      .upload(storagePath, bytes, { contentType: file.type, upsert: false });
+      .upload(storagePath, out.bytes, {
+        contentType: out.mime,
+        upsert: false,
+        /* Content-addressed by the random stamp, so the bytes behind this key
+           never change. The storage default of `no-cache` is what forced the
+           image optimiser to re-fetch unchanged photos for ever. */
+        cacheControl: '31536000',
+      });
 
     if (uploadError) return fail(`Upload failed: ${uploadError.message}`, 500, 'UPLOAD_FAILED');
 
@@ -161,8 +285,15 @@ export async function POST(request) {
         storage_path: storagePath,
         url,
         filename: file.name,
-        mime_type: file.type,
-        size_bytes: file.size,
+        /* What is in the bucket, not what was handed to us. These two were the
+           uploaded file's type and size, so every AVIF in the library would
+           have described itself as a 5 MB JPEG. width/height were in the
+           select and never in the insert, so every row had null dimensions —
+           sharp knows them, so they are filled in now. */
+        mime_type: out.mime,
+        size_bytes: out.bytes.length,
+        width: out.width,
+        height: out.height,
         // Single jsonb column, not alt_ar/alt_en — the schema moved to
         // {ar, en} objects and this insert was still writing the old pair,
         // which failed AFTER the file had already reached storage.
