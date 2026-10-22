@@ -135,7 +135,11 @@ export default function PhotoEditButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           dir={isAr ? "rtl" : "ltr"}
-          className="flex max-h-[88vh] flex-col sm:max-w-3xl"
+          /* Same rule as the other media pickers: a GRID wants the width, and
+             a stray click beside it must not close a dialog that may be
+             mid-upload. Escape and the close button still work. */
+          className="flex h-[90vh] flex-col sm:max-w-5xl"
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="pr-12">
             <DialogTitle className="flex items-center gap-2 text-brand-primary">

@@ -70,13 +70,28 @@ export default function SitemapViewer({ report, summary, locale = "ar" }) {
     Object.fromEntries((report.pageControls ?? []).map((p) => [p.key, p.index]))
   );
   const [saving, setSaving] = useState(null);
+  /**
+   * A refused toggle has to SAY so.
+   *
+   * It used to revert the switch and nothing else, which looks exactly like a
+   * save that silently did not take — the switch moves, springs back, and the
+   * admin is left guessing. The commonest cause is a real one: these actions
+   * require the `admin` role, and a `staff` account is refused, so the
+   * message names that rather than leaving it to be discovered.
+   */
+  const [toggleError, setToggleError] = useState(null);
+  const [tab, setTab] = useState("urls");
 
   const togglePage = (key, next) => {
     setIndexed((prev) => ({ ...prev, [key]: next }));
     setSaving(key);
+    setToggleError(null);
     startTransition(async () => {
       const res = await setPageIndexed(key, next);
-      if (!res?.ok) setIndexed((prev) => ({ ...prev, [key]: !next }));
+      if (!res?.ok) {
+        setIndexed((prev) => ({ ...prev, [key]: !next }));
+        setToggleError({ key, code: res?.error ?? "SAVE_FAILED" });
+      }
       setSaving(null);
     });
   };
@@ -160,6 +175,21 @@ export default function SitemapViewer({ report, summary, locale = "ar" }) {
               )}
             </p>
           </div>
+          {toggleError ? (
+            <p className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs font-medium text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+              {toggleError.code === "NOT_ADMIN"
+                ? t(
+                    `لم يُحفظ «${toggleError.key}»: هذا الإجراء يحتاج صلاحية «مدير»، وحسابك موظّف.`,
+                    `"${toggleError.key}" was not saved: this needs the admin role, and your account is staff.`
+                  )
+                : toggleError.code === "NOT_SIGNED_IN"
+                  ? t("انتهت الجلسة. سجّل الدخول وحاول مرة أخرى.", "Your session expired. Sign in and try again.")
+                  : t(
+                      `لم يُحفظ «${toggleError.key}» (${toggleError.code}).`,
+                      `"${toggleError.key}" was not saved (${toggleError.code}).`
+                    )}
+            </p>
+          ) : null}
           <div className="max-h-[360px] overflow-auto">
             <table className="w-full text-sm">
               <tbody>
@@ -291,9 +321,45 @@ export default function SitemapViewer({ report, summary, locale = "ar" }) {
         </p>
       ) : null}
 
-      {pagePanel}
+      {/* ── Tabs ─────────────────────────────────────────────────────────
+          Three sections that are read one at a time: what is IN the sitemap,
+          which pages go in, and what was left out. Stacked they made a page
+          nobody scrolled to the bottom of — the exclusions, which are the
+          most diagnostic part, were the furthest down.
 
-      {/* ── The groups ───────────────────────────────────────────────────── */}
+          Plain buttons and a conditional, not a tabs library: there are three
+          of them, the state is one string, and the admin bundle does not need
+          a dependency for that. */}
+      <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-800">
+        {[
+          { id: "urls", ar: "الروابط", en: "URLs", count: summary.urls },
+          { id: "pages", ar: "التحكم بالصفحات", en: "Page controls", count: report.pageControls?.length ?? 0 },
+          { id: "excluded", ar: "المستبعد", en: "Excluded", count: summary.excluded },
+        ].map((tb) => (
+          <button
+            key={tb.id}
+            type="button"
+            onClick={() => setTab(tb.id)}
+            aria-selected={tab === tb.id}
+            role="tab"
+            className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              tab === tb.id
+                ? "border-brand-primary text-brand-primary"
+                : "border-transparent text-gray-500 hover:text-brand-primary dark:text-gray-400"
+            }`}
+          >
+            {t(tb.ar, tb.en)}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+              tab === tb.id ? "bg-brand-primary/10" : "bg-gray-100 dark:bg-white/10"
+            }`}>
+              {tb.count.toLocaleString()}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {tab === "urls" ? (
+      /* Every URL that goes into the file, grouped by what it is. */
       <div className="space-y-2">
         {summary.groups.map((g) => {
           const entries = filtered[g.key] ?? [];
@@ -377,9 +443,17 @@ export default function SitemapViewer({ report, summary, locale = "ar" }) {
           );
         })}
       </div>
+      ) : null}
 
-      {/* ── What was left out, and why ───────────────────────────────────── */}
-      {report.excluded.length ? (
+      {tab === "pages" ? (
+        <>
+      {pagePanel}
+        </>
+      ) : null}
+
+      {tab === "excluded" ? (
+        report.excluded.length ? (
+        /* What was filtered out, and on whose instruction. */
         <div className="overflow-hidden rounded-xl border border-amber-300 dark:border-amber-900">
           <div className="flex items-center gap-2 bg-amber-50 px-4 py-3 dark:bg-amber-950/40">
             <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
@@ -403,7 +477,13 @@ export default function SitemapViewer({ report, summary, locale = "ar" }) {
             </table>
           </div>
         </div>
+        ) : (
+          <p className="rounded-xl border border-gray-200 p-6 text-center text-sm text-muted-foreground dark:border-gray-800">
+            {t("لا شيء مستبعد — كل صفحة قابلة للفهرسة موجودة في الخريطة.", "Nothing is excluded — every indexable page is in the sitemap.")}
+          </p>
+        )
       ) : null}
+
     </div>
   );
 }

@@ -285,7 +285,14 @@ export default function RichText({
 
       {/* ── Picture, from the showroom's own library ───────────────────── */}
       <Dialog open={picking} onOpenChange={setPicking}>
-        <DialogContent dir={isAr ? "rtl" : "ltr"} className="flex max-h-[88vh] flex-col sm:max-w-3xl">
+        <DialogContent
+          dir={isAr ? "rtl" : "ltr"}
+          /* Same rule as the other media pickers: a GRID wants the width, and
+             a stray click beside it must not close a dialog that may be
+             mid-upload. Escape and the close button still work. */
+          className="flex h-[90vh] flex-col sm:max-w-5xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="pr-12">
             <DialogTitle className="text-start text-brand-primary">
               {t("اختر صورة", "Choose a picture")}

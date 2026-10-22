@@ -139,7 +139,17 @@ export default function ImagePicker({
             than the screen. */}
         <DialogContent
           dir={isAr ? "rtl" : "ltr"}
-          className="flex max-h-[88vh] flex-col sm:max-w-3xl"
+          /* Wider and taller: this is a GRID of photographs, and at 3xl it
+             showed three columns of thumbnails with most of the screen left
+             empty — so choosing a picture meant scrolling past the ones
+             already on screen. 6xl fills a laptop without becoming a window
+             that has to be scanned side to side. */
+          className="flex h-[92vh] max-h-[92vh] flex-col sm:max-w-6xl"
+          /* A stray click beside the dialog must not close it. The seller may
+             be part-way through an upload, and losing the library over a
+             misplaced click is a worse default than having to press Escape or
+             the close button. Escape still works — it is deliberate. */
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="pr-12">
             <DialogTitle className="flex items-center gap-2 text-brand-primary">

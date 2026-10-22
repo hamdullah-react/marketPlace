@@ -33,6 +33,7 @@ import { savePageSeo } from "../admin/_actions/site";
 import { errorText } from "@/marketplace/lib/errors";
 import { keywordList } from "@/marketplace/lib/seo";
 import { CHANGEFREQ, TITLE_MAX, DESCRIPTION_MAX } from "@/marketplace/lib/sitePages";
+import { useOnChange } from "@/hooks/use-on-change";
 
 const INITIAL = { ok: false, error: null };
 const bi = (v) => ({ ar: typeof v?.ar === "string" ? v.ar : "", en: typeof v?.en === "string" ? v.en : "" });
@@ -93,7 +94,38 @@ export default function PageSeoForm({ locale = "ar", page, row = null, siteName,
   const [ogType, setOgType] = useState(row?.og_type ?? "website");
   const [twitterCard, setTwitterCard] = useState(row?.twitter_card ?? "summary_large_image");
   const [index, setIndex] = useState(row ? row.seo_index !== false : page.index);
-  const [follow, setFollow] = useState(row ? row.seo_follow !== false : page.index);
+  /**
+   * `follow` defaults to TRUE, not to the page's index default.
+   *
+   * This read `page.index`, and SEO_PAGES has no `follow` property at all — so
+   * a page that ships noindex (login, checkout, the account pages) also opened
+   * with "follow links" switched OFF, and saving it wrote seo_follow = false.
+   *
+   * That is the wrong instruction and the schema says so in as many words:
+   * "noindex, follow" is a real and common combination — do not list this
+   * page, but DO follow its links to the cars, which should be listed. The
+   * database column agrees, defaulting to true.
+   */
+  const [follow, setFollow] = useState(row ? row.seo_follow !== false : true);
+
+  /**
+   * Follow the SERVER when the row changes underneath us.
+   *
+   * useState seeds these once, on mount. After a save the route re-renders
+   * and this component is handed a FRESH `row` — but it keeps the state it
+   * already had, so the switches and the database can disagree with nothing
+   * on screen to say which is right. That is what "it saves but the box is
+   * unchecked" looks like: the row says indexed, the switch says not.
+   *
+   * Re-seeding during render rather than in an effect is the documented fix
+   * (see use-on-change), and it is keyed on the two VALUES rather than on
+   * `row` — the object is a new reference on every server render and would
+   * otherwise throw away the seller's unsaved toggle on each one.
+   */
+  useOnChange(`${row?.seo_index ?? "none"}|${row?.seo_follow ?? "none"}`, () => {
+    setIndex(row ? row.seo_index !== false : page.index);
+    setFollow(row ? row.seo_follow !== false : true);
+  });
   const [changefreq, setChangefreq] = useState(row?.seo_changefreq ?? page.changefreq);
 
   /* §32 crawl directives. `archive: false` is what a stored row says; the

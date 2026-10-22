@@ -206,9 +206,106 @@ export default function MediaGallery({
      belongs to ONE tab rather than to the row. */
   const [folderMenu, setFolderMenu] = useState(null);
   const [uploading, setUploading] = useState([]);
-  /* The one file being cropped, and the queue behind it. A seller who picks a
-     single photo gets the editor; a drag of twenty skips it (see `upload`). */
-  const [editing, setEditing] = useState(null);
+  /**
+   * The editor queue: every picked file, handled one at a time.
+   *
+   * It used to be a single file, and a drag of several skipped the dialog
+   * entirely — so a seller uploading five photos could crop none of them, and
+   * the format and size they chose for one did not reach the rest.
+   *
+   * `queue` is what is left, `queue[0]` is on screen. Each file is dealt with
+   * and uploaded before the next appears, so twenty photos never hold twenty
+   * decoded bitmaps at once.
+   */
+  const [queue, setQueue] = useState([]);
+  /**
+   * One object URL per queued file, made ONCE when the queue is set.
+   *
+   * The filmstrip renders every thumbnail, and the dialog is remounted on each
+   * advance so that one photo's crop cannot leak into the next. If the URLs
+   * were made inside the dialog, every advance would mint and decode the whole
+   * strip again — twenty bitmaps per photo on a twenty-photo batch.
+   */
+  const [thumbs, setThumbs] = useState([]);
+  /** Indexes already uploaded, so the strip can tick them and advance past. */
+  const [doneIdx, setDoneIdx] = useState([]);
+  /**
+   * What each finished photo turned into: { bytes, format }.
+   *
+   * The strip prints it under the thumbnail, so a seller part-way through a
+   * batch can see that the first four really were compressed and to what —
+   * a tick alone says "handled", which is not the same claim.
+   */
+  const [doneInfo, setDoneInfo] = useState({});
+
+  /**
+   * What has been done to each queued photo, kept OUTSIDE the dialog.
+   *
+   * The dialog is keyed on the current photo so one crop cannot leak into the
+   * next — which also means it is torn down and rebuilt on every jump. With
+   * the crop, the format and the compressed result living inside it, moving to
+   * photo 2 and back to photo 1 discarded everything done to photo 1: the
+   * seller cropped, looked away, came back and found the original.
+   *
+   * So the edits live here, where the queue lives, and the dialog is handed
+   * its photo's entry on mount and reports changes back as they happen. The
+   * BLOB is kept rather than an object URL: a url belongs to the document that
+   * made it, and the remounted dialog makes its own from these bytes.
+   */
+  const [edits, setEdits] = useState({});
+
+  const patchEdit = (i, patch) =>
+    setEdits((prev) => ({ ...prev, [i]: { ...(prev[i] ?? {}), ...patch } }));
+  const [current, setCurrent] = useState(0);
+
+  const editing = queue[current] ?? null;
+
+  /* Opening a queue: URLs in, counters reset. Not an effect — this is the
+     event, and deriving it later would mean a render showing a strip with no
+     pictures in it. */
+  const openQueue = (files) => {
+    setThumbs((old) => {
+      old.forEach((u) => URL.revokeObjectURL(u));
+      return files.map((f) => URL.createObjectURL(f));
+    });
+    setQueue(files);
+    setDoneIdx([]);
+    setDoneInfo({});
+    setEdits({});
+    setCurrent(0);
+  };
+
+  const closeQueue = () => {
+    setThumbs((old) => {
+      old.forEach((u) => URL.revokeObjectURL(u));
+      return [];
+    });
+    setQueue([]);
+    setDoneIdx([]);
+    setDoneInfo({});
+    setEdits({});
+    setCurrent(0);
+  };
+
+  /**
+   * Move to the next photo nobody has dealt with yet.
+   *
+   * Forward from here first, then round to the start, so skipping one and
+   * coming back to it later works without the seller hunting for it. When
+   * there is nothing left the queue closes itself — a dialog that stays open
+   * over an empty strip is a dialog somebody has to dismiss for no reason.
+   */
+  const advanceFrom = (index, doneList) => {
+    const total = queue.length;
+    for (let step = 1; step <= total; step += 1) {
+      const candidate = (index + step) % total;
+      if (!doneList.includes(candidate)) {
+        setCurrent(candidate);
+        return;
+      }
+    }
+    closeQueue();
+  };
   const [errors, setErrors] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState(null);
@@ -392,7 +489,7 @@ export default function MediaGallery({
      * compressor a second time — re-encoding a lossy image to the same lossy
      * format, which sharpens the first pass's artefacts and buys nothing.
      */
-    async (files, { precompressed = false, skipEditor = false, format = null } = {}) => {
+    async (files, { precompressed = false, skipEditor = false, format = null, maxEdge = null } = {}) => {
       if (!vendorId) {
         setErrors([t("اختر البائع أولاً", "Pick a seller first")]);
         return;
@@ -415,12 +512,22 @@ export default function MediaGallery({
        * SVG is passed through untouched either way: it is a vector, and a
        * canvas would rasterise away the one property it was chosen for.
        */
-      /* SVG included: the dialog offers "keep vector" (uploaded byte for byte)
-         or rasterise to AVIF/WebP, which is what makes an SVG croppable. A
-         BATCH still skips it, and batched SVGs are passed through untouched
-         by the compression guard below. */
-      if (!precompressed && !skipEditor && list.length === 1) {
-        setEditing(list[0]);
+      /**
+       * ── Every pick opens the editor, however many there are ─────────────
+       *
+       * One at a time, with the count shown, and "Apply to all" on the dialog
+       * for the seller who wants the same size and format across the batch
+       * without pressing Compress twenty times.
+       *
+       * SVG included: the dialog offers "keep vector" (uploaded byte for
+       * byte) or rasterise to AVIF/WebP, which is what makes one croppable.
+       *
+       * `skipEditor` is still honoured — BackgroundStudio's output is a
+       * decision the seller has already taken, and asking them to crop it
+       * again would be a second dialog for the same choice.
+       */
+      if (!precompressed && !skipEditor) {
+        openQueue(list);
         return;
       }
 
@@ -442,7 +549,7 @@ export default function MediaGallery({
           let toSend = file;
           if (!precompressed && !isSvg(file)) {
             try {
-              const out = await compressImage(file);
+              const out = await compressImage(file, maxEdge ? { maxEdge } : {});
               if (out.bytes > MAX_STORED_BYTES) {
                 setErrors((e) => [
                   ...e,
@@ -935,7 +1042,10 @@ export default function MediaGallery({
           ) : null}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+        /* More columns on a wide screen, now that the picker dialog is one.
+           At six, a library of eighty photos was a long scroll through mostly
+           empty rows. */
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
           {uploading.map((name) => (
             <div
               key={`up-${name}`}
@@ -1236,7 +1346,12 @@ export default function MediaGallery({
           dimensions — a 400px file is why a banner looks soft.
           --------------------------------------------------------- */}
       <Dialog open={Boolean(preview)} onOpenChange={(v) => !v && setPreview(null)}>
-        <DialogContent dir={isAr ? "rtl" : "ltr"} className="flex max-h-[90vh] flex-col sm:max-w-4xl">
+        <DialogContent
+          dir={isAr ? "rtl" : "ltr"}
+          className="flex max-h-[92vh] flex-col sm:max-w-5xl"
+          /* Same rule as the picker: dismissed on purpose, never by missing. */
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="pr-12">
             <DialogTitle className="truncate text-start text-base text-brand-primary">
               {preview?.filename || t("معاينة", "Preview")}
@@ -1328,18 +1443,68 @@ export default function MediaGallery({
           `precompressed` set so it is not encoded a second time. */}
       {editing ? (
         <ImageEditorDialog
+          /* Keyed on the CURRENT file, so moving along the strip mounts a
+             fresh editor. Without it the crop, zoom and compressed result of
+             the previous photo would still be in state, described as
+             belonging to this one. The strip itself is driven by props, so
+             remounting costs nothing — the thumbnails live above. */
+          key={`${current}-${editing.name}-${editing.size}`}
           file={editing}
           locale={locale}
           maxBytes={MAX_STORED_BYTES}
-          onCancel={() => setEditing(null)}
+          files={queue}
+          thumbs={thumbs}
+          index={current}
+          doneIdx={doneIdx}
+          doneInfo={doneInfo}
+          /* The WHOLE map, not just this photo's entry: the dialog has to be
+             able to say "all four are compressed" before it enables Upload,
+             and to compress the other three on one press. */
+          edits={edits}
+          onEditChangeAt={patchEdit}
+          onUploadAll={() => {
+            /* Every queued photo at once, in the queue's own order so the
+               first picked stays the cover. Each was compressed with its own
+               settings, so they are uploaded as-is — no second encode. */
+            const ready = queue
+              .map((f, i) => ({ f, i, e: edits[i] }))
+              .filter(({ i, e }) => e?.result?.blob && !doneIdx.includes(i));
+
+            if (!ready.length) return;
+
+            for (const { f, e } of ready) {
+              const fmt = e.format ?? "avif";
+              upload(
+                [blobToFile(e.result.blob, f.name, fmt === "svg" ? "svg" : null)],
+                { precompressed: true, format: fmt }
+              );
+            }
+            closeQueue();
+          }}
+          onJump={(i) => setCurrent(i)}
+          onCancel={closeQueue}
+          onSkip={() => advanceFrom(current, doneIdx)}
+          /* ONE photo. A batch leaves by onUploadAll instead, which is why
+             there is no "apply to the rest" branch here any more: with the
+             queue uploaded in one press, there is no "rest" left to apply
+             anything to. Settings are propagated by the dialog's own
+             "Apply size & format to the rest" button, before compressing. */
           onConfirm={(result) => {
             /* The extension follows the FORMAT the seller picked, so a kept
                vector stays `logo.svg` and a rasterised one becomes
                `logo.webp` — the route reads the type from the bytes either
                way, but a name that lies is a name somebody later trusts. */
             const file = blobToFile(result.blob, editing.name, result.format === "svg" ? "svg" : null);
-            setEditing(null);
+
+            const nextDone = [...doneIdx, current];
+            setDoneIdx(nextDone);
+            setDoneInfo((prev) => ({
+              ...prev,
+              [current]: { bytes: result.bytes, format: result.format },
+            }));
+
             upload([file], { precompressed: true, format: result.format });
+            advanceFrom(current, nextDone);
           }}
         />
       ) : null}

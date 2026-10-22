@@ -37,7 +37,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Cropper from "react-easy-crop";
 import {
-  Check, Crop as CropIcon, FileImage, Loader2, Minimize2, RotateCw, X, ZoomIn,
+  Check, Crop as CropIcon, FileImage, Layers, Loader2, Minimize2, RotateCw, X, ZoomIn,
 } from "lucide-react";
 import { compressImage, formatBytes, MAX_EDGE } from "@/marketplace/media/compress";
 
@@ -82,11 +82,25 @@ export default function ImageEditorDialog({
   maxBytes,
   onCancel,
   onConfirm,
+  onSkip,
+  onJump,
+  files = [],
+  thumbs = [],
+  index = 0,
+  doneIdx = [],
+  doneInfo = {},
+  edits = {},
+  onEditChangeAt,
+  onUploadAll,
 }) {
   const isAr = locale === "ar";
   const t = (ar, en) => (isAr ? ar : en);
 
   /** 'preview' shows the picture; 'crop' shows the cropper. */
+  /* This photo's entry, read out of the map the parent owns. */
+  const initial = edits[index] ?? null;
+  const onEditChange = (patch) => onEditChangeAt?.(index, patch);
+
   const [mode, setMode] = useState("preview");
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -98,16 +112,17 @@ export default function ImageEditorDialog({
      Keeping them apart is what lets Cancel leave the cropper without changing
      anything the seller had already settled on. */
   const [areaPixels, setAreaPixels] = useState(null);
-  const [appliedCrop, setAppliedCrop] = useState(null);
+  const [appliedCrop, setAppliedCrop] = useState(initial?.appliedCrop ?? null);
 
-  const [maxEdge, setMaxEdge] = useState(MAX_EDGE);
+  const [maxEdge, setMaxEdge] = useState(initial?.maxEdge ?? MAX_EDGE);
   /* An SVG defaults to STAYING an SVG. Rasterising a logo throws away the one
      property it was chosen for, so converting is offered and never assumed. */
   const [format, setFormat] = useState(() =>
-    (file?.type === "image/svg+xml" || /\.svg$/i.test(file?.name ?? "")) ? "svg" : "avif"
+    initial?.format ??
+    ((file?.type === "image/svg+xml" || /\.svg$/i.test(file?.name ?? "")) ? "svg" : "avif")
   );
 
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(initial?.result ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -122,58 +137,90 @@ export default function ImageEditorDialog({
    *
    * Null means "nothing done yet", and the stage falls back to the original.
    */
-  const [outUrl, setOutUrl] = useState(null);
+  /**
+   * Seeded from the stored blob, so coming BACK to a photo shows the crop
+   * that was made the first time rather than the untouched original.
+   *
+   * A lazy initialiser rather than an effect: the url is a pure function of
+   * bytes that are already here, and minting it during the first render means
+   * the restored crop is on screen in the first paint.
+   */
+  const [outUrl, setOutUrl] = useState(() => {
+    /* `preview` is what a CROP produced; `result.blob` is what COMPRESS
+       produced. A photo cropped and not yet compressed has only the first,
+       and it is the one that must come back on screen. */
+    const blob = initial?.preview ?? initial?.result?.blob ?? null;
+    return blob ? URL.createObjectURL(blob) : null;
+  });
 
-  /* An object URL per render of the output. Revoked when it is replaced, or
-     the dialog leaks one decoded bitmap per crop. */
+  /**
+   * Replaced urls are revoked; the LAST one is deliberately not.
+   *
+   * Revoking on unmount is what a tidy component does, and it is wrong here:
+   * Strict Mode mounts, runs cleanups, and mounts again, so the only url
+   * would be released while the dialog that needs it is still on screen —
+   * the black-cropper bug this file already carries a note about. The cost of
+   * not revoking is one url per photo visited, released when the tab is
+   * closed; the cost of revoking is a preview that does not render.
+   */
   const showOutput = (blob) => {
     setOutUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return blob ? URL.createObjectURL(blob) : null;
     });
   };
-  useEffect(() => () => { if (outUrl) URL.revokeObjectURL(outUrl); }, [outUrl]);
 
   /**
-   * The object URL, created IN THE EFFECT — and it has to be.
+   * The object URL, minted during the FIRST render.
    *
-   * ── Why useMemo was wrong, measured ─────────────────────────────────────
+   * ── Why not an effect, and why not useMemo either ───────────────────────
    *
-   * This was `useMemo(() => URL.createObjectURL(file), [file])` with the
-   * revoke in an effect cleanup, to avoid calling setState from an effect.
-   * It produced a black cropper, every time, in development.
+   * Both of the obvious shapes are wrong here, and each was shipped once.
    *
-   * Strict Mode — on by default in the App Router since Next 13.5.1 — mounts
-   * a component, runs its effects, runs the CLEANUPS, then runs the effects
-   * again. The cleanup revoked the url. useMemo does not re-run, because
-   * `file` has not changed, so `src` stayed a string pointing at a blob the
-   * browser had already released. Nothing can load it, and an <img> whose
-   * source cannot load over a dark stage is a black rectangle.
+   * An effect (`setSrc` after mount) is Strict-Mode-safe but renders the
+   * stage EMPTY first: the dialog opens black and the photo appears a beat
+   * later. That is the flicker.
    *
-   * Creating it in the effect fixes it precisely because the second setup
-   * makes a NEW url. That is the shape React documents for this, and it is
-   * the reason the rule below is suppressed rather than worked around: an
-   * object url is a handle on an external resource, which is what effects are
-   * for. Deriving it during render only looked cleaner.
+   * useMemo renders it immediately and breaks under Strict Mode, which
+   * mounts, runs cleanups — revoking the only url — and mounts again. That is
+   * the black cropper this file already carries a scar from.
+   *
+   * A lazy useState initialiser gives the first render a real url AND does
+   * not depend on the effect running twice. The price is that the url is not
+   * revoked on unmount: it would be released while the dialog still needs it,
+   * for exactly the Strict Mode reason above. One url per photo opened, freed
+   * when the tab closes — the same trade this file already makes for the
+   * output preview, and the same reasoning.
    */
-  const [src, setSrc] = useState(null);
-
-  useEffect(() => {
-    if (!file) return undefined;
-    const url = URL.createObjectURL(file);
-    /* The url must be minted per effect run, or Strict Mode revokes the only
-       copy (see above). This synchronises with an external resource, which is
-       what effects are for; it is not derived state, and deriving it during
-       render is exactly what produced the black cropper. */
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSrc(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+  const [src] = useState(() => (file ? URL.createObjectURL(file) : null));
 
   /** The picture's own dimensions, read once so the facts row can show them. */
   const [natural, setNatural] = useState(null);
 
   const onCropComplete = useCallback((_area, pixels) => setAreaPixels(pixels), []);
+
+  /**
+   * Escape leaves; a click on the backdrop does NOT.
+   *
+   * The two are not the same gesture. Escape is deliberate and nobody presses
+   * it by accident; a stray click beside a dialog is the commonest accident
+   * there is, and here it would throw away a crop, a compression and the rest
+   * of a queue with no warning and no undo. Dialogs that hold work should not
+   * be dismissible by missing.
+   *
+   * In crop mode Escape backs out of the CROP rather than the dialog, which
+   * is the nearer meaning of "cancel" while a crop is being dragged.
+   */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      if (mode === "crop") setMode("preview");
+      else onCancel?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, onCancel]);
 
   /**
    * Any change to what the output WOULD be invalidates the measurement, and
@@ -188,7 +235,11 @@ export default function ImageEditorDialog({
    * and would write state during that render to correct itself. These are
    * events; the invalidation belongs where the event is.
    */
-  const chooseSize = (value) => { setMaxEdge(value); setResult(null); };
+  const chooseSize = (value) => {
+    setMaxEdge(value);
+    setResult(null);
+    onEditChange?.({ maxEdge: value, result: null });
+  };
 
   const chooseFormat = (value) => {
     setFormat(value);
@@ -196,6 +247,11 @@ export default function ImageEditorDialog({
     /* Going back to the vector throws away any raster preview: it was made by
        a canvas that is no longer part of the answer. */
     if (value === "svg") { setAppliedCrop(null); showOutput(null); }
+    onEditChange?.({
+      format: value,
+      result: null,
+      ...(value === "svg" ? { appliedCrop: null } : {}),
+    });
   };
 
   /**
@@ -209,10 +265,13 @@ export default function ImageEditorDialog({
     setAppliedCrop(areaPixels);
     setResult(null);
     setMode("preview");
+    onEditChange?.({ appliedCrop: areaPixels, result: null });
     if (!areaPixels) return;
     try {
       const out = await compressImage(file, { crop: areaPixels, maxEdge: 1200 });
       showOutput(out.blob);
+      /* Stored so a jump away and back redraws the crop from these bytes. */
+      onEditChange?.({ preview: out.blob });
     } catch {
       /* The crop is still applied and Compress will report the real error;
          falling back to the original beats an empty stage. */
@@ -220,7 +279,15 @@ export default function ImageEditorDialog({
     }
   };
 
-  const resetCrop = () => { setAppliedCrop(null); setResult(null); showOutput(null); };
+  const resetCrop = () => {
+    setAppliedCrop(null);
+    setResult(null);
+    showOutput(null);
+    onEditChange?.({ appliedCrop: null, result: null, preview: null });
+  };
+
+  const isSvgFile = (f) =>
+    f?.type === "image/svg+xml" || /\.svg$/i.test(f?.name ?? "");
 
   const sourceIsSvg =
     file?.type === "image/svg+xml" || /\.svg$/i.test(file?.name ?? "");
@@ -253,10 +320,12 @@ export default function ImageEditorDialog({
           height: null,
           vector: true,
         });
+        onEditChange?.({ result: { blob: file, bytes: file.size, vector: true } });
       } else {
         const out = await compressImage(file, { crop: appliedCrop, maxEdge });
         setResult(out);
         showOutput(out.blob);
+        onEditChange?.({ result: out, preview: out.blob });
       }
     } catch (err) {
       setError(err.message);
@@ -266,23 +335,139 @@ export default function ImageEditorDialog({
     }
   };
 
+  /**
+   * Carry the SETTINGS to the rest of the batch — not the crop.
+   *
+   * See the note at the call site: a crop rectangle chosen against one
+   * photograph means something else entirely on the next car. The size and
+   * the format are shared decisions and travel; the rectangle does not.
+   */
+  /** {done, total} while a Compress all run is going, else null. */
+  const [bulk, setBulk] = useState(null);
+
+  const total = files.length || 1;
+  const remaining = total - doneIdx.length;
+  /* The checkbox and the Skip button only make sense with a batch behind
+     them; with one file the dialog stays exactly as it was. */
+  const batched = total > 1;
+
+  /**
+   * Compress every photo that still needs it, in one press.
+   *
+   * Each photo is encoded with ITS OWN settings where the seller set them —
+   * a crop, a size, a format chosen on that photo — and with the ones showing
+   * now for the rest. That is the useful meaning of "all": it finishes the
+   * job without overriding the decisions already made.
+   *
+   * Sequential rather than Promise.all. Each encode is a full-size canvas
+   * draw plus a WebP encode; twelve at once on a laptop freezes the tab and
+   * can exhaust memory on a phone. One at a time keeps the progress count
+   * honest as well.
+   */
+  /**
+   * Push THIS photo's size and format onto every other photo still waiting.
+   *
+   * Not the crop: a rectangle chosen against one photograph is a different
+   * part of a different picture on the next car, and copying it would cut
+   * the roofs off the rest of the batch.
+   *
+   * Any result already measured for those photos is dropped, because it was
+   * measured against the settings they had a moment ago.
+   */
+  const applySettingsToPending = () => {
+    for (const i of pending) {
+      if (i === index) continue;
+      if (isSvgFile(files[i])) continue;   // a vector keeps its own answer
+      onEditChangeAt?.(i, { maxEdge, format, result: null, preview: null });
+    }
+  };
+
+  const compressAll = async () => {
+    const todo = files.map((_, i) => i).filter((i) => !doneIdx.includes(i) && !readyAt(i));
+    if (!todo.length) return;
+
+    setBulk({ done: 0, total: todo.length });
+    setError(null);
+
+    for (const [n, i] of todo.entries()) {
+      const e = edits[i] ?? {};
+      const fmt = e.format ?? (isSvgFile(files[i]) ? "svg" : format);
+
+      try {
+        if (fmt === "svg") {
+          /* A vector kept as a vector is uploaded byte for byte — there is
+             nothing to encode, and saying so is the honest result. */
+          onEditChangeAt?.(i, {
+            format: "svg",
+            result: { blob: files[i], bytes: files[i].size, vector: true },
+          });
+        } else {
+          const out = await compressImage(files[i], {
+            crop: e.appliedCrop ?? null,
+            maxEdge: e.maxEdge ?? maxEdge,
+          });
+          onEditChangeAt?.(i, { format: fmt, result: out, preview: out.blob });
+          if (i === index) { setResult(out); showOutput(out.blob); }
+        }
+      } catch (err) {
+        setError(err.message);
+      }
+
+      setBulk({ done: n + 1, total: todo.length });
+    }
+
+    setBulk(null);
+  };
+
   const tooLarge = Boolean(result && maxBytes && result.bytes > maxBytes);
-  const canUpload = Boolean(result) && !tooLarge && !busy;
+
+  /**
+   * ── With a batch, Upload waits for ALL of them ──────────────────────────
+   *
+   * Uploading one photo at a time out of a queue of twelve meant twelve
+   * presses, and a seller who closed the dialog after the fourth had four
+   * photos in the library and eight still sitting in a queue that no longer
+   * existed. The button now means what it says: send the batch.
+   *
+   * A photo counts as ready when it has a compressed result that is within
+   * the limit. One oversized photo blocks the lot, which is correct — it is
+   * the one thing the seller has to deal with before anything can go.
+   */
+  const readyAt = (i) => {
+    const e = edits[i];
+    if (!e?.result) return false;
+    return !(maxBytes && e.result.bytes > maxBytes);
+  };
+
+  const pending = files.map((_, i) => i).filter((i) => !doneIdx.includes(i) && !readyAt(i));
+  const allReady = batched ? pending.length === 0 : Boolean(result) && !tooLarge;
+  const canUpload = allReady && !busy && !bulk;
 
   if (!file) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4"
       role="dialog"
       aria-modal="true"
       aria-label={t("تجهيز الصورة", "Prepare image")}
     >
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-[#141414]">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+      {/* h-[92vh] rather than max-h: a fixed height gives the flex column a
+          definite size to divide up, so the footer is placed from the BOTTOM
+          instead of wherever the content happens to end. With max-h the
+          column only constrained itself once the content already overflowed,
+          which is why the buttons were below the fold. */}
+      <div className="flex h-[82vh] max-h-[760px] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 dark:bg-[#141414] dark:ring-white/10">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
           <h2 className="flex items-center gap-2 text-sm font-bold text-brand-primary">
             <FileImage className="h-4 w-4" />
             {mode === "crop" ? t("قص الصورة", "Crop image") : t("تجهيز الصورة", "Prepare image")}
+            {batched ? (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                {t(`${index + 1} من ${total}`, `${index + 1} of ${total}`)}
+                {remaining !== total ? t(` · متبقٍ ${remaining}`, ` · ${remaining} left`) : ""}
+              </span>
+            ) : null}
           </h2>
           <button
             type="button"
@@ -293,10 +478,25 @@ export default function ImageEditorDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {/* ── Two columns on a wide screen ────────────────────────────────
+            The picture takes the room it deserves and the controls get a
+            column of their own, instead of both sharing one narrow tower
+            where the panel scrolled a few lines at a time.
+
+            It stacks below `lg`, which is where a side-by-side would make the
+            picture too small to judge a crop against. min-h-0 on the row and
+            on each column, for the reason spelled out below: without it a
+            flex child refuses to shrink under its content and the whole
+            thing grows past the dialog again. */}
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <div className="flex min-h-0 flex-1 flex-col">
 
         {/* The stage. A positioned box with a real height either way — the
-            cropper fills its container absolutely and collapses without one. */}
-        <div className="relative h-[40vh] min-h-[220px] w-full bg-neutral-900">
+            cropper fills its container absolutely and collapses without one,
+            which is what min-h is for. flex-1 now rather than a fixed vh: in
+            a column of its own the picture should take whatever the filmstrip
+            leaves, instead of being pinned to a fraction of the window. */}
+        <div className="relative min-h-[220px] w-full flex-1 bg-neutral-900">
           {mode === "crop" ? (
             <Cropper
               image={src}
@@ -340,7 +540,72 @@ export default function ImageEditorDialog({
           ) : null}
         </div>
 
-        <div className="space-y-3 overflow-y-auto px-4 py-3">
+        {/* ── The filmstrip ────────────────────────────────────────────
+            Every picked photo, in order, with the current one ringed and the
+            finished ones ticked and labelled with what they became.
+
+            It exists because a batch without it is a dialog that keeps
+            reappearing with no sense of progress — the seller cannot tell how
+            many are left, which ones were already done, or that the
+            compression happened at all. Clicking a thumbnail jumps to it, so
+            a photo skipped earlier can be picked up without hunting.
+            --------------------------------------------------------------- */}
+        {batched ? (
+          <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-white/5">
+            {files.map((f, i) => {
+              const isDone = doneIdx.includes(i);
+              const info = doneInfo[i];
+              const isCurrent = i === index;
+              return (
+                <button
+                  key={`${f.name}-${i}`}
+                  type="button"
+                  onClick={() => onJump?.(i)}
+                  aria-current={isCurrent ? "true" : undefined}
+                  title={f.name}
+                  className={`relative shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
+                    isCurrent
+                      ? "border-brand-primary"
+                      : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
+                >
+                  {/* A local object: URL for a file that exists only in this
+                      tab — there is nothing for next/image to fetch. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbs[i]}
+                    alt=""
+                    className={`h-14 w-14 object-cover ${isDone ? "opacity-45" : ""}`}
+                  />
+
+                  {isDone ? (
+                    <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/45 text-white">
+                      <Check className="h-4 w-4" />
+                      {info?.bytes ? (
+                        <span className="font-mono text-[9px] leading-none">
+                          {formatBytes(info.bytes)}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+          </div>
+
+          {/* The controls. A column of its own on a wide screen, scrolling
+              independently of the picture so a long panel never pushes the
+              photograph out of view. */}
+          <div className="flex min-h-0 w-full shrink-0 flex-col border-t border-gray-200 lg:w-[340px] lg:border-s lg:border-t-0 dark:border-gray-800">
+        {/* min-h-0 is load-bearing. A flex item's default min-height is
+            `auto`, which means "never smaller than my content" — so this
+            panel grew to fit, the column grew with it, and the footer was
+            pushed past the bottom of the screen with its buttons unreachable.
+            flex-1 + min-h-0 is what makes it the part that scrolls. */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {mode === "crop" ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
@@ -531,9 +796,11 @@ export default function ImageEditorDialog({
             </>
           )}
         </div>
+          </div>
+        </div>
 
         {/* ── Actions ───────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-[#141414]">
           {mode === "crop" ? (
             <>
               <button
@@ -557,10 +824,46 @@ export default function ImageEditorDialog({
               <button
                 type="button"
                 onClick={onCancel}
-                className="me-auto rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
               >
-                {t("إلغاء", "Cancel")}
+                {batched ? t("إلغاء الكل", "Cancel all") : t("إلغاء", "Cancel")}
               </button>
+
+              {batched ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={onSkip}
+                    className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
+                  >
+                    {t("تخطّي", "Skip")}
+                  </button>
+                  {/* A BUTTON now, not a checkbox.
+                      As a checkbox it was a promise about what Upload would
+                      do later — and once Upload became "send the whole
+                      batch", that promise had nowhere to be kept. Pressing it
+                      writes this photo's size and format onto the others
+                      immediately, so Compress all then uses them and the
+                      seller can see it happened. */}
+                  {pending.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={applySettingsToPending}
+                      disabled={Boolean(bulk)}
+                      className="me-auto rounded-lg px-3 py-2 text-xs font-medium text-brand-primary hover:bg-brand-primary/5 disabled:opacity-50"
+                    >
+                      {t(
+                        `طبّق المقاس والصيغة على الباقي (${pending.length - 1})`,
+                        `Apply size & format to the rest (${pending.length - 1})`
+                      )}
+                    </button>
+                  ) : (
+                    <span className="me-auto" />
+                  )}
+                </>
+              ) : (
+                <span className="me-auto" />
+              )}
 
               {appliedCrop ? (
                 <button
@@ -595,21 +898,51 @@ export default function ImageEditorDialog({
                   : result ? t("إعادة الضغط", "Compress again") : t("ضغط الصورة", "Compress")}
               </button>
 
+              {/* One press for the whole batch. Only offered while something
+                  still needs it, so it disappears once the queue is ready
+                  rather than sitting there doing nothing. */}
+              {batched && pending.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={compressAll}
+                  disabled={Boolean(bulk) || busy}
+                  className="raised-solid flex items-center gap-2 rounded-lg bg-brand-primary/10 px-4 py-2 text-sm font-bold text-brand-primary disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {bulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+                  {bulk
+                    ? t(`${bulk.done}/${bulk.total}`, `${bulk.done}/${bulk.total}`)
+                    : t(`ضغط الكل (${pending.length})`, `Compress all (${pending.length})`)}
+                </button>
+              ) : null}
+
               {/* Disabled until compressed — see the note at the top. The title
                   says why, because a disabled button with no explanation is a
                   dead end. */}
               <button
                 type="button"
-                onClick={() => onConfirm({ ...result, format })}
+                onClick={() =>
+                  batched
+                    ? onUploadAll?.()
+                    : onConfirm({ ...result, format, maxEdge })
+                }
                 disabled={!canUpload}
+                /* A disabled button with no explanation is a dead end, so the
+                   title names exactly what is missing and how many. */
                 title={
                   canUpload
                     ? undefined
-                    : t("اضغط الصورة أولاً", "Compress the image first")
+                    : batched
+                      ? t(
+                          `اضغط ${pending.length} صورة متبقية أولاً`,
+                          `Compress the remaining ${pending.length} image${pending.length === 1 ? "" : "s"} first`
+                        )
+                      : t("اضغط الصورة أولاً", "Compress the image first")
                 }
                 className="raised-solid rounded-lg bg-brand-primary px-5 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {t("رفع الصورة", "Upload")}
+                {batched
+                  ? t(`رفع الكل (${files.length - doneIdx.length})`, `Upload all (${files.length - doneIdx.length})`)
+                  : t("رفع الصورة", "Upload")}
               </button>
             </>
           )}

@@ -2201,7 +2201,24 @@ function ListingFormInstance({
             find the button that closed the dialog. */}
         <DialogContent
           dir={isAr ? "rtl" : "ltr"}
-          className="flex max-h-[88vh] flex-col sm:max-w-4xl"
+          /* ── FULL SCREEN, on purpose ───────────────────────────────────
+             This is the workspace: a grid of every photograph the showroom
+             owns, which the seller browses, uploads to, files into folders
+             and picks several from. Any width short of the window spent the
+             rest of the screen on a dimmed backdrop and made choosing the
+             fifth photo a scroll past the four already chosen.
+
+             `!max-w-none` beats DialogContent's own `max-w-lg`; the base
+             class centres with a translate, which lands exactly on the
+             viewport once the box IS the viewport. 100dvh rather than 100vh
+             so a mobile browser's collapsing toolbar cannot clip the footer.
+             The editor opens ON TOP of this, deliberately small — one photo
+             is a smaller job than the library. */
+          className="flex h-[100dvh] w-screen !max-w-none flex-col gap-0 rounded-none border-0 p-4 sm:rounded-none"
+          /* Never dismissed by missing. The seller may be part-way through an
+             upload, and a stray click beside the dialog would close it and
+             lose the queue. Escape and Done still close it — both deliberate. */
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0 pr-12">
             <DialogTitle className="text-brand-primary">
