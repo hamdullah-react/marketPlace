@@ -25,8 +25,9 @@ import { useState, useRef, useCallback, useEffect, useSyncExternalStore } from "
 import {
   Upload, Trash2, Check, Loader2, ImageIcon, AlertCircle, X, Sparkles,
   FolderPlus, Folder, Pencil, Eye, FolderInput, ExternalLink,
-  MoreVertical, Scissors, Copy,
+  MoreVertical, Scissors, Copy, CheckSquare, Square,
 } from "lucide-react";
+import { useOnChange } from "@/hooks/use-on-change";
 import { uploadMedia, deleteMedia } from "../_apicalls/catalogApi";
 import {
   mediaChanged, createMediaFolder, renameMediaFolder, deleteMediaFolder,
@@ -73,7 +74,7 @@ function isImage(file) {
   return IMAGE_EXT.test(file.name ?? "");
 }
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 /**
  * Both little menus are shadcn dropdowns, and that is a FIX rather than a
@@ -309,6 +310,21 @@ export default function MediaGallery({
   const [errors, setErrors] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState(null);
+
+  /**
+   * ── Bulk selection ────────────────────────────────────────────────────
+   *
+   * Deliberately NOT the picker's `selected`. That one answers "which photos
+   * is this listing using", lives with the caller and is capped by `max`;
+   * this one answers "which files am I about to act on" and is local,
+   * uncapped, and only exists on the library page. Sharing one list would
+   * mean ticking a photo to delete it also attached it to a car.
+   */
+  const [marked, setMarked] = useState(() => new Set());
+  /** The pending destructive action: { assets: [...] }, or null. */
+  const [pendingDelete, setPendingDelete] = useState(null);
+  /** Progress of a run over many files: { done, total, verb }. */
+  const [bulk, setBulk] = useState(null);
   /* Which photo the background dialog is open on, or null. One dialog for
      the whole grid rather than one per tile: it holds a 42 MB model and a
      canvas, and twenty mounted copies of that is twenty of each. */
@@ -457,6 +473,16 @@ export default function MediaGallery({
    * same picture look like two. A folder is a place, so leaving one means
    * leaving the other: Photos/Icons/Logos are what is NOT on a shelf yet.
    */
+  /**
+   * Leaving a tab or a shelf drops the ticks.
+   *
+   * A mark that survives the move is a file the seller can no longer SEE, and
+   * the next click on "Delete 12" would take four pictures off a shelf they
+   * are not looking at. During render rather than in an effect, so the count
+   * never paints a number that is already wrong — see hooks/use-on-change.
+   */
+  useOnChange(`${kind}|${folderId ?? ""}`, () => setMarked(new Set()));
+
   const visible = assets
     .filter((a) => (folderId ? a.folder_id === folderId : !a.folder_id && a.kind === kind))
     .slice()
@@ -612,23 +638,62 @@ export default function MediaGallery({
     [vendorId, kind, folderId, listingId, t]
   );
 
-  const remove = async (asset) => {
-    setDeleting(asset.id);
-    try {
-      const res = await fetch(`/api/marketplace/upload?id=${asset.id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (json?.ok) {
-        setAssets((prev) => prev.filter((a) => a.id !== asset.id));
-        if (isSelected(asset)) onSelect?.(selected.filter((s) => !same(s, asset)));
-        // Deleting also clears any storefront logo or cover that named this
-        // file, so the pages showing it have to be re-rendered.
-        mediaChanged().catch(() => {});
-      } else {
-        setErrors((e) => [...e, json?.error?.message ?? t("فشل الحذف", "Delete failed")]);
+  /**
+   * Delete ONE file. Never called straight from a button — `pendingDelete`
+   * holds the set and the dialog calls this. A thumbnail grid is the easiest
+   * place in the dashboard to hit the wrong 28px target, and the file may be
+   * the only copy of a photo the seller paid someone to take.
+   */
+  const removeOne = async (asset) => {
+    const res = await fetch(`/api/marketplace/upload?id=${asset.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => null);
+    if (!json?.ok) throw new Error(json?.error?.message ?? t("فشل الحذف", "Delete failed"));
+
+    setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+    setMarked((prev) => {
+      if (!prev.has(asset.id)) return prev;
+      const next = new Set(prev);
+      next.delete(asset.id);
+      return next;
+    });
+    if (isSelected(asset)) onSelect?.(selected.filter((s) => !same(s, asset)));
+  };
+
+  /**
+   * Delete a whole set, ONE AT A TIME.
+   *
+   * Sequential rather than Promise.all: each delete also sweeps the storefront
+   * columns that named the file (see the DELETE route), so forty at once is
+   * forty storage calls and forty table scans fired together at a database the
+   * rest of the dashboard is still reading from.
+   *
+   * A failure does not stop the run. If the eleventh file is shared catalog
+   * artwork the seller does not own, the other thirty-nine are still theirs to
+   * delete, and the dialog reports what was refused by name.
+   */
+  const removeMany = async (list) => {
+    setBulk({ done: 0, total: list.length, verb: "delete" });
+    const failed = [];
+
+    for (let i = 0; i < list.length; i++) {
+      const asset = list[i];
+      setDeleting(asset.id);
+      try {
+        await removeOne(asset);
+      } catch (err) {
+        failed.push(`${asset.filename || asset.id}: ${err.message}`);
       }
-    } finally {
-      setDeleting(null);
+      setBulk({ done: i + 1, total: list.length, verb: "delete" });
     }
+
+    setDeleting(null);
+    setBulk(null);
+    setPendingDelete(null);
+    if (failed.length) setErrors((e) => [...e, ...failed]);
+    // Deleting also clears any storefront logo or cover that named these
+    // files, so the pages showing them have to be re-rendered. Once for the
+    // whole run, not once per file.
+    mediaChanged().catch(() => {});
   };
 
   /* ── Folders ───────────────────────────────────────────────────────────
@@ -727,6 +792,100 @@ export default function MediaGallery({
           : a
       )
     );
+  };
+
+  /* ── The ticked set ─────────────────────────────────────────────────────
+     Only on the library page: in a picker the tile already means "pick this",
+     and a second kind of tick on the same square would be two answers to one
+     gesture.
+     ------------------------------------------------------------------ */
+
+  const canMark = mode === "manage";
+  /**
+   * Only the seller's OWN files can be ticked.
+   *
+   * Shared template artwork (vendor_id null) cannot be deleted or filed by
+   * anyone — the server answers 404 or NOT_YOURS — so including it in a
+   * selection can only produce a bar that promises "12 selected" and then
+   * reports four failures. Select-all counts and acts on this list, not on
+   * everything visible.
+   */
+  const selectable = visible.filter((a) => Boolean(a.vendor_id));
+  const markedAssets = selectable.filter((a) => marked.has(a.id));
+  const allMarked = selectable.length > 0 && markedAssets.length === selectable.length;
+
+  const markToggle = (asset) =>
+    setMarked((prev) => {
+      const next = new Set(prev);
+      if (next.has(asset.id)) next.delete(asset.id);
+      else next.add(asset.id);
+      return next;
+    });
+
+  /* Select-all covers what is ON SCREEN — this tab, this shelf — and not the
+     whole library, which is the only reading that matches the checkbox the
+     seller is looking at. */
+  const markAll = () => setMarked(new Set(selectable.map((a) => a.id)));
+  const markNone = () => setMarked(new Set());
+
+  /**
+   * Cut or copy a whole set.
+   *
+   * Sequential for the same reason deleting is: each copy duplicates a storage
+   * object, and firing thirty of those at once is a burst the seller gets
+   * nothing for. Failures are collected rather than thrown, so one shared file
+   * in the middle does not strand the rest.
+   */
+  const fileMany = async (list, target, targetKind, howTo) => {
+    setMoving(null);
+    setBulk({ done: 0, total: list.length, verb: howTo });
+    const failed = [];
+    const copies = [];
+
+    for (let i = 0; i < list.length; i++) {
+      const asset = list[i];
+      setFiling(asset.id);
+      try {
+        const res =
+          howTo === "copy"
+            ? await copyMediaToFolder(vendorId, asset.id, target, targetKind)
+            : await moveMediaToFolder(vendorId, asset.id, target, targetKind);
+
+        if (!res?.ok) {
+          failed.push(
+            res?.error === "NOT_YOURS"
+              ? `${asset.filename || asset.id}: ${t("مشتركة ولا يمكن نقلها.", "shared, cannot be filed.")}`
+              : `${asset.filename || asset.id}: ${t("تعذّر التنفيذ.", "that did not work.")}`
+          );
+        } else if (howTo === "copy") {
+          addedHere.current.add(res.asset.id);
+          copies.push(res.asset);
+        } else {
+          setAssets((prev) =>
+            prev.map((a) =>
+              a.id === asset.id
+                ? { ...a, folder_id: res.folderId, kind: res.kind ?? a.kind }
+                : a
+            )
+          );
+        }
+      } catch {
+        failed.push(`${asset.filename || asset.id}: ${t("تعذّر التنفيذ.", "that did not work.")}`);
+      }
+      setBulk({ done: i + 1, total: list.length, verb: howTo });
+    }
+
+    /* The new rows go in together and at the front, where a just-uploaded file
+       goes — one repaint rather than one per copy. */
+    if (copies.length) setAssets((prev) => [...copies, ...prev]);
+
+    setFiling(null);
+    setBulk(null);
+    /* A cut empties the current view of everything that moved, so the ticks
+       have nothing left to point at. A copy leaves the originals where they
+       are, and keeping them ticked lets the seller file the same set twice. */
+    if (howTo === "cut") markNone();
+    if (failed.length) setErrors((e) => [...e, ...failed]);
   };
 
   /* Cleared as it opens rather than as it closes, so the flag belongs to the
@@ -1021,6 +1180,141 @@ export default function MediaGallery({
         </div>
       ) : null}
 
+      {/* ── Bulk bar ───────────────────────────────────────────────────────
+          Appears only once something is ticked, so the library page is not
+          carrying a toolbar for an action nobody has started. Sticky, because
+          the set being built can be longer than the screen and a bar that
+          scrolls away takes the count and the buttons with it.
+          --------------------------------------------------------------- */}
+      {canMark && canManage && marked.size > 0 ? (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-brand-primary/30 bg-white/95 p-2 shadow-sm backdrop-blur dark:border-brand-primary/40 dark:bg-[#141414]/95">
+          <span className="ps-1 text-sm font-medium tabular-nums text-brand-primary">
+            {markedAssets.length} {t("محدد", "selected")}
+          </span>
+
+          <button
+            type="button"
+            onClick={allMarked ? markNone : markAll}
+            className="rounded-lg px-2 py-1 text-xs text-gray-600 underline-offset-2 hover:underline dark:text-gray-300"
+          >
+            {allMarked
+              ? t("إلغاء تحديد الكل", "Clear")
+              : t(`تحديد الكل (${selectable.length})`, `Select all (${selectable.length})`)}
+          </button>
+
+          <div className="ms-auto flex flex-wrap items-center gap-2">
+            {/* Cut and copy are SEPARATE buttons here, not a mode you arm
+                first as on the tile menu. On one picture the mode is a
+                property of the next click; on a set the seller has already
+                decided, and making them set a radio before picking a shelf is
+                a step that buys nothing. */}
+            {["cut", "copy"].map((howTo) => (
+              <DropdownMenu key={howTo}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={!!bulk}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-white/5"
+                  >
+                    {howTo === "cut" ? <Scissors className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {howTo === "cut" ? t("قص", "Cut") : t("نسخ", "Copy")}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" dir={isAr ? "rtl" : "ltr"} className="w-56">
+                  <DropdownMenuLabel className="py-1 text-[11px] font-medium text-muted-foreground">
+                    {howTo === "cut"
+                      ? t(`نقل ${markedAssets.length} إلى`, `Move ${markedAssets.length} to`)
+                      : t(`نسخ ${markedAssets.length} إلى`, `Copy ${markedAssets.length} to`)}
+                  </DropdownMenuLabel>
+
+                  {KINDS.map((k) => {
+                    /* Cutting to where they already all are moves nothing. */
+                    const here = !folderId && kind === k.value;
+                    return (
+                      <DropdownMenuItem
+                        key={k.value}
+                        className="text-xs"
+                        disabled={howTo === "cut" && here}
+                        onSelect={() => fileMany(markedAssets, null, k.value, howTo)}
+                      >
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        <span className="truncate">{t(k.ar, k.en)}</span>
+                        {here ? (
+                          <span className="ms-auto flex items-center gap-1 text-[10px] opacity-70">
+                            <Check className="h-3 w-3" />
+                            {t("هنا الآن", "here now")}
+                          </span>
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
+
+                  {folders.length ? <DropdownMenuSeparator /> : null}
+
+                  {folders.map((f) => {
+                    const here = folderId === f.id;
+                    return (
+                      <DropdownMenuItem
+                        key={f.id}
+                        className="text-xs"
+                        disabled={howTo === "cut" && here}
+                        onSelect={() => fileMany(markedAssets, f.id, null, howTo)}
+                      >
+                        <Folder className="h-3.5 w-3.5" />
+                        <span className="truncate">{f.name}</span>
+                        {here ? (
+                          <span className="ms-auto flex items-center gap-1 text-[10px] opacity-70">
+                            <Check className="h-3 w-3" />
+                            {t("هنا الآن", "here now")}
+                          </span>
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ))}
+
+            <button
+              type="button"
+              disabled={!!bulk}
+              onClick={() => setPendingDelete({ assets: markedAssets })}
+              className="flex items-center gap-1.5 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:hover:bg-red-950/40"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t("حذف", "Delete")}
+            </button>
+
+            <button
+              type="button"
+              onClick={markNone}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
+              aria-label={t("إلغاء التحديد", "Clear selection")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Forty files is forty round trips, so the bar says where it is
+              rather than just disabling itself. */}
+          {bulk ? (
+            <div className="flex w-full items-center gap-2 border-t border-gray-100 pt-2 text-xs text-gray-600 dark:border-gray-800 dark:text-gray-300">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-primary" />
+              <span className="tabular-nums">
+                {bulk.done} / {bulk.total}
+              </span>
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+                <div
+                  className="h-full rounded-full bg-brand-primary transition-[width]"
+                  style={{ width: `${bulk.total ? (bulk.done / bulk.total) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* ── Grid ─────────────────────────────────────────────────────────── */}
       {visible.length === 0 && uploading.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center dark:border-gray-700">
@@ -1058,6 +1352,24 @@ export default function MediaGallery({
           {visible.map((asset) => {
             const picked = isSelected(asset);
             const order = picked ? selected.findIndex((s) => same(s, asset)) + 1 : null;
+            /**
+             * Shared template artwork, and why it gets no buttons.
+             *
+             * A file with no vendor of its own belongs to everyone who
+             * installed the template that brought it, so the server refuses
+             * to delete it (404 NOT_FOUND) or to file it (NOT_YOURS). The
+             * gallery already SAID this in a comment, but it gated the
+             * buttons on `canManage` — which asks whether this gallery may
+             * change the library at all, not whether this particular file is
+             * the seller's. So every shared logo still had a delete button,
+             * and pressing it could only ever produce "Not found".
+             *
+             * Forty-six of them sit in the library behind the template
+             * catalog, which is why this looked like "delete is broken"
+             * rather than like one unusual file.
+             */
+            const ownFile = Boolean(asset.vendor_id);
+            const canEditAsset = canManage && ownFile;
 
             return (
               /* Two boxes, not one: the square CROPS its thumbnail, and a
@@ -1067,7 +1379,11 @@ export default function MediaGallery({
               <div key={asset.id} className="group relative">
                 <div
                   className={`aspect-square overflow-hidden rounded-lg border-2 transition-colors ${
-                    picked ? "border-brand-primary" : "border-gray-200 dark:border-gray-700"
+                    marked.has(asset.id)
+                      ? "border-brand-primary ring-2 ring-brand-primary/30"
+                      : picked
+                        ? "border-brand-primary"
+                        : "border-gray-200 dark:border-gray-700"
                   }`}
                 >
                   <button
@@ -1128,12 +1444,65 @@ export default function MediaGallery({
                   </span>
                 ) : null}
 
+                {/* ── The tick ───────────────────────────────────────────
+                    Leading edge, opposite the action column, so selecting is
+                    never a mis-aimed delete. Unlike those buttons it STAYS
+                    visible once anything is ticked — a checkbox that fades out
+                    on mouse-leave hides the count it is building.
+                    ------------------------------------------------- */}
+                {canMark && canEditAsset ? (
+                  <button
+                    type="button"
+                    onClick={() => markToggle(asset)}
+                    aria-pressed={marked.has(asset.id)}
+                    aria-label={
+                      marked.has(asset.id)
+                        ? t("إلغاء التحديد", "Deselect")
+                        : t("تحديد", "Select")
+                    }
+                    className={`absolute inset-s-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-white/90 shadow-sm transition-opacity hover:bg-white dark:bg-black/70 ${
+                      marked.size || marked.has(asset.id)
+                        ? "opacity-100"
+                        : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    }`}
+                  >
+                    {marked.has(asset.id) ? (
+                      <CheckSquare className="h-4 w-4 text-brand-primary" />
+                    ) : (
+                      <Square className="h-4 w-4 text-neutral-500 dark:text-neutral-300" />
+                    )}
+                  </button>
+                ) : canMark && canManage ? (
+                  /* Says WHY this one has no controls. A tile that is simply
+                     missing the buttons its neighbours have reads as a bug,
+                     and the seller's next move is to report that delete is
+                     broken — which is exactly what happened. */
+                  <span
+                    title={t(
+                      "ملف مشترك من قالب — لا يمكن حذفه أو نقله.",
+                      "Shared template file — it cannot be deleted or moved."
+                    )}
+                    className="absolute inset-s-1.5 top-1.5 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] text-white"
+                  >
+                    {t("مشترك", "shared")}
+                  </span>
+                ) : null}
+
                 {/* ── Per-tile controls ──────────────────────────────────
-                    A column down the trailing edge so they never cover the
+                    Anchored to the trailing edge so they never cover the
                     picture they act on, and hidden until hover on a mouse —
                     on touch there is no hover, so they stay visible.
+
+                    TWO COLUMNS, not one. Stacked vertically the four buttons
+                    are 4x28px plus gaps = 124px, which is taller than the
+                    tile itself once the grid reaches three or four columns
+                    (a 360px phone gives ~100px tiles) — so the last one, the
+                    DELETE, hung outside the tile over the row below. A 2x2
+                    block is 60x60 whatever the tile does, so it cannot
+                    outgrow it. Checked against the compiled CSS at 96, 108,
+                    130, 150 and 180px.
                     ------------------------------------------------- */}
-                <div className="absolute inset-e-1.5 top-1.5 flex flex-col gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                <div className="absolute inset-e-1.5 top-1.5 grid grid-cols-2 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                   <button
                     type="button"
                     onClick={() => openPreview(asset)}
@@ -1144,11 +1513,14 @@ export default function MediaGallery({
                     <Eye className="h-3.5 w-3.5 text-neutral-700 dark:text-white" />
                   </button>
 
-                  {canManage ? (
+                  {/* Shared template artwork has no vendor of its own and
+                      belongs to everyone who installed the template, so it
+                      cannot be filed or deleted from here — hence
+                      canEditAsset rather than canManage. Offering the buttons
+                      and letting the server say no is not a safeguard, it is
+                      a dead control. */}
+                  {canEditAsset ? (
                     <>
-                      {/* Shared template artwork has no vendor of its own and
-                          belongs to everyone who installed the template, so it
-                          cannot be filed or deleted from here. */}
                       {/* Offered even with no folders at all: moving between
                           Photos, Icons and Logos is a move in itself. */}
                       {canManage ? (
@@ -1302,7 +1674,10 @@ export default function MediaGallery({
 
                       <button
                         type="button"
-                        onClick={() => remove(asset)}
+                        /* Asks first. The grid puts a 28px delete target on
+                           every tile, and the file behind it may be the only
+                           copy of a photo somebody was paid to take. */
+                        onClick={() => setPendingDelete({ assets: [asset] })}
                         disabled={deleting === asset.id}
                         className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-red-50 dark:bg-black/70"
                         aria-label={t("حذف", "Delete")}
@@ -1508,6 +1883,108 @@ export default function MediaGallery({
           }}
         />
       ) : null}
+
+      {/* ── "Are you sure?" ────────────────────────────────────────────────
+          One dialog for one file and for forty — the question is the same and
+          only the count changes, and two dialogs saying nearly the same thing
+          is how one of them drifts.
+
+          It SHOWS the pictures rather than naming them. A seller recognises a
+          photograph instantly and a filename like
+          `jetour-t2-2026-black-exterior-photo-20260928-cb573a.jpg` not at all,
+          so a list of names cannot actually answer "is this the right one?".
+
+          Deliberately blunt about reach: deleting here also clears the
+          storefront logo or cover that named the file, which is not something
+          to discover afterwards.
+          --------------------------------------------------------------- */}
+      <Dialog
+        open={Boolean(pendingDelete)}
+        /* While a run is going there is nothing to cancel — the files already
+           gone are gone — so the dialog holds until it finishes. */
+        onOpenChange={(v) => { if (!v && !bulk) setPendingDelete(null); }}
+      >
+        <DialogContent
+          dir={isAr ? "rtl" : "ltr"}
+          className="sm:max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-start text-base text-red-600">
+              {pendingDelete?.assets?.length === 1
+                ? t("حذف هذا الملف؟", "Delete this file?")
+                : t(`حذف ${pendingDelete?.assets?.length ?? 0} ملفات؟`, `Delete ${pendingDelete?.assets?.length ?? 0} files?`)}
+            </DialogTitle>
+          </DialogHeader>
+
+          {pendingDelete ? (
+            <>
+              {/* Up to twelve thumbnails, then a count. A wall of sixty
+                  pushes the buttons off a laptop screen, and past a dozen
+                  nobody is checking them one by one anyway. */}
+              <div className="flex flex-wrap gap-1.5">
+                {pendingDelete.assets.slice(0, 12).map((a) => (
+                  <Img
+                    key={a.id}
+                    src={thumbUrl(a.url, THUMB.grid)}
+                    width={56}
+                    height={56}
+                    alt={a.filename || ""}
+                    className="h-14 w-14 rounded-md border border-gray-200 bg-gray-50 object-cover dark:border-gray-700 dark:bg-[#141414]"
+                  />
+                ))}
+                {pendingDelete.assets.length > 12 ? (
+                  <span className="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-gray-300 text-xs tabular-nums text-gray-500 dark:border-gray-600">
+                    +{pendingDelete.assets.length - 12}
+                  </span>
+                ) : null}
+              </div>
+
+              {pendingDelete.assets.length === 1 ? (
+                <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {pendingDelete.assets[0].filename}
+                </p>
+              ) : null}
+
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {t(
+                  "لا يمكن التراجع. سيُزال الملف أيضاً من أي شعار أو غلاف يستخدمه.",
+                  "This cannot be undone. The file is also cleared from any storefront logo or cover using it."
+                )}
+              </p>
+
+              {bulk ? (
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-red-600" />
+                  <span className="tabular-nums">{bulk.done} / {bulk.total}</span>
+                </div>
+              ) : null}
+
+              <DialogFooter className="gap-2 sm:gap-2">
+                <button
+                  type="button"
+                  disabled={!!bulk}
+                  onClick={() => setPendingDelete(null)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-white/5"
+                >
+                  {t("إلغاء", "Cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!!bulk}
+                  onClick={() => removeMany(pendingDelete.assets)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                >
+                  {bulk ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {pendingDelete.assets.length === 1
+                    ? t("حذف", "Delete")
+                    : t(`حذف ${pendingDelete.assets.length}`, `Delete ${pendingDelete.assets.length}`)}
+                </button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
