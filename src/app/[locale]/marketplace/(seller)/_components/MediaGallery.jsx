@@ -647,7 +647,16 @@ export default function MediaGallery({
   const removeOne = async (asset) => {
     const res = await fetch(`/api/marketplace/upload?id=${asset.id}`, { method: "DELETE" });
     const json = await res.json().catch(() => null);
-    if (!json?.ok) throw new Error(json?.error?.message ?? t("فشل الحذف", "Delete failed"));
+    if (!json?.ok) {
+      /* The STATUS and the code travel with the message. "Delete failed" on
+         its own is unactionable — 401 (signed out), 404 (not yours, or already
+         gone) and 500 (the delete itself broke) each need a different answer,
+         and without them the only way to tell which happened is to go and read
+         the server. */
+      const detail = [json?.error?.code, `HTTP ${res.status}`].filter(Boolean).join(" ");
+      const message = json?.error?.message ?? t("فشل الحذف", "Delete failed");
+      throw new Error(`${message} (${detail})`);
+    }
 
     setAssets((prev) => prev.filter((a) => a.id !== asset.id));
     setMarked((prev) => {

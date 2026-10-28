@@ -15,9 +15,19 @@ import type { Enum } from '@/marketplace/db/types';
  * `width` and `height` are here for the preview panel, which states the
  * dimensions of the file being looked at. They are null on anything uploaded
  * before the columns were filled in, and the panel simply omits the line.
+ *
+ * `vendor_id` is here so the GALLERY can tell a seller's own upload from the
+ * shared template artwork this same query returns alongside it (see
+ * installedTemplates below). Shared rows have it null, and the server refuses
+ * to delete or re-file them — 404 NOT_FOUND, NOT_YOURS — so without this
+ * column the client cannot know which tiles may offer those buttons, and it
+ * offered them on everything.
+ *
+ * It discloses nothing: it is either null or the id of the showroom whose page
+ * is making the request.
  */
 const BASE_SELECT =
-  'id, kind, url, storage_path, filename, mime_type, size_bytes, width, height, alt, created_at';
+  'id, vendor_id, kind, url, storage_path, filename, mime_type, size_bytes, width, height, alt, created_at';
 
 /**
  * folder_id is asked for, and dropped from the list if the database has not
