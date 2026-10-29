@@ -94,8 +94,8 @@ import {
  */
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
@@ -199,7 +199,6 @@ export default function MediaGallery({
   const [previewReady, setPreviewReady] = useState(false);
   const [moving, setMoving] = useState(null); // asset id whose menu is open
   /* "cut" takes the file off its shelf; "copy" leaves it and makes another. */
-  const [fileMode, setFileMode] = useState("cut");
   /* The asset a move or copy is in flight for. A file arriving on a shelf
      takes a round trip, and without a spinner the seller clicks again. */
   const [filing, setFiling] = useState(null);
@@ -515,7 +514,7 @@ export default function MediaGallery({
      * compressor a second time — re-encoding a lossy image to the same lossy
      * format, which sharpens the first pass's artefacts and buys nothing.
      */
-    async (files, { precompressed = false, skipEditor = false, format = null, maxEdge = null } = {}) => {
+    async (files, { precompressed = false, skipEditor = false, format = null, maxEdge = null, replaces = null } = {}) => {
       if (!vendorId) {
         setErrors([t("اختر البائع أولاً", "Pick a seller first")]);
         return;
@@ -604,13 +603,26 @@ export default function MediaGallery({
           // Dropped onto an open shelf, filed on that shelf. Anything else
           // means uploading and then moving every file by hand.
           if (folderId) body.append("folderId", folderId);
+          /* An EDIT, not an addition. The route swaps every reference to the
+             old picture over to this one and then deletes it, so a cleaned-up
+             photo stays on the car it was already on instead of leaving the
+             library holding both versions. */
+          if (replaces) body.append("replaces", replaces);
 
           const res = await fetch("/api/marketplace/upload", { method: "POST", body });
           const json = await res.json();
 
           if (json?.ok && json.data?.asset) {
             addedHere.current.add(json.data.asset.id);
-            setAssets((prev) => [json.data.asset, ...prev]);
+            setAssets((prev) => {
+              /* The replaced row is gone server-side; drop it here too rather
+                 than waiting for a reload, or the seller sees both versions
+                 and cannot tell which one their cars are using. */
+              const without = json.data.replaced
+                ? prev.filter((a) => a.id !== json.data.replaced)
+                : prev;
+              return [json.data.asset, ...without];
+            });
           } else {
             setErrors((e) => [...e, `${file.name}: ${json?.error?.message ?? t("فشل الرفع", "Upload failed")}`]);
           }
@@ -765,13 +777,19 @@ export default function MediaGallery({
    * Cut re-files the row. Copy duplicates the object AND the row, so the two
    * are independent — two rows sharing one file would mean deleting either
    * leaves the other pointing at nothing.
+   *
+   * `howTo` is an ARGUMENT, not state. It used to be a radio the seller armed
+   * before picking a destination, which made one decision into two clicks and
+   * left a mode set from last time with nothing on screen to say so. The menu
+   * now names both — "Cut to", "Copy to" — and each destination row carries
+   * its own answer.
    */
-  const fileTo = async (asset, target, targetKind = null) => {
+  const fileTo = async (asset, target, targetKind = null, howTo = "cut") => {
     setMoving(null);
     setFiling(asset.id);
 
     const res =
-      fileMode === "copy"
+      howTo === "copy"
         ? await copyMediaToFolder(vendorId, asset.id, target, targetKind)
         : await moveMediaToFolder(vendorId, asset.id, target, targetKind);
 
@@ -787,7 +805,7 @@ export default function MediaGallery({
       return;
     }
 
-    if (fileMode === "copy") {
+    if (howTo === "copy") {
       // The new file is put at the front, where a just-uploaded one goes.
       addedHere.current.add(res.asset.id);
       setAssets((prev) => [res.asset, ...prev]);
@@ -1497,209 +1515,167 @@ export default function MediaGallery({
                   </span>
                 ) : null}
 
-                {/* ── Per-tile controls ──────────────────────────────────
-                    Anchored to the trailing edge so they never cover the
-                    picture they act on, and hidden until hover on a mouse —
-                    on touch there is no hover, so they stay visible.
+                {/* ── Per-tile controls: ONE button ──────────────────────
+                    Everything a tile can do now lives behind the three dots,
+                    for two reasons.
 
-                    TWO COLUMNS, not one. Stacked vertically the four buttons
-                    are 4x28px plus gaps = 124px, which is taller than the
-                    tile itself once the grid reaches three or four columns
-                    (a 360px phone gives ~100px tiles) — so the last one, the
-                    DELETE, hung outside the tile over the row below. A 2x2
-                    block is 60x60 whatever the tile does, so it cannot
-                    outgrow it. Checked against the compiled CSS at 96, 108,
-                    130, 150 and 180px.
+                    The row of icons never fit. Four 28px buttons stacked are
+                    124px, taller than the tile itself once the grid reaches
+                    three or four columns, so the delete hung outside it; laid
+                    out 2x2 they fit but covered a 60x60 corner of a ~100px
+                    picture, which is most of the subject on a phone. One
+                    button is 28px and always fits.
+
+                    And an icon is a guess. Scissors, a folder with an arrow
+                    and a spark are not self-evident, so the actions that
+                    matter most — the one that deletes, the one that moves —
+                    were the ones a seller had to hover and read a tooltip to
+                    identify. In the menu they are words.
                     ------------------------------------------------- */}
-                <div className="absolute inset-e-1.5 top-1.5 grid grid-cols-2 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                  <button
-                    type="button"
-                    onClick={() => openPreview(asset)}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-white dark:bg-black/70"
-                    aria-label={t("معاينة", "Preview")}
-                    title={t("معاينة", "Preview")}
+                <div className="absolute inset-e-1.5 top-1.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                  <DropdownMenu
+                    modal={false}
+                    open={moving === asset.id}
+                    onOpenChange={(v) => setMoving(v ? asset.id : null)}
                   >
-                    <Eye className="h-3.5 w-3.5 text-neutral-700 dark:text-white" />
-                  </button>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-white dark:bg-black/70"
+                        aria-label={t("خيارات", "Options")}
+                        title={t("خيارات", "Options")}
+                      >
+                        <MoreVertical className="h-3.5 w-3.5 text-neutral-700 dark:text-white" />
+                      </button>
+                    </DropdownMenuTrigger>
 
-                  {/* Shared template artwork has no vendor of its own and
-                      belongs to everyone who installed the template, so it
-                      cannot be filed or deleted from here — hence
-                      canEditAsset rather than canManage. Offering the buttons
-                      and letting the server say no is not a safeguard, it is
-                      a dead control. */}
-                  {canEditAsset ? (
-                    <>
-                      {/* Offered even with no folders at all: moving between
-                          Photos, Icons and Logos is a move in itself. */}
-                      {canManage ? (
-                        <DropdownMenu
-                          modal={false}
-                          open={moving === asset.id}
-                          onOpenChange={(v) => setMoving(v ? asset.id : null)}
-                        >
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-white dark:bg-black/70"
-                              aria-label={t("نقل إلى مجلد", "Move to folder")}
-                              title={t("نقل إلى مجلد", "Move to folder")}
-                            >
-                              <FolderInput className="h-3.5 w-3.5 text-neutral-700 dark:text-white" />
-                            </button>
-                          </DropdownMenuTrigger>
-
-                          <DropdownMenuContent
-                            align="end"
-                            dir={isAr ? "rtl" : "ltr"}
-                            className="w-56"
-                          >
-                            <DropdownMenuLabel className="flex items-center justify-between gap-2 py-1 text-[11px] font-medium text-muted-foreground">
-                              {t("نقل إلى", "File it in")}
-                              <button
-                                type="button"
-                                onClick={() => setMoving(null)}
-                                className="rounded p-0.5 transition-colors hover:bg-muted"
-                                aria-label={t("إغلاق", "Close")}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </DropdownMenuLabel>
-
-                            {/* Cut or copy FIRST, then where to. Two lists of
-                                folders under two headings would be twice the
-                                height and the same decision made twice.
-
-                                preventDefault on select, because choosing a
-                                MODE is not choosing an action — without it
-                                Radix closes the menu on the click that was
-                                only meant to arm it. */}
-                            <DropdownMenuRadioGroup
-                              value={fileMode}
-                              onValueChange={setFileMode}
-                            >
-                              <DropdownMenuRadioItem
-                                value="cut"
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-xs"
-                              >
-                                <Scissors className="me-1.5 h-3.5 w-3.5" />
-                                {t("قص", "Cut")}
-                              </DropdownMenuRadioItem>
-                              <DropdownMenuRadioItem
-                                value="copy"
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-xs"
-                              >
-                                <Copy className="me-1.5 h-3.5 w-3.5" />
-                                {t("نسخ", "Copy")}
-                              </DropdownMenuRadioItem>
-                            </DropdownMenuRadioGroup>
-
-                            <DropdownMenuSeparator />
-
-                            {/* ── Where it is now is MARKED ──────────────
-                                Cutting a picture to the place it already is
-                                moves it nowhere, so that one row is disabled —
-                                and a greyed row with nothing to explain it just
-                                reads as broken. The tick says which row it is
-                                and why. Copy leaves them all live: copying into
-                                the same place is a real duplicate.
-                                ------------------------------------- */}
-
-                            {/* ── The three built-in tabs ────────────────
-                                They are destinations like any shelf. A picture
-                                uploaded on the wrong tab used to be stuck as
-                                the wrong kind — a logo filed under Photos was
-                                invisible to every logo picker, and the only
-                                cure was deleting a file that a car might
-                                already be using and uploading it again.
-                                ------------------------------------- */}
-                            {KINDS.map((k) => {
-                              const here = !asset.folder_id && asset.kind === k.value;
-
-                              return (
-                                <DropdownMenuItem
-                                  key={k.value}
-                                  className="text-xs"
-                                  disabled={fileMode === "cut" && here}
-                                  onSelect={() => fileTo(asset, null, k.value)}
-                                >
-                                  <ImageIcon className="h-3.5 w-3.5" />
-                                  <span className="truncate">{t(k.ar, k.en)}</span>
-                                  {here ? (
-                                    <span className="ms-auto flex items-center gap-1 text-[10px] opacity-70">
-                                      <Check className="h-3 w-3" />
-                                      {t("هنا الآن", "here now")}
-                                    </span>
-                                  ) : null}
-                                </DropdownMenuItem>
-                              );
-                            })}
-
-                            {folders.length ? <DropdownMenuSeparator /> : null}
-
-                            {folders.map((f) => {
-                              const here = asset.folder_id === f.id;
-
-                              return (
-                                <DropdownMenuItem
-                                  key={f.id}
-                                  className="text-xs"
-                                  disabled={fileMode === "cut" && here}
-                                  onSelect={() => fileTo(asset, f.id)}
-                                >
-                                  <Folder className="h-3.5 w-3.5" />
-                                  <span className="truncate">{f.name}</span>
-                                  {here ? (
-                                    <span className="ms-auto flex items-center gap-1 text-[10px] opacity-70">
-                                      <Check className="h-3 w-3" />
-                                      {t("هنا الآن", "here now")}
-                                    </span>
-                                  ) : null}
-                                </DropdownMenuItem>
-                              );
-                            })}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : null}
+                    <DropdownMenuContent align="end" dir={isAr ? "rtl" : "ltr"} className="w-52">
+                      <DropdownMenuItem className="text-xs" onSelect={() => openPreview(asset)}>
+                        <Eye className="h-3.5 w-3.5" />
+                        {t("معاينة", "Preview")}
+                      </DropdownMenuItem>
 
                       {/* Offered only on photographs. An icon or a logo has a
                           transparent background already, and a document has a
                           background that IS the content — running a salient
                           object detector over a service book would cut the
                           page out of the page. */}
-                      {asset.kind === "photo" ? (
-                        <button
-                          type="button"
-                          onClick={() => setStudioAsset(asset)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-black/5 dark:bg-black/70 dark:hover:bg-white/10"
-                          aria-label={t("تنظيف الخلفية", "Clean up background")}
-                          title={t("تنظيف الخلفية", "Clean up background")}
-                        >
+                      {canEditAsset && asset.kind === "photo" ? (
+                        <DropdownMenuItem className="text-xs" onSelect={() => setStudioAsset(asset)}>
                           <Sparkles className="h-3.5 w-3.5 text-brand-primary" />
-                        </button>
+                          {t("تنظيف الخلفية", "Clean up background")}
+                        </DropdownMenuItem>
                       ) : null}
 
-                      <button
-                        type="button"
-                        /* Asks first. The grid puts a 28px delete target on
-                           every tile, and the file behind it may be the only
-                           copy of a photo somebody was paid to take. */
-                        onClick={() => setPendingDelete({ assets: [asset] })}
-                        disabled={deleting === asset.id}
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition-colors hover:bg-red-50 dark:bg-black/70"
-                        aria-label={t("حذف", "Delete")}
-                        title={t("حذف", "Delete")}
-                      >
-                        {deleting === asset.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-red-600" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                        )}
-                      </button>
-                    </>
-                  ) : null}
+                      {/* Shared template artwork has no vendor of its own and
+                          belongs to everyone who installed the template, so it
+                          cannot be filed or deleted from here — hence
+                          canEditAsset rather than canManage. Offering the rows
+                          and letting the server say no is not a safeguard, it
+                          is a dead control. */}
+                      {canEditAsset ? (
+                        <>
+                          <DropdownMenuSeparator />
+
+                          {/* Cut and copy are SEPARATE submenus rather than a
+                              mode armed before a destination, which is what
+                              the old flyout did. Arming a radio and then
+                              choosing a shelf is one decision expressed as
+                              two clicks, and nothing on screen reminded the
+                              seller which mode was still set from last time. */}
+                          {["cut", "copy"].map((howTo) => (
+                            <DropdownMenuSub key={howTo}>
+                              <DropdownMenuSubTrigger className="text-xs">
+                                {howTo === "cut" ? (
+                                  <Scissors className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                                {howTo === "cut" ? t("قص إلى", "Cut to") : t("نسخ إلى", "Copy to")}
+                              </DropdownMenuSubTrigger>
+
+                              <DropdownMenuSubContent className="w-48">
+                                {/* The three built-in tabs are destinations
+                                    like any shelf. A picture uploaded on the
+                                    wrong tab used to be stuck as the wrong
+                                    kind — a logo filed under Photos was
+                                    invisible to every logo picker, and the
+                                    only cure was deleting a file a car might
+                                    already be using and uploading it again. */}
+                                {KINDS.map((k) => {
+                                  /* Cutting a picture to where it already is
+                                     moves it nowhere, so that row is disabled
+                                     — and a greyed row with nothing to explain
+                                     it just reads as broken. The tick says
+                                     which row it is and why. Copy leaves them
+                                     all live: copying into the same place is a
+                                     real duplicate. */
+                                  const here = !asset.folder_id && asset.kind === k.value;
+                                  return (
+                                    <DropdownMenuItem
+                                      key={k.value}
+                                      className="text-xs"
+                                      disabled={howTo === "cut" && here}
+                                      onSelect={() => fileTo(asset, null, k.value, howTo)}
+                                    >
+                                      <ImageIcon className="h-3.5 w-3.5" />
+                                      <span className="truncate">{t(k.ar, k.en)}</span>
+                                      {here ? (
+                                        <span className="ms-auto flex items-center gap-1 text-[10px] opacity-70">
+                                          <Check className="h-3 w-3" />
+                                          {t("هنا الآن", "here now")}
+                                        </span>
+                                      ) : null}
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+
+                                {folders.length ? <DropdownMenuSeparator /> : null}
+
+                                {folders.map((f) => {
+                                  const here = asset.folder_id === f.id;
+                                  return (
+                                    <DropdownMenuItem
+                                      key={f.id}
+                                      className="text-xs"
+                                      disabled={howTo === "cut" && here}
+                                      onSelect={() => fileTo(asset, f.id, null, howTo)}
+                                    >
+                                      <Folder className="h-3.5 w-3.5" />
+                                      <span className="truncate">{f.name}</span>
+                                      {here ? (
+                                        <span className="ms-auto flex items-center gap-1 text-[10px] opacity-70">
+                                          <Check className="h-3 w-3" />
+                                          {t("هنا الآن", "here now")}
+                                        </span>
+                                      ) : null}
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          ))}
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem
+                            className="text-xs text-red-600 focus:text-red-600"
+                            disabled={deleting === asset.id}
+                            /* Asks first. The file behind this row may be the
+                               only copy of a photo somebody was paid to take. */
+                            onSelect={() => setPendingDelete({ assets: [asset] })}
+                          >
+                            {deleting === asset.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                            {t("حذف", "Delete")}
+                          </DropdownMenuItem>
+                        </>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* The round trip, made visible. Over the picture rather than
@@ -1816,7 +1792,8 @@ export default function MediaGallery({
         /* skipEditor: asking somebody to crop a cutout they have just made is
            a second dialog for a decision they already took. It is still
            compressed on the way out like everything else. */
-        onSave={(file) => upload([file], { skipEditor: true })}
+        /* replaces: this is an EDIT of that picture, not a new one. */
+        onSave={(file) => upload([file], { skipEditor: true, replaces: studioAsset?.id })}
         locale={locale}
       />
 

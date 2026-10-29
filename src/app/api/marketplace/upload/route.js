@@ -330,10 +330,124 @@ export async function POST(request) {
       return fail(`Saved to storage but not recorded: ${insertError.message}`, 500, 'RECORD_FAILED');
     }
 
-    return ok({ asset });
+    /**
+     * ── Editing a photo REPLACES it ────────────────────────────────────────
+     *
+     * `replaces` carries the id of the picture that was edited — the one the
+     * background was cleaned off, or that was re-cropped.
+     *
+     * Without this, editing was an upload: the library kept the original AND
+     * the edited copy, so a seller who tidied up twenty photos ended with
+     * forty, every car still pointing at the untouched version, and no way to
+     * tell the two apart but the thumbnail.
+     *
+     * Order matters. The references are swapped to the new url BEFORE the old
+     * row and object go, so there is no moment when a listing names a file
+     * that has already been deleted. If the swap fails the original is left
+     * alone — a duplicate is recoverable, a car with a dead photo is not.
+     */
+    const replaces = form.get('replaces');
+    if (replaces && typeof replaces === 'string') {
+      const { data: old } = await db
+        .from('media_assets')
+        .select('id, url, storage_path, vendor_id')
+        .eq('id', replaces)
+        .eq('vendor_id', vendorId)        // only ever your own
+        .maybeSingle();
+
+      if (old && old.url !== url) {
+        await rewriteReferences(db, { vendorId, from: old.url, to: url });
+        await db.storage.from(bucketForAsset(old)).remove([old.storage_path]);
+        await db.from('media_assets').delete().eq('id', old.id);
+      }
+    }
+
+    return ok({ asset, replaced: replaces || null });
   } catch (err) {
     return fail(err.message, 500, 'UPLOAD_ERROR');
   }
+}
+
+/**
+ * Points everything that named one file at a different one — or at nothing.
+ *
+ * A picture's url is written into four places, and until this existed only two
+ * of them were ever maintained:
+ *
+ *   vendors.logo_url / banner_url   a plain column, fixable with an equality
+ *                                   update
+ *   listings.media                  the url inside a jsonb ARRAY
+ *   listing_variants.media          the same array again, per colour
+ *
+ * The two arrays were the gap. Deleting a picture a car was using left the url
+ * in listings.media, so the listing form and the public gallery both kept
+ * rendering an <img> at a file that no longer existed — and on the picker
+ * modal, where the seller had just deleted it, the grid filled with broken
+ * images. That is what "delete" looks like when it only half works.
+ *
+ * `to: null` STRIPS the reference (a delete). Any other value SWAPS it (an
+ * edit), which is what keeps a cleaned-up photo attached to the car it was
+ * already on instead of silently detaching it.
+ *
+ * Scoped to the owning showroom throughout, so one delete can never touch
+ * another storefront that happens to use the same public URL.
+ */
+async function rewriteReferences(db, { vendorId, from, to = null }) {
+  if (!vendorId || !from) return;
+
+  for (const column of ['logo_url', 'banner_url']) {
+    await db
+      .from('vendors')
+      .update({ [column]: to })
+      .eq('id', vendorId)
+      .eq(column, from);
+  }
+
+  const rewrite = async (table, rows) => {
+    for (const row of rows ?? []) {
+      const before = row.media ?? [];
+      const after = to
+        ? before.map((m) => (m?.url === from ? { ...m, url: to } : m))
+        : before.filter((m) => m?.url !== from);
+
+      if (after.length === before.length && !to) continue;
+
+      /* A listing whose MAIN photo was the deleted one has no main photo left,
+         and every card reading media[0] or `main` would show nothing. The
+         first survivor is promoted. Only on a strip — a swap keeps whichever
+         entry was already main. */
+      if (!to && after.length && !after.some((m) => m?.main)) {
+        after[0] = { ...after[0], main: true, primary: true };
+      }
+
+      await db.from(table).update({ media: after }).eq('id', row.id);
+    }
+  };
+
+  /* `contains` does the finding in the database rather than pulling every
+     listing across the wire to filter in JS. */
+  const { data: hitListings } = await db
+    .from('listings')
+    .select('id, media')
+    .eq('vendor_id', vendorId)
+    .contains('media', [{ url: from }]);
+  await rewrite('listings', hitListings);
+
+  /* Variants carry their OWN copy of the array and have no vendor column, so
+     they are reached through the showroom's listings — ALL of them, not only
+     the parents that happened to match. A colour variant can be using a photo
+     its parent listing is not, and scoping to the matched parents would walk
+     straight past it. */
+  const { data: ownListings } = await db.from('listings').select('id').eq('vendor_id', vendorId);
+  const scope = (ownListings ?? []).map((l) => l.id);
+  if (!scope.length) return;
+
+  const { data: hitVariants } = await db
+    .from('listing_variants')
+    .select('id, media')
+    .in('listing_id', scope)
+    .contains('media', [{ url: from }]);
+  await rewrite('listing_variants', hitVariants);
 }
 
 /** DELETE /api/marketplace/upload?id=<assetId> — removes row and object together. */
@@ -369,38 +483,48 @@ export async function DELETE(request) {
     const mine = asset.vendor_id && viewer.vendorIds.includes(asset.vendor_id);
     if (!mine && !viewer.isStaff) return fail('Not found', 404, 'NOT_FOUND');
 
-    // Where this object actually lives — its own bucket, or marketplace-media
-    // if it was uploaded before the split. One function decides; see
-    // bucketForAsset().
-    await db.storage.from(bucketForAsset(asset)).remove([asset.storage_path]);
+    /**
+     * The FILE goes first, and whether it went is CHECKED.
+     *
+     * Where the object lives is bucketForAsset()'s decision — its own bucket,
+     * or marketplace-media if it was uploaded before the split.
+     *
+     * ── Why the row is kept when the file will not go ───────────────────────
+     *
+     * This used to be `await db.storage...remove(...)` with the result thrown
+     * away, and then the row was deleted regardless. A failed removal —  wrong
+     * bucket, storage down, a permission that changed — therefore produced a
+     * success: the picture vanished from the library and the file stayed in
+     * the bucket forever, costing storage, invisible to every screen, and
+     * unreachable because the only record of its path had just been deleted.
+     *
+     * So a storage failure now fails the whole delete and LEAVES the row. The
+     * seller sees the picture still there and can try again, which is
+     * recoverable; a silent orphan is not.
+     *
+     * An object that is already gone is not a failure: remove() reports that
+     * as an empty result with no error, and deleting a row whose file has
+     * already been cleaned up is exactly what should happen.
+     */
+    const { error: storageError } = await db.storage
+      .from(bucketForAsset(asset))
+      .remove([asset.storage_path]);
+
+    if (storageError) {
+      return fail(
+        `The file could not be removed from storage, so nothing was deleted: ${storageError.message}`,
+        502,
+        'STORAGE_DELETE_FAILED',
+      );
+    }
+
     const { error } = await db.from('media_assets').delete().eq('id', id);
     if (error) return fail(error.message, 500, 'DELETE_FAILED');
 
-    /**
-     * Anything POINTING at that file has to let go of it.
-     *
-     * The row and the object went; a showroom whose logo_url still named it
-     * kept rendering a broken <img> — and looked fine until a browser with
-     * no cached copy loaded the page, which is the worst kind of wrong: it
-     * works for the person who deleted it and not for anybody else.
-     *
-     * Matched on the url rather than on an id, because that is what these
-     * columns store. Scoped to the owning showroom so one delete can never
-     * blank another storefront that happens to use the same public URL.
-     *
-     * NOT swept: listings.media and listing_variants.media, which hold the
-     * url inside a jsonb array. Same defect, a bigger fix, and it belongs
-     * with the listing editor rather than bolted on here.
-     */
-    if (asset.vendor_id && asset.url) {
-      for (const column of ['logo_url', 'banner_url']) {
-        await db
-          .from('vendors')
-          .update({ [column]: null })
-          .eq('id', asset.vendor_id)
-          .eq(column, asset.url);
-      }
-    }
+    /* Everything that named this file has to stop naming it — see
+       rewriteReferences(). `to: null` strips it; the edit path passes the
+       replacement url instead. */
+    await rewriteReferences(db, { vendorId: asset.vendor_id, from: asset.url, to: null });
 
     return ok({ deleted: id });
   } catch (err) {
