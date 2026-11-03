@@ -35,7 +35,8 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { touchPresence } from '@/marketplace/auth/presence';
+import { headers } from 'next/headers';
+import { touchPresence, clientIp, clientCountry } from '@/marketplace/auth/presence';
 import { getLocale } from 'next-intl/server';
 import { getMarketplaceAuthServer } from './server';
 import { getMarketplaceDb } from '@/marketplace/db/client';
@@ -131,7 +132,7 @@ export const getViewer = cache(async () => {
    * that have always existed. Losing a presence stamp is cosmetic; losing a
    * role is not.
    */
-  const PROFILE_FULL = 'role, full_name, phone, locale, last_seen_at';
+  const PROFILE_FULL = 'role, full_name, phone, locale, last_seen_at, last_country, last_ip';
   const PROFILE_BASE = 'role, full_name, phone, locale';
   const readProfile = (select) =>
     db.from('profiles').select(select).eq('id', user.id).maybeSingle();
@@ -277,6 +278,12 @@ export const getViewer = cache(async () => {
     memberVendorIds: (memberships ?? []).map((m) => m.vendor_id),
     /* For the presence stamp's throttle only — see auth/presence.js. */
     lastSeenAt: profile?.last_seen_at ?? null,
+    /* Only so the stamp below knows whether the country still needs
+       resolving — see touchPresence(). Not for display: the admin page
+       reads it from its own query. */
+    lastCountry: profile?.last_country ?? null,
+    /* Bounds the geo lookup — see touchPresence(). */
+    lastIp: profile?.last_ip ?? null,
   };
 
   /**
@@ -294,7 +301,30 @@ export const getViewer = cache(async () => {
    * and it is deliberately not awaited into the viewer: a failed stamp must
    * never be able to fail a page. See presence.js.
    */
-  after(() => touchPresence(user.id, viewer.lastSeenAt));
+  /**
+   * The address, read HERE rather than inside the `after` callback: by the
+   * time that runs the request store is gone and headers() would throw.
+   *
+   * It costs nothing. The note above explains that reading cookies is what
+   * makes a route dynamic and why this work belongs in getViewer rather than
+   * a layout — and getViewer has ALREADY read cookies by this point, to know
+   * who the user is. A route that reaches this line is dynamic either way.
+   */
+  let origin = null;
+  try {
+    const headerBag = await headers();
+    origin = {
+      ip: clientIp(headerBag),
+      edgeCountry: clientCountry(headerBag),
+      haveCountry: Boolean(viewer.lastCountry),
+      lastIp: viewer.lastIp,
+    };
+  } catch {
+    /* No request headers available — nothing to resolve from, and never a
+       reason to fail a page. */
+  }
+
+  after(() => touchPresence(user.id, viewer.lastSeenAt, origin));
 
   return viewer;
 });

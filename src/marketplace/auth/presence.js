@@ -34,7 +34,7 @@ const notInstalled = (error) => error?.code === '42703';
  * on every request anyway, so passing it back avoids a second round trip just
  * to find out whether a write is due.
  */
-export async function touchPresence(userId, seenAt = null) {
+export async function touchPresence(userId, seenAt = null, origin = null) {
   if (!userId) return;
 
   if (seenAt) {
@@ -43,9 +43,59 @@ export async function touchPresence(userId, seenAt = null) {
   }
 
   try {
+    const patch = { last_seen_at: new Date().toISOString() };
+
+    /**
+     * ── Fill a MISSING country here, not only at sign-in ───────────────────
+     *
+     * recordSignInOrigin() is the only other thing that writes last_country,
+     * and it runs exactly once: when somebody signs in. That left a hole big
+     * enough to swallow the whole feature — everybody who was ALREADY signed
+     * in when this shipped keeps a live session, never signs in again, and so
+     * never gets a country. Their Status fills within minutes (this function
+     * does that) and the Country column stays "—" indefinitely, which reads
+     * as "broken" rather than "waiting for your next sign-in".
+     *
+     * So when the column is empty and the caller handed us an address, it is
+     * resolved here. Only when it is EMPTY: this runs on every signed-in
+     * request, and re-resolving a country we already hold would be a third
+     * party call every five minutes per user, for an answer that does not
+     * change. A person who travels keeps the country they signed in from
+     * until they sign in again, which is what the column claims to be.
+     */
+    if (origin && !origin.haveCountry) {
+      /**
+       * The edge already knows — free, and nothing is rate limited.
+       */
+      if (origin.edgeCountry) {
+        patch.last_country = origin.edgeCountry;
+
+      /**
+       * Otherwise ask, but ONLY for an address we have not already asked
+       * about. This runs every few minutes for every signed-in person, so an
+       * unconditional lookup would mean: provider goes down → nobody resolves
+       * → everybody retries every five minutes → the retries themselves hold
+       * the provider at its rate limit. A failure that causes more failures.
+       *
+       * last_ip is written on every attempt, so "have we asked about this
+       * address" is answerable without another column. One lookup per person
+       * per address: a failed one is retried when their address changes, and
+       * again at their next sign-in, where recordSignInOrigin() always asks.
+       */
+      } else if (origin.ip && origin.ip !== origin.lastIp) {
+        const country = await lookupCountry(origin.ip);
+        if (country) patch.last_country = country;
+      }
+
+      /* Recorded whether or not the lookup worked — it is what bounds the
+         retry above, and an address is what makes a missing country
+         diagnosable rather than a mystery. */
+      if (origin.ip) patch.last_ip = origin.ip;
+    }
+
     const { error } = await getMarketplaceDb()
       .from('profiles')
-      .update({ last_seen_at: new Date().toISOString() })
+      .update(patch)
       .eq('id', userId);
 
     if (error && !notInstalled(error)) {
