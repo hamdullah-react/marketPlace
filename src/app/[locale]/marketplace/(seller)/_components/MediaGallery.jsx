@@ -98,7 +98,11 @@ import {
   DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { thumbUrl, THUMB } from "@/marketplace/lib/image";
+/* thumbUrl is deliberately NOT imported here. Every image in this file goes
+   through Img, which IS next/image — so a pre-optimised "/_next/image?url=…"
+   string handed to it asks the optimiser to optimise its own output, and the
+   picture renders as a broken-image glyph. It sat here unused for a while and
+   reads like the right thing to reach for, which is how it got used. */
 
 const KINDS = [
   { value: "photo", ar: "الصور", en: "Photos" },
@@ -1912,7 +1916,12 @@ export default function MediaGallery({
                 {pendingDelete.assets.slice(0, 12).map((a) => (
                   <Img
                     key={a.id}
-                    src={thumbUrl(a.url, THUMB.grid)}
+                    /* The RAW url, exactly as the grid tiles use it. Passing
+                       thumbUrl() here handed Img — which is next/image — a
+                       `/_next/image?url=…` string, so the optimiser was asked
+                       to optimise its own output and every thumbnail in this
+                       dialog rendered as a broken-image glyph. */
+                    src={a.url}
                     width={56}
                     height={56}
                     alt={a.filename || ""}

@@ -34,6 +34,23 @@ export async function getAdminStats() {
   return { users, admins, vendors, live, featured, pendingBoosts };
 }
 
+/**
+ * How recently somebody was here, as one of five bands.
+ *
+ * `null` means never seen — which on a database without schema.sql §33 is
+ * every row, and the page says "—" rather than claiming they never visited.
+ */
+function presenceBand(lastSeenAt) {
+  if (!lastSeenAt) return 'unknown';
+  const minutes = (Date.now() - new Date(lastSeenAt).getTime()) / 60000;
+  if (!Number.isFinite(minutes)) return 'unknown';
+  if (minutes < 10) return 'online';
+  if (minutes < 60) return 'recent';
+  if (minutes < 60 * 24) return 'today';
+  if (minutes < 60 * 24 * 7) return 'week';
+  return 'inactive';
+}
+
 function shapeUser(user, profile, memberships = []) {
   return {
     id: user.id,
@@ -45,10 +62,38 @@ function shapeUser(user, profile, memberships = []) {
     confirmed: Boolean(user.email_confirmed_at),
     createdAt: user.created_at ?? null,
     lastSignInAt: user.last_sign_in_at ?? null,
+    /* Null on a database without §33, which the page renders as "—". */
+    lastSeenAt: profile?.last_seen_at ?? null,
+    country: profile?.last_country ?? null,
+    /* The BAND, worked out here rather than in the page.
+       Two reasons. `Date.now()` in a component body is impure and the lint
+       rule react-hooks/purity rejects it — correctly, because a value that
+       changes every render is not something React can reason about. And a
+       band is the only thing an operator reads at a glance: the stamp is
+       throttled to once every few minutes, so a precise minute would claim a
+       accuracy this number has not got. The exact timestamp still travels, for
+       the tooltip. */
+    presence: presenceBand(profile?.last_seen_at),
     showrooms: memberships
       .filter((m) => m.vendors)
       .map((m) => ({ id: m.vendors.id, slug: m.vendors.slug, name: m.vendors.name, state: m.vendors.state, role: m.role })),
   };
+}
+
+/**
+ * The profile columns, in two tiers.
+ *
+ * Same shape as the session reader's: ask for the presence fields, and fall
+ * back to the originals on a 42703 so this page keeps working — showing a dash
+ * where the data would be — on a database where §33 has not been run yet.
+ */
+const PROFILE_FULL = 'id, role, full_name, phone, last_seen_at, last_country';
+const PROFILE_BASE = 'id, role, full_name, phone';
+
+async function readProfiles(db, ids) {
+  const full = await db.from('profiles').select(PROFILE_FULL).in('id', ids);
+  if (full.error?.code !== '42703') return full;
+  return db.from('profiles').select(PROFILE_BASE).in('id', ids);
 }
 
 async function joinProfiles(users) {
@@ -57,7 +102,11 @@ async function joinProfiles(users) {
 
   const db = getMarketplaceDb();
   const [{ data: profiles }, { data: members }] = await Promise.all([
-    db.from('profiles').select('id, role, full_name, phone').in('id', ids),
+    /* The presence columns arrive with schema.sql §33 and PostgREST fails the
+       WHOLE select when one is missing, so the richer read falls back to the
+       fields that have always existed. Without the fallback this page would
+       show every user as a buyer on a database where §33 has not been run. */
+    readProfiles(db, ids),
     db.from('vendor_members').select('user_id, role, vendors ( id, slug, name, state )').in('user_id', ids),
   ]);
 

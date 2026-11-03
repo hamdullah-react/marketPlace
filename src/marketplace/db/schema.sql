@@ -7668,3 +7668,66 @@ begin
 end $$;
 
 notify pgrst, 'reload schema';
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 33. WHO IS HERE, AND WHERE FROM
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- Admin → Customers already answers two of the four questions an operator
+-- actually asks about a person: what they ARE (role, and which showrooms they
+-- belong to) and when they last signed IN. Supabase keeps last_sign_in_at and
+-- the page reads it.
+--
+-- It cannot answer the other two, and one of them cannot be answered at all in
+-- the shape it is usually asked.
+--
+-- ── Why there is no logout column ───────────────────────────────────────────
+--
+-- Signing out is a token revocation on the CLIENT. Nothing server-side records
+-- a time, auth.sessions is not exposed over the API, and the admin user record
+-- carries no logout field — checked, not assumed. Logging it when somebody
+-- presses "Log out" would capture the small minority who press it; everyone
+-- else closes the tab or lets the token expire, and their column stays blank
+-- forever. A column that is empty for most rows is worse than no column: it
+-- looks like data.
+--
+-- `last_seen_at` answers the question behind the question — was this person
+-- here three minutes ago or three weeks ago — and it is correct for every
+-- user, including the ones who never log out.
+--
+-- ── Cost ────────────────────────────────────────────────────────────────────
+--
+-- Stamped at most once every few minutes per person, after the response has
+-- already been sent (next/server's `after`), so a page view never waits on it.
+-- The index is partial: a seeded account that has never visited stays out of
+-- it, and "who is online" reads the small end of the table.
+
+alter table profiles add column if not exists last_seen_at timestamptz;
+alter table profiles add column if not exists last_country text;
+alter table profiles add column if not exists last_ip      text;
+
+create index if not exists profiles_last_seen_idx
+  on profiles (last_seen_at desc) where last_seen_at is not null;
+
+comment on column profiles.last_seen_at is
+  'Last page view, stamped at most once every few minutes. Use instead of a logout time: a logout is never recorded for the users who simply close the tab.';
+comment on column profiles.last_country is
+  'ISO 3166-1 alpha-2, resolved from the sign-in IP. Null when the lookup failed or the address is private.';
+comment on column profiles.last_ip is
+  'The address seen at the last sign-in. Kept for support and abuse questions, never shown to anyone but an admin.';
+
+do $$
+declare cols int;
+begin
+  select count(*) into cols
+  from information_schema.columns
+  where table_schema = 'public' and table_name = 'profiles'
+    and column_name in ('last_seen_at','last_country','last_ip');
+
+  raise notice
+    'Presence: %/3 columns on profiles. Admin → Customers gains a Status dot and a Country column; nothing else changes if they are absent.',
+    cols;
+end $$;
+
+notify pgrst, 'reload schema';

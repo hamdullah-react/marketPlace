@@ -93,6 +93,30 @@ async function UsersSection({ searchParams, locale }) {
     return `${base}${s ? `?${s}` : ''}`;
   };
 
+/**
+ * The five presence bands, as styles and labels.
+ *
+ * A pure lookup: the band itself is worked out server-side in
+ * queries/admin.js, because `Date.now()` in a component body is impure and
+ * react-hooks/purity rejects it — a value that changes every render is not
+ * something React can reason about.
+ */
+const PRESENCE = {
+  online:   { ar: 'متصل الآن',  en: 'Online',    dot: 'bg-green-500',               tone: 'text-green-600 dark:text-green-400' },
+  recent:   { ar: 'قبل قليل',   en: 'Just now',  dot: 'bg-green-400',               tone: 'text-gray-600 dark:text-gray-400' },
+  today:    { ar: 'اليوم',      en: 'Today',     dot: 'bg-amber-400',               tone: 'text-gray-600 dark:text-gray-400' },
+  week:     { ar: 'هذا الأسبوع', en: 'This week', dot: 'bg-gray-300 dark:bg-gray-600', tone: 'text-gray-500' },
+  inactive: { ar: 'غير نشط',    en: 'Inactive',  dot: 'bg-gray-300 dark:bg-gray-600', tone: 'text-gray-400' },
+  unknown:  { ar: '—',          en: '—',         dot: 'bg-gray-300 dark:bg-gray-600', tone: 'text-gray-400' },
+};
+
+/* An ISO country code as its flag: A..Z map to the regional indicator block,
+   so this needs no table and no images. */
+function flag(code) {
+  if (typeof code !== 'string' || !/^[A-Za-z]{2}$/.test(code)) return '';
+  return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+
   const roleLabel = (role) =>
     role === 'admin' ? t('مسؤول', 'Admin') : role === 'staff' ? t('موظف', 'Staff') : t('مستخدم', 'User');
 
@@ -126,6 +150,8 @@ async function UsersSection({ searchParams, locale }) {
                 <th className="px-4 py-3 text-start font-medium">{t('المعارض', 'Showrooms')}</th>
                 <th className="px-4 py-3 text-start font-medium">{t('انضم', 'Joined')}</th>
                 <th className="px-4 py-3 text-start font-medium">{t('آخر دخول', 'Last sign-in')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('الحالة', 'Status')}</th>
+                <th className="px-4 py-3 text-start font-medium">{t('الدولة', 'Country')}</th>
                 <th className="px-4 py-3 text-end font-medium">{t('إجراءات', 'Actions')}</th>
               </tr>
             </thead>
@@ -180,6 +206,20 @@ async function UsersSection({ searchParams, locale }) {
                   </td>
                   <td className="px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-400">{date(u.createdAt)}</td>
                   <td className="px-4 py-3 text-xs tabular-nums text-gray-600 dark:text-gray-400">{date(u.lastSignInAt)}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs ${(PRESENCE[u.presence] ?? PRESENCE.unknown).tone}`}
+                      title={u.lastSeenAt ? date(u.lastSeenAt) : undefined}
+                    >
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${(PRESENCE[u.presence] ?? PRESENCE.unknown).dot}`} />
+                      {t((PRESENCE[u.presence] ?? PRESENCE.unknown).ar, (PRESENCE[u.presence] ?? PRESENCE.unknown).en)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                    {u.country
+                      ? <span className="font-mono" title={u.country}>{flag(u.country)} {u.country}</span>
+                      : '—'}
+                  </td>
                   <td className="px-4 py-3 text-end">
                     <UserRowActions locale={locale} user={u} isSelf={viewer?.userId === u.id} />
                   </td>

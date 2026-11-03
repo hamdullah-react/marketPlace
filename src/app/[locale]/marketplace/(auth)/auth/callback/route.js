@@ -7,7 +7,8 @@
  * there is nothing to render — it is a redirect with a side effect.
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
+import { recordSignInOrigin, clientIp } from '@/marketplace/auth/presence';
 import { notifyNewUser } from '@/marketplace/db/queries/notifications';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
 import { postAuthDestination } from '@/marketplace/auth/session';
@@ -90,6 +91,20 @@ export async function GET(request, { params }) {
       name: person.user_metadata?.full_name ?? person.user_metadata?.name ?? null,
       email: person.email ?? null,
     });
+
+    /**
+     * Where this sign-in came from, for Admin → Customers.
+     *
+     * Done HERE rather than on every page view because an address only needs
+     * resolving when it is new, and a sign-in is the one moment it can change.
+     * `after` keeps the GeoIP call off the redirect: a person signing in is
+     * mid-journey and must not wait on a third party that may be slow.
+     *
+     * The address comes from the forwarded headers — behind the proxy the
+     * socket address is the container's, the same reason publicOrigin() above
+     * has to rebuild the origin by hand.
+     */
+    after(() => recordSignInOrigin(person.id, clientIp(request.headers)));
   }
 
   /**

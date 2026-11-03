@@ -34,6 +34,8 @@ import 'server-only';
 
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { touchPresence } from '@/marketplace/auth/presence';
 import { getLocale } from 'next-intl/server';
 import { getMarketplaceAuthServer } from './server';
 import { getMarketplaceDb } from '@/marketplace/db/client';
@@ -110,8 +112,28 @@ export const getViewer = cache(async () => {
     'vendor_id, role, vendors!inner ( id, slug, name, state, access_until, access_blocked, access_block_reason )';
   const MEMBERSHIPS_BASE = 'vendor_id, role, vendors!inner ( id, slug, name, state )';
 
-  const [{ data: profile }, membershipsResult, { data: addresses }] = await Promise.all([
-    db.from('profiles').select('role, full_name, phone, locale').eq('id', user.id).maybeSingle(),
+  /**
+   * The profile, asked for in two tiers for the SAME reason the memberships
+   * above are.
+   *
+   * last_seen_at rides along on a read that already happens, so the presence
+   * stamp can decide whether a write is due without a second round trip. But
+   * it only exists once schema.sql §33 has been run, and PostgREST fails the
+   * WHOLE select when it names a column that is not there — which would make
+   * `profile` null, drop `role` to its 'buyer' default, and quietly demote
+   * every admin and staff member on the site to a buyer.
+   *
+   * So the richer select is tried first and a 42703 falls back to the fields
+   * that have always existed. Losing a presence stamp is cosmetic; losing a
+   * role is not.
+   */
+  const PROFILE_FULL = 'role, full_name, phone, locale, last_seen_at';
+  const PROFILE_BASE = 'role, full_name, phone, locale';
+  const readProfile = (select) =>
+    db.from('profiles').select(select).eq('id', user.id).maybeSingle();
+
+  const [profileResult, membershipsResult, { data: addresses }] = await Promise.all([
+    readProfile(PROFILE_FULL),
     readMemberships(MEMBERSHIPS_FULL),
     /**
      * Enough of an address to reach somebody.
@@ -128,6 +150,11 @@ export const getViewer = cache(async () => {
       .order('is_default', { ascending: false })
       .limit(1),
   ]);
+
+  const profile =
+    profileResult.error?.code === '42703'
+      ? (await readProfile(PROFILE_BASE)).data
+      : profileResult.data;
 
   // A profile row is created by a trigger on sign-up. Defaulting to 'buyer'
   // rather than throwing means a user whose trigger has not fired yet can still
@@ -180,7 +207,7 @@ export const getViewer = cache(async () => {
       access: accessState(m.vendors),
     }));
 
-  return {
+  const viewer = {
     userId: user.id,
     email: user.email,
     role,
@@ -244,7 +271,28 @@ export const getViewer = cache(async () => {
      * suspension is the page they are locked out of.
      */
     memberVendorIds: (memberships ?? []).map((m) => m.vendor_id),
+    /* For the presence stamp's throttle only — see auth/presence.js. */
+    lastSeenAt: profile?.last_seen_at ?? null,
   };
+
+  /**
+   * "Last seen", stamped from the one function every signed-in path already
+   * goes through.
+   *
+   * Here rather than in a layout for two reasons. A layout that called this
+   * would read cookies, and reading cookies makes the route DYNAMIC — which on
+   * the marketplace layout would mean every public browse page losing its
+   * cache to serve a feature only signed-in users have. And this function has
+   * already read the profile, so the throttle costs nothing: last_seen_at came
+   * back on the select above.
+   *
+   * `after` runs it once the response has been sent, so nobody waits for it,
+   * and it is deliberately not awaited into the viewer: a failed stamp must
+   * never be able to fail a page. See presence.js.
+   */
+  after(() => touchPresence(user.id, viewer.lastSeenAt));
+
+  return viewer;
 });
 
 /* ── Guards ────────────────────────────────────────────────────────────────
