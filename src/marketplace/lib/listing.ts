@@ -363,7 +363,7 @@ export function normalizeListing(
           verified: !!row.vendors.verified,
           rating: Number(row.vendors.rating_avg ?? 0),
           ratingCount: row.vendors.rating_count ?? 0,
-          path: `/marketplace/vendors/${row.vendors.slug}`,
+          path: `/marketplace/vendors/${encodeURIComponent(row.vendors.slug)}`,
         }
       : null,
 
@@ -429,7 +429,7 @@ export function normalizeVendor(row: ListingRow | null | undefined, locale = 'ar
     ratingCount: row.rating_count ?? 0,
     policies: row.policies ?? {},
     listingCount: row.listing_count ?? null,
-    path: `/marketplace/vendors/${row.slug}`,
+    path: `/marketplace/vendors/${encodeURIComponent(row.slug)}`,
   };
 }
 

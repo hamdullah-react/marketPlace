@@ -40,14 +40,18 @@ import { getLocale } from 'next-intl/server';
 import { getMarketplaceAuthServer } from './server';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { accessState } from '@/marketplace/lib/access';
+import { can } from '@/marketplace/lib/team';
 
 /**
  * Every marketplace route is /[locale]/marketplace/..., so a redirect that
  * forgets the locale lands on a path that does not exist. Reading it from the
  * request rather than defaulting to 'ar' also means an English visitor is not
  * bounced into Arabic on their way to sign in.
+ *
+ * Exported because server ACTIONS redirect too, and one that builds the path
+ * itself is one that will be written as `/ar/...` by somebody in a hurry.
  */
-async function localePath(path) {
+export async function localePath(path) {
   const locale = await getLocale().catch(() => 'ar');
   return `/${locale}${path}`;
 }
@@ -407,6 +411,40 @@ export async function requireVendor(wanted = null) {
 }
 
 /**
+ * requireVendor(), plus "and this member is allowed to be on this page".
+ *
+ * ── Why a separate guard and not a parameter ────────────────────────────────
+ *
+ * requireVendor() is awaited by the (seller) LAYOUT as well as by each page,
+ * and the layout must never carry a capability: it would then redirect a
+ * staff member away from the whole dashboard on their way to a page they are
+ * perfectly entitled to open. A separate function makes the two uses
+ * impossible to confuse, and makes every restricted page say out loud which
+ * permission it needs.
+ *
+ * ── Where it sends them, and why not to the login page ─────────────────────
+ *
+ * To the dashboard home, which they can always open. A member who follows a
+ * bookmark to Billing has not done anything wrong and is not signed out; they
+ * simply do not hold that capability. `?denied=` is read by the dashboard to
+ * explain it in one line, so the redirect is not a silent bounce that looks
+ * like a broken link.
+ *
+ * The sidebar already hides what a member cannot open (see canOpen in
+ * lib/team.js), so in ordinary use this never fires. It is for the bookmark,
+ * the shared URL, and the tab that was open when somebody's role changed.
+ */
+export async function requireVendorCan(capability, wanted = null) {
+  const resolved = await requireVendor(wanted);
+
+  if (!can(resolved.vendor.role, capability)) {
+    redirect(await localePath(`/marketplace/seller?denied=${encodeURIComponent(capability)}`));
+  }
+
+  return resolved;
+}
+
+/**
  * The same resolution WITHOUT the paywall — for the blocked screen itself.
  *
  * It needs to know which showroom is locked out, what its date was and why, and
@@ -491,13 +529,37 @@ export async function currentViewer() {
  * `vendorId` out of formData: the id now comes from the session, so posting
  * someone else's id no longer does anything at all.
  */
-export async function vendorForAction(wanted = null) {
+export async function vendorForAction(wanted = null, capability = null) {
   const viewer = await getViewer();
   if (!viewer) return { error: 'NOT_SIGNED_IN' };
   if (viewer.isStaff && wanted) return { viewer, vendorId: wanted };
   if (!viewer.vendors.length) return { error: 'NOT_A_VENDOR' };
 
   const vendor = (wanted && viewer.vendors.find((v) => v.id === wanted)) || viewer.vendors[0];
+
+  /**
+   * ── What this MEMBER may do, as opposed to what the showroom may do ───────
+   *
+   * The paywall below asks about the showroom. This asks about the person, and
+   * until now nothing did: `vendor.role` was carried onto the viewer by the
+   * reader above and read by nobody, so every member of a showroom could do
+   * everything — a salesperson invited to list cars could also rename the
+   * business and read its invoices. See lib/team.js.
+   *
+   * `capability` is OPTIONAL and null means "membership is enough", which is
+   * what the great majority of actions want and is why this is a parameter
+   * rather than a route table: an action that needs a permission names it, and
+   * one that does not is unchanged. A list of routes somewhere else is a list
+   * that goes stale silently, and in the dangerous direction.
+   *
+   * Checked BEFORE the paywall on purpose. A member who was never allowed to
+   * press this button should be told that, not told the subscription has
+   * lapsed — the second message sends them to an owner to pay for something
+   * that would not have helped.
+   */
+  if (capability && !can(vendor.role, capability)) {
+    return { error: 'NO_PERMISSION', role: vendor.role, capability };
+  }
 
   /**
    * The other half of the paywall.
@@ -538,6 +600,25 @@ export async function vendorForRenewal(wanted = null) {
   if (!viewer.vendors.length) return { error: 'NOT_A_VENDOR' };
 
   const vendor = (wanted && viewer.vendors.find((v) => v.id === wanted)) || viewer.vendors[0];
+
+  /**
+   * `billing`, hard-coded rather than passed in.
+   *
+   * Everything that routes through here is the showroom's relationship with
+   * the platform — asking to renew, recording a transfer, sending a receipt —
+   * and all of it is the owner's. Taking the capability as a parameter would
+   * invite a caller to pass something laxer in order to get past the paywall,
+   * which is the one thing this function is for and the reason the note above
+   * insists it must not become a flag on vendorForAction.
+   *
+   * It does NOT bypass the role check the way it bypasses the paywall: a
+   * lapsed subscription is precisely when the owner needs the button, and
+   * precisely when a salesperson must not be the one pressing it.
+   */
+  if (!can(vendor.role, 'billing')) {
+    return { error: 'NO_PERMISSION', role: vendor.role, capability: 'billing' };
+  }
+
   return { viewer, vendorId: vendor.id, vendor };
 }
 

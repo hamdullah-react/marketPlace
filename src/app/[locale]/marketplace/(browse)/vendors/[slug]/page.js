@@ -305,7 +305,7 @@ export default async function VendorPage({ params, searchParams }) {
 
   const tab = TABS.some((x) => x.key === wantedTab) ? wantedTab : 'home';
   const tabHref = (key) =>
-    `/${locale}/marketplace/vendors/${vendor.slug}${key === 'home' ? '' : `?tab=${key}`}`;
+    `/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}${key === 'home' ? '' : `?tab=${key}`}`;
 
   // `!== false`, not a truthiness test: a showroom saved before these toggles
   // existed has no value stored at all, and Settings defaults both to on.
@@ -781,7 +781,7 @@ export default async function VendorPage({ params, searchParams }) {
    * with `telephone: ""` is a worse answer than one with no telephone — the
    * first is a claim that is wrong, the second is a gap.
    */
-  const vendorUrl = `${SITE_URL}/${locale}/marketplace/vendors/${vendor.slug}`;
+  const vendorUrl = `${SITE_URL}/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}`;
   const ratingCount = Number(vendor.rating_count) || 0;
 
   const jsonLd = {
@@ -973,7 +973,7 @@ export default async function VendorPage({ params, searchParams }) {
                 /* A rating that cannot be opened is a number a visitor has to
                    take on trust. It links to the reviews it is made of. */
                 <Link
-                  href={`/${locale}/marketplace/vendors/${vendor.slug}/reviews`}
+                  href={`/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}/reviews`}
                   className="flex items-center gap-1.5 tabular-nums hover:text-brand-primary"
                 >
                   <Star className="h-4 w-4 fill-[var(--gold)] text-[var(--gold)]" />
@@ -1106,7 +1106,7 @@ export default async function VendorPage({ params, searchParams }) {
               `?tab=` on a page that also has to render cars. It is never the
               open tab for the same reason — going there leaves this page. */}
           <Link
-            href={`/${locale}/marketplace/vendors/${vendor.slug}/reviews`}
+            href={`/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}/reviews`}
             className="flex shrink-0 items-center gap-2 border-b-2 border-transparent px-3 py-3 text-sm font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
           >
             <Star className="h-4 w-4" />
@@ -1685,7 +1685,7 @@ async function Cars({ vendor, searchParams, locale, t }) {
         <nav className="mt-8 flex items-center justify-center gap-3">
           {page > 1 ? (
             <Button asChild variant="outline" size="sm">
-              <Link href={`/${locale}/marketplace/vendors/${vendor.slug}?page=${page - 1}`}>
+              <Link href={`/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}?page=${page - 1}`}>
                 {t('السابق', 'Previous')}
               </Link>
             </Button>
@@ -1695,7 +1695,7 @@ async function Cars({ vendor, searchParams, locale, t }) {
           </span>
           {page < pageCount ? (
             <Button asChild variant="outline" size="sm">
-              <Link href={`/${locale}/marketplace/vendors/${vendor.slug}?page=${page + 1}`}>
+              <Link href={`/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}?page=${page + 1}`}>
                 {t('التالي', 'Next')}
               </Link>
             </Button>

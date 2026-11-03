@@ -54,7 +54,7 @@ export async function saveStorefrontPhoto(prevState, formData) {
   if (!column) return bad('BAD_FIELD');
   if (!url && !clearing) return bad('NO_IMAGE');
 
-  const { vendorId, error } = await vendorForAction(wanted || null);
+  const { vendorId, error } = await vendorForAction(wanted || null, 'storefront');
   if (error) return bad(error);
 
   /**

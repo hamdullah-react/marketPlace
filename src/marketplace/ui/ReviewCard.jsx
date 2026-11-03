@@ -110,7 +110,7 @@ export default function ReviewCard({
 
           {showShop && shop ? (
             <Link
-              href={`/${locale}/marketplace/vendors/${shop.slug}`}
+              href={`/${locale}/marketplace/vendors/${encodeURIComponent(shop.slug)}`}
               className="flex items-center gap-1.5 hover:text-brand-primary"
             >
               <Store className="h-3.5 w-3.5" />

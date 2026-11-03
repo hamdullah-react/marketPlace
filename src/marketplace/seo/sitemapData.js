@@ -211,18 +211,18 @@ export async function buildSitemap() {
       excluded.push({
         group: 'showrooms',
         label: v.slug,
-        path: `/marketplace/vendors/${v.slug}`,
+        path: `/marketplace/vendors/${encodeURIComponent(v.slug)}`,
         reason: 'seo_index_off',
       });
       continue;
     }
     for (const code of langs.enabled) {
       groups.showrooms.push({
-        url: `${SITE_URL}/${code}/marketplace/vendors/${v.slug}`,
+        url: `${SITE_URL}/${code}/marketplace/vendors/${encodeURIComponent(v.slug)}`,
         lastModified: v.updated_at ? new Date(v.updated_at) : undefined,
         changeFrequency: v.seo_changefreq ?? 'weekly',
         priority: Number(v.seo_priority ?? 0.7),
-        alternates: alternatesFor((c) => `/${c}/marketplace/vendors/${v.slug}`),
+        alternates: alternatesFor((c) => `/${c}/marketplace/vendors/${encodeURIComponent(v.slug)}`),
       });
     }
   }

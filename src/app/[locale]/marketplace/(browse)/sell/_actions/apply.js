@@ -41,7 +41,7 @@ import { revalidatePath } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { recordNotification } from '@/marketplace/db/queries/notifications';
 import { getViewer } from '@/marketplace/auth/session';
-import { slugify } from '@/marketplace/lib/slug';
+import { asciiSlug } from '@/marketplace/lib/slug';
 import { ensureVendorBucket } from '@/marketplace/media/bucket';
 import { i18n } from '@/marketplace/lib/listing';
 
@@ -62,7 +62,12 @@ const bad = (error, errors = {}) => ({ ok: false, error, errors, token: stamp() 
  * would be an unkillable request rather than a failed application.
  */
 async function freeSlug(db, base) {
-  const stem = slugify(base) || 'showroom';
+  /* ASCII, because this becomes a URL path segment. slugify() keeps Arabic
+     letters — right for a catalog key, wrong here: a showroom that applied in
+     Arabic was given `معرض-الأجيال-للسيارات`, and a path carrying those bytes
+     unencoded is mangled into `?` by the proxy. See asciiSlug() in lib/slug.ts
+     for the measurement. */
+  const stem = asciiSlug(base) || 'showroom';
 
   for (let n = 0; n < 50; n += 1) {
     const candidate = n === 0 ? stem : `${stem}-${n + 1}`;

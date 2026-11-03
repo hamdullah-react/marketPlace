@@ -36,7 +36,7 @@ export async function generateMetadata({ params }) {
     description: isAr
       ? `ما قاله المشترون عن ${name} — التقييمات والردود.`
       : `What buyers said about ${name} — ratings and replies.`,
-    alternates: { canonical: `/${locale}/marketplace/vendors/${vendor.slug}/reviews` },
+    alternates: { canonical: `/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}/reviews` },
     /* INDEXABLE, unlike the account and seller review pages. Reviews are the
        most searched-for thing about a showroom after its name, and this is the
        page that answers it. */
@@ -75,7 +75,7 @@ export default async function VendorReviewsPage({ params, searchParams }) {
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 lg:px-6">
       <Link
-        href={`/${locale}/marketplace/vendors/${vendor.slug}`}
+        href={`/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}`}
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-brand-primary"
       >
         <Back className="h-3.5 w-3.5" />
@@ -189,7 +189,7 @@ async function Body({ vendor, searchParams, locale, t, name }) {
     if (next.rating) q.set('stars', String(next.rating));
     if (next.page && next.page > 1) q.set('page', String(next.page));
     const query = q.toString();
-    return `/${locale}/marketplace/vendors/${vendor.slug}/reviews${query ? `?${query}` : ''}`;
+    return `/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}/reviews${query ? `?${query}` : ''}`;
   };
 
   const pages = Math.ceil(total / PER_PAGE);

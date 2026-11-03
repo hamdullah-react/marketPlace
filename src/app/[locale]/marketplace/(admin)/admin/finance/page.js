@@ -386,7 +386,7 @@ async function Body({ searchParams, locale, t }) {
                   <Store className="h-4 w-4 shrink-0 text-muted-foreground" />
                   {row.vendor ? (
                     <Link
-                      href={`/${locale}/marketplace/vendors/${row.vendor.slug}`}
+                      href={`/${locale}/marketplace/vendors/${encodeURIComponent(row.vendor.slug)}`}
                       className="font-medium text-brand-primary hover:underline"
                     >
                       {localized(row.vendor.name, locale)}

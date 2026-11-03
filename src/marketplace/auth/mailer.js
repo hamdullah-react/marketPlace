@@ -457,3 +457,151 @@ export async function sendOtpEmail({ to, code, purpose = 'signup', locale = 'ar'
     html: codeHtml(payload),
   });
 }
+
+/* ── A colleague being invited into a showroom ─────────────────────────────
+   schema.sql §34.1: the token in this link is the capability, so the message
+   IS the credential. Two consequences for the copy:
+
+     · it names the showroom and the person who invited them, because an
+       unexplained "you have been given access" link is indistinguishable from
+       a phishing attempt and the careful recipient will not click it;
+     · it says what the role lets them do, so somebody can tell before
+       accepting whether they are being handed the cars or the bank details.
+
+   A BUTTON and the bare URL beneath it. Outlook renders the button through
+   Word and some clients strip it entirely, and a link somebody cannot copy out
+   is an invitation that fails silently.
+   ---------------------------------------------------------------------- */
+
+const INVITE_ROLE_COPY = {
+  owner: {
+    ar: 'مالك — صلاحية كاملة، بما في ذلك الاشتراك والفواتير وإدارة الفريق.',
+    en: 'Owner — full access, including the subscription, invoices and the team.',
+  },
+  manager: {
+    ar: 'مدير — إدارة السيارات والصور والعملاء المحتملين والترويج، وإضافة موظفين.',
+    en: 'Manager — cars, photos, leads and promotions, and can add staff.',
+  },
+  staff: {
+    ar: 'موظف — إضافة السيارات والصور والكتالوج ومتابعة العملاء المحتملين.',
+    en: 'Staff — add cars and photos, use the catalog, and work the leads.',
+  },
+};
+
+export async function sendTeamInviteEmail({
+  to,
+  url,
+  role = 'staff',
+  locale = 'ar',
+  vendorName = null,
+  invitedByName = null,
+  days = 14,
+}) {
+  const isAr = locale === 'ar';
+
+  /* The app name and logo from Admin → Settings, exactly as sendOtpEmail does
+     it — lazily, and never allowed to stop the message going out. */
+  let brandName = isAr ? 'سودة' : 'SAUDA';
+  let logoUrl = null;
+  try {
+    const { getSiteSettings } = await import('@/marketplace/db/queries/site');
+    const site = await getSiteSettings();
+    brandName = (isAr ? site.name.ar : site.name.en) || brandName;
+    logoUrl = site.logoUrl;
+  } catch {
+    /* keep the defaults */
+  }
+
+  /* The showroom's name is {ar, en} like every other label in the schema, and
+     may arrive as either the object or an already-localised string. */
+  const showroom =
+    (typeof vendorName === 'string'
+      ? vendorName
+      : isAr
+        ? vendorName?.ar || vendorName?.en
+        : vendorName?.en || vendorName?.ar) || (isAr ? 'معرض' : 'a showroom');
+
+  const roleLine = (INVITE_ROLE_COPY[role] ?? INVITE_ROLE_COPY.staff)[isAr ? 'ar' : 'en'];
+
+  const heading = isAr ? `دعوة للانضمام إلى ${showroom}` : `You have been invited to ${showroom}`;
+
+  const lead = invitedByName
+    ? isAr
+      ? `دعاك ${invitedByName} للعمل على لوحة تحكم ${showroom} على ${brandName}.`
+      : `${invitedByName} has invited you to work on ${showroom}’s dashboard on ${brandName}.`
+    : isAr
+      ? `دُعيت للعمل على لوحة تحكم ${showroom} على ${brandName}.`
+      : `You have been invited to work on ${showroom}’s dashboard on ${brandName}.`;
+
+  const cta = isAr ? 'قبول الدعوة' : 'Accept the invitation';
+
+  const expiry = isAr
+    ? `ينتهي هذا الرابط بعد ${days} يوماً.`
+    : `This link expires in ${days} days.`;
+
+  /* Said plainly, because the accept page enforces it and a person who meets
+     the rule only after clicking will assume the link is broken. */
+  const sameAddress = isAr
+    ? 'افتح الرابط وأنت مسجّل الدخول بهذا البريد. إن لم يكن لديك حساب بعد، أنشئ واحداً بهذا البريد نفسه.'
+    : 'Open the link while signed in with this address. If you do not have an account yet, create one with this same address.';
+
+  const ignore = isAr
+    ? 'إن لم تكن تتوقّع هذه الدعوة، تجاهل هذه الرسالة ولن يحدث شيء.'
+    : 'If you were not expecting this, ignore this message and nothing will happen.';
+
+  const mark =
+    logoUrl && /^https:\/\//i.test(logoUrl)
+      ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(brandName)}" height="40" style="display:block;height:40px;width:auto;border:0;">`
+      : `<span style="color:${BRAND};font-size:20px;font-weight:bold;letter-spacing:1px;">${escapeHtml(brandName)}</span>`;
+
+  const html = `<!DOCTYPE html>
+<html dir="${isAr ? 'rtl' : 'ltr'}" lang="${isAr ? 'ar' : 'en'}">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <div style="background:linear-gradient(135deg,${BRAND} 0%,#06170E 100%);padding:36px 20px;text-align:center;">
+    <div style="display:inline-block;background:#ffffff;padding:12px 26px;border-radius:12px;">
+      ${mark}
+    </div>
+  </div>
+
+  <div style="max-width:520px;margin:-18px auto 0;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(11,107,58,.10);">
+    <div style="padding:32px 28px;">
+      <h1 style="margin:0 0 8px;font-size:22px;color:#1f2937;text-align:center;">${escapeHtml(heading)}</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#6b7280;text-align:center;">${escapeHtml(lead)}</p>
+
+      <div style="background:#E8F5EE;border:1px solid #BFE0CC;border-radius:12px;padding:14px 18px;margin:0 0 24px;">
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#13512f;">${escapeHtml(roleLine)}</p>
+      </div>
+
+      <div style="text-align:center;margin:0 0 18px;">
+        <a href="${escapeHtml(url)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 32px;border-radius:10px;">${escapeHtml(cta)}</a>
+      </div>
+
+      <!-- dir=ltr on the URL itself: it is not Arabic text and an RTL page
+           reorders its punctuation into something uncopyable. -->
+      <p dir="ltr" style="margin:0 0 18px;font-size:12px;line-height:1.7;color:#9ca3af;text-align:center;word-break:break-all;">${escapeHtml(url)}</p>
+
+      <p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#6b7280;">${escapeHtml(sameAddress)}</p>
+      <p style="margin:0;font-size:13px;color:#9ca3af;">${escapeHtml(expiry)}</p>
+    </div>
+
+    <div style="border-top:1px solid #f0f0f0;padding:18px 28px;background:#fafafa;">
+      <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;text-align:center;">${escapeHtml(ignore)}</p>
+    </div>
+  </div>
+
+  <p style="max-width:520px;margin:16px auto 32px;text-align:center;font-size:11px;color:#b0b0b0;">${SITE_HOST}</p>
+</body>
+</html>`;
+
+  const text = [
+    heading, '', lead, '', roleLine, '', cta + ':', url, '', sameAddress, expiry, '', ignore,
+  ].join('\n');
+
+  return sendMarketplaceEmail({
+    to,
+    subject: isAr ? `دعوة للانضمام إلى ${showroom}` : `Invitation to join ${showroom}`,
+    text,
+    html,
+  });
+}

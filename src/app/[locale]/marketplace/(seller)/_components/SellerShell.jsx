@@ -19,7 +19,7 @@
  */
 
 import Img from '@/marketplace/ui/Img';
-import { Suspense, use, useState, useEffect } from "react";
+import { Suspense, use, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,6 +53,7 @@ import AccessCountdown from "./AccessCountdown";
 import MessagesDrawer from "@/marketplace/ui/MessagesDrawer";
 import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { useLiveLeads } from "./useLiveLeads";
+import { canOpen } from "@/marketplace/lib/team";
 
 const NAV_MAIN = [
   { href: "/marketplace/seller", icon: LayoutDashboardIcon, ar: "لوحة التحكم", en: "Dashboard", exact: true },
@@ -101,6 +102,12 @@ const NAV_CUSTOMERS = [
 
 const NAV_SECONDARY = [
   { href: "/marketplace/seller/settings", icon: SettingsIcon, ar: "الإعدادات", en: "Settings" },
+  /* Its own entry rather than a tab inside Settings. A showroom's team is not
+     a preference — it is the answer to "who else can get into this account",
+     which is the question somebody asks when they are hiring, and when they
+     have just let somebody go. A page reachable only by knowing it is a tab on
+     another page is a page people are told about rather than find. */
+  { href: "/marketplace/seller/settings/team", icon: UsersIcon, ar: "الفريق", en: "Team" },
   { href: "/marketplace/help", icon: HelpCircleIcon, ar: "المساعدة", en: "Get Help" },
   // The public grid, not /marketplace/search — that route is gone, because
   // search is a modal in the header now.
@@ -159,7 +166,7 @@ function VendorIdentity({ vendorPromise, locale, t, isAr }) {
     { href: "/marketplace/seller/settings", icon: SettingsIcon, ar: "إعدادات المعرض", en: "Showroom settings" },
     ...(vendor.slug
       ? [{
-          href: `/marketplace/vendors/${vendor.slug}`,
+          href: `/marketplace/vendors/${encodeURIComponent(vendor.slug)}`,
           icon: ExternalLinkIcon,
           ar: "عرض صفحة المعرض",
           en: "View storefront",
@@ -315,6 +322,18 @@ export default function SellerShell({
      Computed by the layout so the badge is right on the first paint rather
      than arriving a moment later. */
   messages = null,
+  /**
+   * This member's role in the showroom — 'owner' | 'manager' | 'staff'.
+   *
+   * The sidebar is the only place a seller finds out what they can do, so it
+   * has to be built from the role rather than listing every page and letting
+   * the clicks fail. Defaults to 'owner' so a caller that forgets to pass it
+   * renders the full nav: the ENFORCEMENT is requireVendorCan() on the server,
+   * and a nav that hid Billing from an actual owner because of a missing prop
+   * would be a worse bug than one that shows a staff member a link they get
+   * bounced from. See lib/team.js.
+   */
+  role = "owner",
 }) {
   /* No vendorId prop: the shell already resolves one below for the live-leads
      channel and the vendor picker, and a second copy could disagree with it. */
@@ -352,6 +371,29 @@ export default function SellerShell({
     const full = `/${locale}${href}`;
     return exact ? pathname === full : pathname.startsWith(full);
   };
+
+  /**
+   * The nav this member actually gets.
+   *
+   * Filtered rather than disabled: a greyed row with a lock on it tells a
+   * salesperson about a page they will never open, every day, which is noise.
+   * canOpen() consults the same capability map the page guard and every server
+   * action use (lib/team.js), so the sidebar cannot drift out of step with
+   * what a click will do — the drift is the failure that matters, because it
+   * produces a link that goes nowhere.
+   *
+   * useMemo on `role` alone: these are module-scope constants and the filter
+   * is pure, so the only thing that can change the answer is the role.
+   */
+  const nav = useMemo(() => {
+    const allowed = (items) => items.filter((i) => canOpen(role, i.href));
+    return {
+      main: allowed(NAV_MAIN),
+      crm: allowed(NAV_CRM),
+      customers: allowed(NAV_CUSTOMERS),
+      secondary: allowed(NAV_SECONDARY),
+    };
+  }, [role]);
 
   // Header title: deepest matching nav item, so it tracks the route instead of
   // being hardcoded the way the block's "Documents" is.
@@ -446,19 +488,26 @@ export default function SellerShell({
         </SidebarHeader>
 
         <SidebarContent>
-          <NavGroupView items={NAV_MAIN} {...navCtx} />
-          <NavCollapsibleView
-            label={t("إدارة العملاء", "CRM")}
-            icon={UsersIcon}
-            items={NAV_CRM}
-            defaultOpen={inCrm || unread > 0}
-            badges={{ "/marketplace/seller/leads": unread }}
-            total={unread}
-            dot="/marketplace/seller/leads"
-            {...collapsibleCtx}
-          />
-          <NavGroupView label={t("العملاء", "Customers")} items={NAV_CUSTOMERS} {...navCtx} />
-          <NavGroupView items={NAV_SECONDARY} className="mt-auto" {...navCtx} />
+          <NavGroupView items={nav.main} {...navCtx} />
+          {nav.crm.length ? (
+            <NavCollapsibleView
+              label={t("إدارة العملاء", "CRM")}
+              icon={UsersIcon}
+              items={nav.crm}
+              defaultOpen={inCrm || unread > 0}
+              badges={{ "/marketplace/seller/leads": unread }}
+              total={unread}
+              dot="/marketplace/seller/leads"
+              {...collapsibleCtx}
+            />
+          ) : null}
+          {/* Empty for a staff member — Subscription and Billing are the
+              owner's business — and a group label with nothing under it is a
+              heading for a section that does not exist. */}
+          {nav.customers.length ? (
+            <NavGroupView label={t("العملاء", "Customers")} items={nav.customers} {...navCtx} />
+          ) : null}
+          <NavGroupView items={nav.secondary} className="mt-auto" {...navCtx} />
         </SidebarContent>
 
         <SidebarFooter>

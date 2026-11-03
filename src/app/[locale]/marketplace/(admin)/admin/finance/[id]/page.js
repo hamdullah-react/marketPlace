@@ -234,7 +234,7 @@ async function Body({ id, locale, t }) {
 
               <div className="mt-3 flex flex-wrap gap-3">
                 <Link
-                  href={`/${locale}/marketplace/vendors/${charge.vendors.slug}`}
+                  href={`/${locale}/marketplace/vendors/${encodeURIComponent(charge.vendors.slug)}`}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />

@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { ArrowLeft, ArrowRight, Landmark } from 'lucide-react';
-import { requireVendor } from '@/marketplace/auth/session';
+import { requireVendorCan } from '@/marketplace/auth/session';
 import { getVendorCharge } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import {
@@ -49,7 +49,7 @@ export default async function SellerChargePage({ params, searchParams }) {
 
   const t = (ar, en) => (locale === 'ar' ? ar : en);
   const sp = await searchParams;
-  const { vendorId } = await requireVendor(sp?.vendor || null);
+  const { vendorId } = await requireVendorCan('billing', sp?.vendor || null);
 
   const [charge, site] = await Promise.all([
     getVendorCharge(id, vendorId),

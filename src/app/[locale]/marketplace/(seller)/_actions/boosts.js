@@ -84,7 +84,7 @@ const refresh = () => {
 };
 
 export async function requestBoost(prevState, formData) {
-  const { viewer, vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null);
+  const { viewer, vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null, 'promotions');
   if (denied) return bad(denied);
 
   const listingId = str(formData, 'listingId');
@@ -188,7 +188,7 @@ export async function requestBoost(prevState, formData) {
 }
 
 export async function cancelBoostRequest(prevState, formData) {
-  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null);
+  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null, 'promotions');
   if (denied) return bad(denied);
 
   const boostId = str(formData, 'boostId');
@@ -218,7 +218,7 @@ export async function cancelBoostRequest(prevState, formData) {
  * record of it is what the platform team ends, not something to erase mid-run.
  */
 export async function deleteBoostRequest(prevState, formData) {
-  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null);
+  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null, 'promotions');
   if (denied) return bad(denied);
 
   const boostId = str(formData, 'boostId');

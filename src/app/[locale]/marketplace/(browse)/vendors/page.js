@@ -218,7 +218,7 @@ async function Grid({ searchParams, locale, t }) {
         {items.map((v) => (
           <Link
             key={v.id}
-            href={`/${locale}/marketplace/vendors/${v.slug}`}
+            href={`/${locale}/marketplace/vendors/${encodeURIComponent(v.slug)}`}
             className="raised-card group overflow-hidden rounded-xl transition-transform duration-300 hover:-translate-y-0.5"
           >
             {/* The banner doubles as the card's colour. A showroom without one

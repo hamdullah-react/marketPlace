@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { requireVendor } from '@/marketplace/auth/session';
+import { requireVendorCan } from '@/marketplace/auth/session';
 import { getVendorPlans, getOpenRenewal } from '@/marketplace/db/queries/access';
 import { getVendorChargeTotals } from '@/marketplace/db/queries/billing';
 import { latestProofsByCharge } from '@/marketplace/db/queries/proofs';
@@ -80,7 +80,7 @@ export default async function SellerSubscriptionPage({ params, searchParams }) {
 
 async function Body({ searchParams, locale, t }) {
   const sp = await searchParams;
-  const { vendorId, vendor } = await requireVendor(sp?.vendor || null);
+  const { vendorId, vendor } = await requireVendorCan('billing', sp?.vendor || null);
 
   const [plans, openRenewal, totals, site] = await Promise.all([
     getVendorPlans().catch(() => []),

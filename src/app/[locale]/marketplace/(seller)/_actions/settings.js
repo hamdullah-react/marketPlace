@@ -70,7 +70,8 @@ const i18n = (ar, en) => {
 
 export async function saveStoreProfile(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -103,7 +104,8 @@ export async function saveStoreProfile(prevState, formData) {
 
 export async function saveContact(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -171,7 +173,8 @@ export async function saveContact(prevState, formData) {
 
 export async function saveBusiness(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -215,7 +218,8 @@ export async function saveBusiness(prevState, formData) {
 
 export async function saveLocalization(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -315,7 +319,8 @@ export async function saveLocalization(prevState, formData) {
  */
 export async function createBackup(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -373,7 +378,8 @@ export async function deleteBackup(prevState, formData) {
   // caller could destroy any showroom's export. The row is now read WITH the
   // vendor and the delete is scoped by it, so a wrong id removes nothing.
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -445,7 +451,8 @@ function stripJoins(row) {
  */
 export async function restoreBackup(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
   const backupId = str(formData, 'backupId');
@@ -551,7 +558,8 @@ export async function restoreBackup(prevState, formData) {
 /** Lifts the suspension without importing anything. */
 export async function reactivateStore(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
@@ -593,7 +601,8 @@ export async function reactivateStore(prevState, formData) {
  */
 export async function deleteAllData(prevState, formData) {
   const { vendorId, error: denied } = await vendorForAction(
-    str(formData, 'vendorId') || null
+    str(formData, 'vendorId') || null,
+    'storefront'
   );
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
   const confirm = str(formData, 'confirm');
@@ -723,7 +732,7 @@ export async function deleteAllData(prevState, formData) {
  * what lets themeCss return an empty string and add zero bytes to the page.
  */
 export async function saveAppearance(prevState, formData) {
-  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null);
+  const { vendorId, error: denied } = await vendorForAction(str(formData, 'vendorId') || null, 'storefront');
   if (denied) return { ok: false, error: denied, errors: {}, token: stamp() };
 
   /* Parsed defensively, then normalised. The field is JSON built by a client

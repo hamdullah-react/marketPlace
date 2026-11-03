@@ -243,7 +243,7 @@ async function Dashboard({ locale }) {
                 {topVendors.map((v, i) => (
                   <li key={v.id}>
                     <Link
-                      href={`/${locale}/marketplace/vendors/${v.slug}`}
+                      href={`/${locale}/marketplace/vendors/${encodeURIComponent(v.slug)}`}
                       className="raised-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2"
                     >
                       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-[10px] font-bold text-brand-primary tabular-nums">

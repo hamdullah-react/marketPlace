@@ -13,6 +13,7 @@ import StatCards from '../_components/StatCards';
 import ListingsChart from '../_components/ListingsChart';
 import ListingsTable from '../_components/ListingsTable';
 import VendorPicker from '../_components/VendorPicker';
+import DeniedNotice from '../_components/DeniedNotice';
 
 export const metadata = {
   title: 'Seller Dashboard',
@@ -66,6 +67,12 @@ export default async function SellerDashboardPage({ params, searchParams }) {
             </>
           }
         >
+        {/* Why they are looking at the dashboard rather than the page they
+            asked for. requireVendorCan() redirects here with ?denied=<the
+            capability>, and without this the bounce is indistinguishable from
+            a broken link — which is the version somebody reports as a bug. */}
+        <DeniedNotice searchParams={searchParams} locale={locale} />
+
         <Picker searchParams={searchParams} locale={locale} />
 
         <Stats searchParams={searchParams} locale={locale} t={t} />

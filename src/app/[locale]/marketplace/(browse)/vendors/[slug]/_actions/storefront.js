@@ -380,7 +380,7 @@ export async function saveStorefrontSection(prevState, formData) {
   if (!build) return bad('BAD_SECTION');
 
   const wanted = str(formData, 'vendorId');
-  const { vendorId, error: denied } = await vendorForAction(wanted || null);
+  const { vendorId, error: denied } = await vendorForAction(wanted || null, 'storefront');
   if (denied) return bad(denied);
   if (wanted && vendorId !== wanted) return bad('NOT_YOUR_STORE');
 

@@ -1,4 +1,6 @@
 import 'server-only';
+import { after } from 'next/server';
+import { headers } from 'next/headers';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 
 /**
@@ -74,6 +76,45 @@ export function clientIp(headers) {
   return headers.get('x-real-ip') || headers.get('cf-connecting-ip') || null;
 }
 
+/**
+ * The country the EDGE already worked out, if anything in front of us did.
+ *
+ * ── Why this is tried before any lookup ────────────────────────────────────
+ *
+ * Cloudflare sends `CF-IPCountry` on every request, Vercel sends
+ * `x-vercel-ip-country`, and several other proxies send something similar.
+ * Where one of those is present it is strictly better than asking a third
+ * party: it is free, instant, cannot be rate limited, needs no outbound
+ * request from our server, and is resolved from the connecting address by
+ * something that can actually see it.
+ *
+ * Measured against the alternative: ipapi.co answered six rapid calls with
+ * HTTP 429. A single call works, and sign-ins are infrequent enough that it
+ * usually will — but "usually" is how a column ends up half empty, which is
+ * the problem this whole change exists to fix.
+ *
+ * clientIp() already reads `cf-connecting-ip`, so Cloudflare is in the picture
+ * on at least some deployments; where it is, this is the whole answer.
+ *
+ * 'XX' and 'T1' are Cloudflare's own "unknown" and "Tor", and both mean we do
+ * not know — returning them would put a country code in the column that is not
+ * a country.
+ */
+export function clientCountry(headers) {
+  const candidates = [
+    headers.get('cf-ipcountry'),
+    headers.get('x-vercel-ip-country'),
+    headers.get('x-geo-country'),
+    headers.get('x-country-code'),
+  ];
+
+  for (const value of candidates) {
+    const code = String(value ?? '').trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(code) && code !== 'XX' && code !== 'T1') return code;
+  }
+  return null;
+}
+
 /* A loopback or LAN address resolves to nothing, so it is not worth a request
    — this is every hit in local development. */
 function isPrivate(ip) {
@@ -97,11 +138,27 @@ function isPrivate(ip) {
  * third party is slow — and this runs after the response regardless.
  */
 export async function lookupCountry(ip) {
-  if (isPrivate(ip)) return null;
+  /**
+   * A private address means "we cannot know", and in production that is the
+   * only honest answer — a datacentre's own country is not the visitor's, and
+   * writing it would fill the column with a plausible wrong value, which is
+   * worse than a blank one.
+   *
+   * In DEVELOPMENT every request arrives from 127.0.0.1, so the column would
+   * be permanently empty and the feature untestable short of deploying it. So
+   * on a dev server only, the lookup falls back to THIS MACHINE's address —
+   * which is the developer's own country, and the right answer for the one
+   * person signing in. Guarded on NODE_ENV rather than on a flag somebody
+   * could leave switched on.
+   */
+  const privateAddress = isPrivate(ip);
+  if (privateAddress && process.env.NODE_ENV === 'production') return null;
 
   const url = process.env.GEOIP_URL
-    ? process.env.GEOIP_URL.replace('{ip}', encodeURIComponent(ip))
-    : `https://ipapi.co/${encodeURIComponent(ip)}/country/`;
+    ? process.env.GEOIP_URL.replace('{ip}', encodeURIComponent(ip ?? ''))
+    : privateAddress
+      ? 'https://ipapi.co/country/'
+      : `https://ipapi.co/${encodeURIComponent(ip)}/country/`;
 
   try {
     const res = await fetch(url, {
@@ -132,8 +189,18 @@ export async function lookupCountry(ip) {
  * Where this sign-in came from. Called once per sign-in, never per page view:
  * an address is looked up when it is new, not on every request.
  */
-export async function recordSignInOrigin(userId, ip) {
-  if (!userId || !ip) return;
+export async function recordSignInOrigin(userId, ip, edgeCountry = null) {
+  /**
+   * A null `ip` is NOT a reason to give up, and this guard used to say it was.
+   *
+   * On a local dev server there is no x-forwarded-for header at all, so
+   * clientIp() answers null and this returned before writing anything —
+   * last_seen_at included. The country column could therefore never be
+   * populated on the machine it was being built on. lookupCountry() handles a
+   * missing address itself (see above), so the only thing a null means here is
+   * that there is no address worth storing.
+   */
+  if (!userId) return;
 
   try {
     const db = getMarketplaceDb();
@@ -151,8 +218,17 @@ export async function recordSignInOrigin(userId, ip) {
       return;
     }
 
-    const patch = { last_ip: ip, last_seen_at: new Date().toISOString() };
-    if (current?.last_ip !== ip || !current?.last_country) {
+    const patch = { last_seen_at: new Date().toISOString() };
+    if (ip) patch.last_ip = ip;
+
+    /**
+     * The edge's answer wins, and costs nothing — see clientCountry(). Only
+     * when nothing in front of us said anything do we spend a request on it,
+     * and only when the address is new or we never resolved one before.
+     */
+    if (edgeCountry) {
+      patch.last_country = edgeCountry;
+    } else if (current?.last_ip !== ip || !current?.last_country) {
       const country = await lookupCountry(ip);
       if (country) patch.last_country = country;
     }
@@ -161,5 +237,41 @@ export async function recordSignInOrigin(userId, ip) {
     if (error && !notInstalled(error)) console.warn('[presence] origin write:', error.message);
   } catch (err) {
     console.warn('[presence] origin:', err.message);
+  }
+}
+
+/**
+ * Record a sign-in from inside a SERVER ACTION.
+ *
+ * ── Why this exists ─────────────────────────────────────────────────────────
+ *
+ * recordSignInOrigin was wired into exactly one place: the OAuth callback
+ * route, which handles Google. It is not the way most people get in. Password
+ * sign-in and the emailed code are server actions, they mint a real session,
+ * and neither of them recorded anything — so `last_country` stayed null for
+ * every user who did not sign in with Google, and the admin's Country column
+ * was blank for reasons that had nothing to do with the SQL not being run.
+ *
+ * session.js names the four doors ("Password sign-in, the emailed code, a
+ * password reset and Google's callback") and says the rule has to live in one
+ * place or be "right three times after the next change". It was already only
+ * right once. This is the one line each door calls.
+ *
+ * `headers()` is read HERE, synchronously with the request, rather than inside
+ * the `after` callback: by the time that runs the request store is gone.
+ */
+export async function noteSignIn(userId) {
+  if (!userId) return;
+
+  try {
+    const headerBag = await headers();
+    const ip = clientIp(headerBag);
+    const country = clientCountry(headerBag);
+    after(() => recordSignInOrigin(userId, ip, country));
+  } catch (err) {
+    /* Outside a request, or headers unavailable. Never the caller's problem —
+       this is bookkeeping attached to somebody's sign-in, and a sign-in that
+       failed because of it would be an absurd trade. */
+    console.warn('[presence] could not note sign-in:', err.message);
   }
 }

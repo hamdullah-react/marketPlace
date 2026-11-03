@@ -234,7 +234,7 @@ async function Body({ id, locale, t }) {
           </dl>
 
           <Link
-            href={`/${locale}/marketplace/vendors/${vendor.slug}`}
+            href={`/${locale}/marketplace/vendors/${encodeURIComponent(vendor.slug)}`}
             className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand-primary hover:underline"
           >
             <ExternalLink className="h-3.5 w-3.5" />

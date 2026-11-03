@@ -399,6 +399,52 @@ export const ERRORS = {
     en: 'Your showroom’s subscription has ended. Contact the platform team to switch it back on.',
   },
   ACCESS_DAYS_INVALID: { ar: 'أدخل عدد أيام صحيح', en: 'Enter a valid number of days' },
+  // ── team ──
+  // A member whose role does not hold the capability an action needs. The
+  // sidebar already hides what they cannot open, so this is what a stale tab,
+  // a bookmark or a demotion mid-session produces — never a dead-end they were
+  // walked into. It names the person to ask rather than only saying no.
+  NO_PERMISSION: {
+    ar: 'صلاحيتك لا تسمح بهذا الإجراء. اطلب من مالك المعرض تغيير دورك.',
+    en: 'Your role does not allow this. Ask the showroom’s owner to change it.',
+  },
+  TEAM_EMAIL_REQUIRED: { ar: 'أدخل بريد الشخص الذي تريد دعوته', en: 'Enter the email of the person to invite' },
+  TEAM_ROLE_INVALID: { ar: 'اختر دوراً صحيحاً', en: 'Choose a valid role' },
+  // A manager trying to mint an owner or another manager. See assignableRoles()
+  // in lib/team.js for why that is refused rather than merely discouraged.
+  TEAM_ROLE_TOO_HIGH: {
+    ar: 'لا يمكنك منح دور أعلى من دورك.',
+    en: 'You cannot grant a role above your own.',
+  },
+  TEAM_ALREADY_MEMBER: { ar: 'هذا الشخص عضو في فريقك بالفعل', en: 'That person is already on your team' },
+  TEAM_ALREADY_INVITED: { ar: 'هناك دعوة قائمة لهذا البريد بالفعل', en: 'That address already has an invitation waiting' },
+  TEAM_SELF: { ar: 'لا يمكنك دعوة نفسك', en: 'You cannot invite yourself' },
+  // The invariant schema.sql §34.2 also enforces with a trigger. A showroom
+  // with no owner cannot be administered from inside the product at all.
+  TEAM_LAST_OWNER: {
+    ar: 'يجب أن يبقى للمعرض مالك واحد على الأقل. عيّن مالكاً آخر أولاً.',
+    en: 'A showroom must keep at least one owner. Make somebody else an owner first.',
+  },
+  TEAM_MEMBER_NOT_FOUND: { ar: 'لم يُعثر على هذا العضو', en: 'That member could not be found' },
+  TEAM_INVITE_NOT_FOUND: { ar: 'لم يُعثر على هذه الدعوة', en: 'That invitation could not be found' },
+  // ── invitations, from the invitee's side ──
+  INVITE_INVALID: {
+    ar: 'هذا الرابط غير صحيح. اطلب من المعرض إرسال دعوة جديدة.',
+    en: 'This link is not valid. Ask the showroom to send a new invitation.',
+  },
+  INVITE_EXPIRED: {
+    ar: 'انتهت صلاحية هذه الدعوة. اطلب من المعرض إرسال واحدة جديدة.',
+    en: 'This invitation has expired. Ask the showroom to send a new one.',
+  },
+  INVITE_USED: { ar: 'هذه الدعوة مستخدمة بالفعل', en: 'This invitation has already been used' },
+  INVITE_REVOKED: { ar: 'تم إلغاء هذه الدعوة', en: 'This invitation was cancelled' },
+  // The signed-in address is not the address that was invited. Deliberately
+  // says which address it was sent to — a forwarded link is the common cause,
+  // and without naming it the person has no idea which account to use.
+  INVITE_WRONG_ACCOUNT: {
+    ar: 'هذه الدعوة أُرسلت إلى بريد آخر. سجّل الدخول بالبريد الذي استلم الدعوة.',
+    en: 'This invitation was sent to a different address. Sign in with the address that received it.',
+  },
   // ── messages ──
   APPEARANCE_NOT_MIGRATED: {
     ar: 'تخصيص المظهر غير متاح على هذه النسخة بعد.',

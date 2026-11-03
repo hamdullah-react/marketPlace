@@ -133,7 +133,7 @@ export default function RequestCard({ row, locale = "ar", canReview = false, rev
               <Store className="h-3.5 w-3.5 shrink-0" />
               {row.vendors?.slug ? (
                 <Link
-                  href={`/${locale}/marketplace/vendors/${row.vendors.slug}`}
+                  href={`/${locale}/marketplace/vendors/${encodeURIComponent(row.vendors.slug)}`}
                   className="hover:text-brand-primary hover:underline"
                 >
                   {vendorName}

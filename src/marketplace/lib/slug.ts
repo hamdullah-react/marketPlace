@@ -98,3 +98,68 @@ export function refFromSlug(slug: string | null | undefined): string | null {
   const m = String(slug || '').match(/-([0-9a-f]{8})$/);
   return m?.[1] ?? null;
 }
+
+/**
+ * An ASCII slug, for anything that becomes a PATH SEGMENT.
+ *
+ * ── Why slugify() is not enough, and is not being changed ───────────────────
+ *
+ * slugify() deliberately keeps Arabic letters, and for a catalog key that is
+ * right: those slugs are matched against each other, never typed, and §30's
+ * per-showroom uniqueness is built on the values already stored. Changing it
+ * would silently re-slug every brand, model and trim on the next write.
+ *
+ * A URL is different. A showroom that applied in Arabic got
+ * `معرض-الأجيال-للسيارات` as its slug, and the storefront is reachable only
+ * while every link to it is percent-encoded — measured on production, a path
+ * carrying the raw UTF-8 bytes is transcoded somewhere in the proxy chain into
+ * literal `?` characters, so `/vendors/معرض-...` 308s to
+ * `/vendors?%3F%3F%3F-...=` and lands on the index with no showroom on it.
+ *
+ * The links are encoded now and that path works. This is the other half: a
+ * slug that never needed encoding in the first place, is readable in a
+ * WhatsApp message, and survives being copied through anything. It is the same
+ * rule blog_posts already states in schema.sql — "ASCII only, because it is a
+ * path segment — an Arabic title is transliterated".
+ *
+ * ── Transliterated rather than discarded ────────────────────────────────────
+ *
+ * Dropping the Arabic entirely would make every Arabic-named showroom
+ * `showroom-2`, `showroom-3`, which is a worse URL than an encoded one. The
+ * map below is the ordinary Arabic→Latin correspondence; it is not reversible
+ * and does not need to be, because the slug is an identifier and the NAME is
+ * what anybody reads.
+ */
+const AR_LATIN: Record<string, string> = {
+  ا: 'a', أ: 'a', إ: 'i', آ: 'aa', ء: '', ؤ: 'u', ئ: 'i', ى: 'a', ة: 'h',
+  ب: 'b', ت: 't', ث: 'th', ج: 'j', ح: 'h', خ: 'kh', د: 'd', ذ: 'dh',
+  ر: 'r', ز: 'z', س: 's', ش: 'sh', ص: 's', ض: 'd', ط: 't', ظ: 'z',
+  ع: 'a', غ: 'gh', ف: 'f', ق: 'q', ك: 'k', ل: 'l', م: 'm', ن: 'n',
+  ه: 'h', و: 'w', ي: 'y',
+  '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+  '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+};
+
+export function asciiSlug(input: string | number | Localized | null | undefined): string {
+  if (!input) return '';
+  const s =
+    typeof input === 'object' ? String(input.en_US || input.ar_001 || '') : String(input);
+
+  const latin = Array.from(s)
+    .map((ch) => (ch in AR_LATIN ? AR_LATIN[ch] : ch))
+    /* Harakat and tatweel carry no sound and would become separators. */
+    .join('')
+    .replace(/[\u064B-\u0652\u0640]/g, '');
+
+  return latin
+    .normalize('NFKD')
+    /* Any remaining non-ASCII — a stray diacritic, Urdu, an emoji in a shop
+       name — becomes a separator rather than surviving into the path. */
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}

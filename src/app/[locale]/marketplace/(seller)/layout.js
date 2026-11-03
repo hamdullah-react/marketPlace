@@ -92,6 +92,12 @@ export default async function SellerLayout({ children, params }) {
            is the rule the blocked screen was rewritten to obey. */
         access={vendor.access}
         messages={{ total: messages.total ?? 0 }}
+        /* What this MEMBER may do, as opposed to what the showroom may do.
+           requireVendor() above has already resolved it from vendor_members, so
+           the sidebar can be built from it without a second read — and until
+           now nothing passed it anywhere, which is why a salesperson invited to
+           list cars also got Billing in their nav. See lib/team.js. */
+        role={vendor.role}
       >
         {/* ── The banners are GONE from here, on purpose ───────────────
             Two of them used to sit at the top of every page in the dashboard —

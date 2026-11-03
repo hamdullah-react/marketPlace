@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import { AlertTriangle, Landmark, Megaphone, Receipt, RefreshCw, Wallet } from 'lucide-react';
-import { requireVendor } from '@/marketplace/auth/session';
+import { requireVendorCan } from '@/marketplace/auth/session';
 import { getVendorCharges, getVendorChargeTotals } from '@/marketplace/db/queries/billing';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { getVendorPlans, getOpenRenewal } from '@/marketplace/db/queries/access';
@@ -76,7 +76,7 @@ export default async function SellerBillingPage({ params, searchParams }) {
 
 async function Body({ searchParams, locale, t }) {
   const sp = await searchParams;
-  const { vendorId } = await requireVendor(sp?.vendor || null);
+  const { vendorId } = await requireVendorCan('billing', sp?.vendor || null);
 
   const [totals, list, site, plans, openRenewal] = await Promise.all([
     getVendorChargeTotals(vendorId),

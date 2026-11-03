@@ -8,7 +8,7 @@ import { resolveListingsVendor } from '../listings/_apicalls/listingsPageApi';
 import { getVendorBoosts, getBoostableListings, getBoostPlans, getFeaturedStanding } from '@/marketplace/db/queries/boosts';
 import { sweepExpiredBoosts } from '@/marketplace/db/queries/engagement';
 import { getVendorSettings } from '@/marketplace/db/queries/settings';
-import { getViewer } from '@/marketplace/auth/session';
+import { getViewer, requireVendorCan } from '@/marketplace/auth/session';
 import { localized } from '@/marketplace/lib/listing';
 import SafeThumb from '../../../_components/SafeThumb';
 import BoostRequestForm from '../../_components/BoostRequestForm';
@@ -28,6 +28,17 @@ export const metadata = {
 export default async function SellerPromotionsPage({ params, searchParams }) {
   const { locale } = await params;
   setRequestLocale(locale);
+
+  /**
+   * A promotion SPENDS the showroom's money: approving a boost raises a
+   * vendor_charge (see the BOOSTS section of schema.sql), so requesting one is
+   * a commitment rather than a preference. Owners and managers only.
+   *
+   * At the top of the page rather than inside a streaming section, because
+   * this page has two of them and a guard in one would leave the other
+   * loading somebody else's data behind it.
+   */
+  await requireVendorCan('promotions', (await searchParams)?.vendor ?? null);
 
   const t = (ar, en) => (locale === 'ar' ? ar : en);
 

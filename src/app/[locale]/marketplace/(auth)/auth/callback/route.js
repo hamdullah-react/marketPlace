@@ -8,7 +8,7 @@
  */
 
 import { NextResponse, after } from 'next/server';
-import { recordSignInOrigin, clientIp } from '@/marketplace/auth/presence';
+import { recordSignInOrigin, clientIp, clientCountry } from '@/marketplace/auth/presence';
 import { notifyNewUser } from '@/marketplace/db/queries/notifications';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
 import { postAuthDestination } from '@/marketplace/auth/session';
@@ -104,7 +104,11 @@ export async function GET(request, { params }) {
      * socket address is the container's, the same reason publicOrigin() above
      * has to rebuild the origin by hand.
      */
-    after(() => recordSignInOrigin(person.id, clientIp(request.headers)));
+    const ip = clientIp(request.headers);
+    /* If Cloudflare (or any proxy that says so) already resolved the country,
+       that is the answer and no outbound request is made at all. */
+    const edgeCountry = clientCountry(request.headers);
+    after(() => recordSignInOrigin(person.id, ip, edgeCountry));
   }
 
   /**

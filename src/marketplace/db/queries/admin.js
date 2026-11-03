@@ -8,6 +8,7 @@ import 'server-only';
  * listed through the auth admin API and joined to profiles by id.
  */
 
+import { io } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { getMarketplaceAuthAdmin } from '@/marketplace/auth/admin';
 import { countPendingBoosts } from './boosts';
@@ -40,9 +41,9 @@ export async function getAdminStats() {
  * `null` means never seen — which on a database without schema.sql §33 is
  * every row, and the page says "—" rather than claiming they never visited.
  */
-function presenceBand(lastSeenAt) {
+function presenceBand(lastSeenAt, now) {
   if (!lastSeenAt) return 'unknown';
-  const minutes = (Date.now() - new Date(lastSeenAt).getTime()) / 60000;
+  const minutes = (now - new Date(lastSeenAt).getTime()) / 60000;
   if (!Number.isFinite(minutes)) return 'unknown';
   if (minutes < 10) return 'online';
   if (minutes < 60) return 'recent';
@@ -51,7 +52,7 @@ function presenceBand(lastSeenAt) {
   return 'inactive';
 }
 
-function shapeUser(user, profile, memberships = []) {
+function shapeUser(user, profile, memberships = [], now = 0) {
   return {
     id: user.id,
     email: user.email ?? '',
@@ -73,7 +74,7 @@ function shapeUser(user, profile, memberships = []) {
        throttled to once every few minutes, so a precise minute would claim a
        accuracy this number has not got. The exact timestamp still travels, for
        the tooltip. */
-    presence: presenceBand(profile?.last_seen_at),
+    presence: presenceBand(profile?.last_seen_at, now),
     showrooms: memberships
       .filter((m) => m.vendors)
       .map((m) => ({ id: m.vendors.id, slug: m.vendors.slug, name: m.vendors.name, state: m.vendors.state, role: m.role })),
@@ -100,6 +101,25 @@ async function joinProfiles(users) {
   const ids = users.map((u) => u.id);
   if (!ids.length) return [];
 
+  /**
+   * ── The clock, read ONCE and only at request time ───────────────────────
+   *
+   * presenceBand() compares `last_seen_at` against now, and this project runs
+   * with cacheComponents: a bare `Date.now()` anywhere a prerender can reach
+   * fails the build of the route with "Next.js encountered the unstable value
+   * Date.now() while prerendering" — which is exactly what the Customers page
+   * started doing when the Status column was added.
+   *
+   * `await io()` is the documented suspension point for reading a synchronous
+   * source like the clock (next/dist/docs/.../functions/io.md), and it is
+   * preferred over connection(), which also blocks prefetches. Here rather
+   * than inside presenceBand so there is one suspension and one timestamp for
+   * the whole page — twenty users banded against twenty slightly different
+   * "now"s would be a table that cannot be reasoned about.
+   */
+  await io();
+  const now = Date.now();
+
   const db = getMarketplaceDb();
   const [{ data: profiles }, { data: members }] = await Promise.all([
     /* The presence columns arrive with schema.sql §33 and PostgREST fails the
@@ -118,7 +138,7 @@ async function joinProfiles(users) {
     membersByUser.set(m.user_id, list);
   }
 
-  return users.map((u) => shapeUser(u, profileById.get(u.id), membersByUser.get(u.id)));
+  return users.map((u) => shapeUser(u, profileById.get(u.id), membersByUser.get(u.id), now));
 }
 
 /** One page of users, newest first, optionally filtered by email/name/phone. */

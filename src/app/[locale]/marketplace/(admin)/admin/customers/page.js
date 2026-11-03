@@ -117,6 +117,34 @@ function flag(code) {
   return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
 }
 
+/**
+ * The country's NAME, in the language the admin is reading.
+ *
+ * `SA` is what gets stored — ISO 3166-1 alpha-2 is the only form worth putting
+ * in a column, because it is stable, two bytes, and the same value whoever is
+ * looking. It is also not what an operator wants to read down a list.
+ *
+ * Intl.DisplayNames turns it into "Saudi Arabia" or "السعودية" with no table
+ * of our own to translate, go stale, or disagree with the browser about what
+ * a country is called this year. It ships with Node and every browser we
+ * support.
+ *
+ * Falls back to the raw code: an unrecognised value is still worth showing —
+ * seeing `ZZ` in the column is how somebody finds out the lookup is returning
+ * nonsense, where a blank cell would hide it.
+ */
+function countryName(code, locale) {
+  if (typeof code !== 'string' || !/^[A-Za-z]{2}$/.test(code)) return '';
+  try {
+    return (
+      new Intl.DisplayNames([locale === 'ar' ? 'ar' : 'en'], { type: 'region' })
+        .of(code.toUpperCase()) || code.toUpperCase()
+    );
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
   const roleLabel = (role) =>
     role === 'admin' ? t('مسؤول', 'Admin') : role === 'staff' ? t('موظف', 'Staff') : t('مستخدم', 'User');
 
@@ -198,7 +226,7 @@ function flag(code) {
                   <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
                     {u.showrooms.length
                       ? u.showrooms.map((s) => (
-                          <Link key={s.id} href={`/${locale}/marketplace/vendors/${s.slug}`} className="block truncate hover:text-brand-primary">
+                          <Link key={s.id} href={`/${locale}/marketplace/vendors/${encodeURIComponent(s.slug)}`} className="block truncate hover:text-brand-primary">
                             {localized(s.name, locale)}
                           </Link>
                         ))
@@ -216,9 +244,18 @@ function flag(code) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
-                    {u.country
-                      ? <span className="font-mono" title={u.country}>{flag(u.country)} {u.country}</span>
-                      : '—'}
+                    {/* Flag, then the name. The CODE moves into the tooltip:
+                        it is what is stored and what somebody would quote in a
+                        support thread, but it is not what anybody reads a list
+                        by. `whitespace-nowrap` because "United Arab Emirates"
+                        is long enough to wrap this column otherwise. */}
+                    {u.country ? (
+                      <span className="whitespace-nowrap" title={u.country}>
+                        {flag(u.country)} {countryName(u.country, locale)}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-3 text-end">
                     <UserRowActions locale={locale} user={u} isSelf={viewer?.userId === u.id} />

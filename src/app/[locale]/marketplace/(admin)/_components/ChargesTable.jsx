@@ -114,7 +114,7 @@ export default function ChargesTable({
       cell: (c) =>
         c.vendors ? (
           <Link
-            href={`/${locale}/marketplace/vendors/${c.vendors.slug}`}
+            href={`/${locale}/marketplace/vendors/${encodeURIComponent(c.vendors.slug)}`}
             className="flex items-center gap-1.5 text-sm font-medium text-brand-primary hover:underline"
           >
             <Store className="h-3.5 w-3.5 shrink-0" />

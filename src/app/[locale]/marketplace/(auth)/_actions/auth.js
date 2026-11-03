@@ -19,6 +19,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { postAuthDestination } from '@/marketplace/auth/session';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
+import { noteSignIn } from '@/marketplace/auth/presence';
 import { registerAndSendCode } from '@/marketplace/auth/otp-service';
 
 /**
@@ -78,13 +79,18 @@ export async function signIn(prevState, formData) {
   if (!email || !password) return bad('CREDENTIALS_REQUIRED');
 
   const supabase = await getMarketplaceAuthServer();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: session, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     // Deliberately one message. See the note at the top of the file.
     if (/email not confirmed/i.test(error.message)) return bad('EMAIL_NOT_CONFIRMED');
     return bad('BAD_CREDENTIALS');
   }
+
+  /* Where from. This is the door most people come through, and it recorded
+     nothing — the Country column on Admin → Customers was blank for everyone
+     who did not use Google. Runs after the response and cannot fail this. */
+  await noteSignIn(session?.user?.id);
 
   // The whole marketplace renders differently once signed in — the header, the
   // seller links, saved cars. Without this the cached shell says "Sign in"

@@ -379,7 +379,7 @@ export default async function SubscriptionPage({ params, searchParams }) {
 
       <div className="mt-3 flex flex-wrap justify-center gap-4 text-sm">
         <Link
-          href={`/${locale}/marketplace/vendors/${viewer.vendor.slug}`}
+          href={`/${locale}/marketplace/vendors/${encodeURIComponent(viewer.vendor.slug)}`}
           className="text-brand-primary hover:underline"
         >
           {t('صفحة معرضي', 'My showroom page')}

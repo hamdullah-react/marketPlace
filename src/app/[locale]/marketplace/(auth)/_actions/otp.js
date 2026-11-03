@@ -34,6 +34,7 @@ import { notifyNewUser } from '@/marketplace/db/queries/notifications';
 import { postAuthDestination } from '@/marketplace/auth/session';
 import { getMarketplaceAuthServer } from '@/marketplace/auth/server';
 import { sendCode } from '@/marketplace/auth/otp-service';
+import { noteSignIn } from '@/marketplace/auth/presence';
 
 const str = (fd, k) => {
   const v = fd.get(k);
@@ -113,6 +114,9 @@ export async function verifySignupOtp(prevState, formData) {
     });
   }
 
+  /* Verifying the code signs them in, so this is a sign-in like any other. */
+  await noteSignIn(joined?.id);
+
   revalidatePath('/[locale]/marketplace', 'layout');
   redirect(await postAuthDestination(safeNext(str(formData, 'next'), locale), locale));
 }
@@ -185,7 +189,7 @@ export async function resetPasswordWithOtp(prevState, formData) {
 
   const supabase = await getMarketplaceAuthServer();
 
-  const { error: verifyError } = await supabase.auth.verifyOtp({
+  const { data: recovered, error: verifyError } = await supabase.auth.verifyOtp({
     email, token: code, type: 'recovery',
   });
   if (verifyError) return bad(codeError(verifyError.message));
@@ -197,6 +201,11 @@ export async function resetPasswordWithOtp(prevState, formData) {
     await supabase.auth.signOut();
     return bad(/password/i.test(updateError.message) ? 'PASSWORD_TOO_SHORT' : 'SAVE_FAILED');
   }
+
+  /* A completed reset leaves them signed in, so it is a sign-in too — and this
+     is the one an operator most wants an address against, because it is the
+     path an account takeover would use. */
+  await noteSignIn(recovered?.user?.id);
 
   revalidatePath('/[locale]/marketplace', 'layout');
   redirect(`/${locale}/marketplace/account`);

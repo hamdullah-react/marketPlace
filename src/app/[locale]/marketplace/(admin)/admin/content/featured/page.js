@@ -247,7 +247,7 @@ async function BoostsSection({ searchParams, locale }) {
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {b.vendors ? (
-                        <Link href={`/${locale}/marketplace/vendors/${b.vendors.slug}`} className="hover:text-brand-primary">
+                        <Link href={`/${locale}/marketplace/vendors/${encodeURIComponent(b.vendors.slug)}`} className="hover:text-brand-primary">
                           {localized(b.vendors.name, locale)}
                         </Link>
                       ) : '—'}

@@ -4,7 +4,7 @@ import { resolveSettingsVendor, getSettingsPageData } from './_apicalls/settings
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SettingsFormSkeleton } from '../../../_components/Skeletons';
 import SettingsForm from '../../_components/SettingsForm';
-import { getViewer } from '@/marketplace/auth/session';
+import { getViewer, requireVendorCan } from '@/marketplace/auth/session';
 import { getAccountCounts } from '@/marketplace/db/queries/account';
 import { localized as localizedName } from '@/marketplace/lib/listing';
 
@@ -58,6 +58,13 @@ export default async function SellerSettingsPage({ params, searchParams }) {
 
 async function Settings({ searchParams, locale, t }) {
   const sp = await searchParams;
+
+  /* The showroom's public identity — its name, logo, banner, About page and
+     SEO — plus the backups and the delete-everything block. A salesperson must
+     not be able to rename the business, and the damage is visible to every
+     buyer long before anybody here notices. Owners and managers only. */
+  await requireVendorCan('storefront', sp?.vendor ?? null);
+
   // Resolves suspended and soft-deleted vendors too — see the note in
   // _apicalls/settingsPageApi.js.
   const found = await resolveSettingsVendor(sp?.vendor);
