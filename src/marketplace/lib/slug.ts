@@ -163,3 +163,46 @@ export function asciiSlug(input: string | number | Localized | null | undefined)
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 }
+
+/**
+ * A `[slug]` route param, decoded.
+ *
+ * ── Next hands the same param out in two different forms ────────────────────
+ *
+ * Measured on Next 16.4.2, requesting a showroom whose slug is Arabic:
+ *
+ *   generateMetadata   len=21   codepoints 645.639.631…   معرض-الأجيال-للسيارات
+ *   the page component len=116  codepoints 25.44.39…      "%D9%85%D8%B9…"
+ *
+ * `0x25` is `%`. The page is given the RAW percent-encoded string while
+ * generateMetadata is given the decoded one, so a lookup in the page searches
+ * for a slug that literally contains percent signs, finds nothing, and calls
+ * notFound() — while the <title> above it is the real showroom's, because the
+ * metadata pass found it. That is the exact symptom: a 404 page with the
+ * correct name in the browser tab.
+ *
+ * Only non-ASCII slugs can show this, which is why it survived: every seeded
+ * brand, car and showroom slug is ASCII, where encoded and decoded are the
+ * same string.
+ *
+ * ── Why this is a guard and not a plain decodeURIComponent ──────────────────
+ *
+ * The param is ALREADY decoded on some paths — generateMetadata, and a client
+ * navigation — so decoding unconditionally would be wrong the moment a slug
+ * legitimately contains a `%`, and decodeURIComponent throws outright on a
+ * lone one ("URIError: URI malformed"), which in a page component is a 500
+ * rather than a 404. So: only touch a value that contains a `%`, and keep the
+ * original if it does not decode.
+ *
+ * asciiSlug() means new slugs no longer need any of this. It stays for the
+ * ones already in the database, and for any route whose key is a NAME rather
+ * than a generated slug.
+ */
+export function decodeRouteParam(value: string | undefined | null): string {
+  if (typeof value !== 'string' || !value.includes('%')) return value ?? '';
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}

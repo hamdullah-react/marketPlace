@@ -15,6 +15,7 @@ import { getLiveListingCards } from '@/marketplace/db/queries/listings';
 import { getVendorOffers } from '@/marketplace/db/queries/seller';
 import { getCardSpecs } from '@/marketplace/db/queries/specs';
 import { normalizeListing, localized, formatPrice } from '@/marketplace/lib/listing';
+import { decodeRouteParam } from '@/marketplace/lib/slug';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
 import { shapeOffer } from '@/marketplace/lib/offer';
 import ListingCard from '../../../_components/ListingCard';
@@ -95,7 +96,11 @@ const SEO_TAB = 'seo';
 const prefsOf = (vendor) => vendor?.settings ?? {};
 
 export async function generateMetadata({ params }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   const vendor = await getVendorBySlug(slug).catch(() => null);
 
   if (!vendor) return { title: 'Showroom' };
@@ -210,7 +215,11 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function VendorPage({ params, searchParams }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   setRequestLocale(locale);
 
   const isAr = locale === 'ar';

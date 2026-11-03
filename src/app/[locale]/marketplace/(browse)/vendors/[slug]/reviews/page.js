@@ -9,6 +9,7 @@ import { getVendorBySlug } from '@/marketplace/db/queries/vendors';
 import { getPublicVendorReviews, getVendorRatingSummary, getReviewableDealFor } from '@/marketplace/db/queries/reviews';
 import { currentViewer } from '@/marketplace/auth/session';
 import { localized } from '@/marketplace/lib/listing';
+import { decodeRouteParam } from '@/marketplace/lib/slug';
 import { Skeleton } from '@/components/ui/skeleton';
 import ReviewCard from '@/marketplace/ui/ReviewCard';
 import RatingSummary from '@/marketplace/ui/RatingSummary';
@@ -24,7 +25,11 @@ export const instant = false;
 const PER_PAGE = 20;
 
 export async function generateMetadata({ params }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   const vendor = await getVendorBySlug(slug).catch(() => null);
   if (!vendor) return { title: 'Reviews' };
 
@@ -62,7 +67,11 @@ export async function generateMetadata({ params }) {
  * URL. It also keeps this page a server component with one query.
  */
 export default async function VendorReviewsPage({ params, searchParams }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   setRequestLocale(locale);
 
   const t = (ar, en) => (locale === 'ar' ? ar : en);

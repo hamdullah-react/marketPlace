@@ -22,6 +22,7 @@ import {
 import { ListingCardGridSkeleton } from '../../../_components/ListingCardSkeleton';
 import ViewBeacon from './_components/ViewBeacon';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
+import { decodeRouteParam } from '@/marketplace/lib/slug';
 
 /**
  * This route is allowed to block — and that is the trade this page already
@@ -75,7 +76,11 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   const listing = await getListingMeta(slug, locale);
   if (!listing) return { title: 'Not found', robots: { index: false, follow: false } };
 
@@ -271,7 +276,11 @@ function carSchema({ listing, kindFacts, trims, variants, locale, url }) {
  * query should never hold up the car the visitor actually came to see.
  */
 export default async function ListingDetailPage({ params }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   setRequestLocale(locale);
 
   const isAr = locale === 'ar';

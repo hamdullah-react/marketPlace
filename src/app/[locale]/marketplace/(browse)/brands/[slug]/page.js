@@ -11,6 +11,7 @@ import ModelTrimBar from './_components/ModelTrimBar';
 import JsonLd from '../../../_components/JsonLd';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
+import { decodeRouteParam } from '@/marketplace/lib/slug';
 
 /**
  * One make's page: its logo and stock, then the full browse grid scoped to it.
@@ -36,7 +37,11 @@ import { SITE_URL } from '@/marketplace/lib/sitePages';
  * rather than the database.
  */
 export async function generateMetadata({ params }) {
-  const { slug, locale } = await params;
+  const { slug: rawSlug, locale } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   const isAr = locale === 'ar';
   const [brand, site] = await Promise.all([
     getBrandBySlug(slug, locale).catch(() => null),
@@ -128,7 +133,11 @@ export async function generateStaticParams() {
 }
 
 export default async function BrandPage({ params, searchParams }) {
-  const { slug, locale } = await params;
+  const { slug: rawSlug, locale } = await params;
+  /* Decoded: the page component and generateMetadata are handed this param
+     in different forms — see decodeRouteParam(). Applied in BOTH so the two
+     agree by construction rather than by whoever edits one of them next. */
+  const slug = decodeRouteParam(rawSlug);
   setRequestLocale(locale);
 
   const isAr = locale === 'ar';
