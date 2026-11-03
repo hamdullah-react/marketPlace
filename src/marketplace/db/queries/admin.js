@@ -75,6 +75,17 @@ function shapeUser(user, profile, memberships = [], now = 0) {
        accuracy this number has not got. The exact timestamp still travels, for
        the tooltip. */
     presence: presenceBand(profile?.last_seen_at, now),
+    /**
+     * Whether an ADDRESS was recorded, not the address itself.
+     *
+     * This is what tells "the geo lookup failed" apart from "the server never
+     * saw the visitor's IP", which are two completely different problems with
+     * one identical symptom — a blank Country column. The page turns it into
+     * a sentence (see countryDiagnosis); the value itself stays on the server,
+     * because an operator needs the ANSWER, not everybody's IP address in a
+     * table they did not ask for.
+     */
+    hasIp: Boolean(profile?.last_ip),
     showrooms: memberships
       .filter((m) => m.vendors)
       .map((m) => ({ id: m.vendors.id, slug: m.vendors.slug, name: m.vendors.name, state: m.vendors.state, role: m.role })),
@@ -88,7 +99,7 @@ function shapeUser(user, profile, memberships = [], now = 0) {
  * back to the originals on a 42703 so this page keeps working — showing a dash
  * where the data would be — on a database where §33 has not been run yet.
  */
-const PROFILE_FULL = 'id, role, full_name, phone, last_seen_at, last_country';
+const PROFILE_FULL = 'id, role, full_name, phone, last_seen_at, last_country, last_ip';
 const PROFILE_BASE = 'id, role, full_name, phone';
 
 async function readProfiles(db, ids) {

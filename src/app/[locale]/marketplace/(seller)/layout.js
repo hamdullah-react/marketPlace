@@ -5,6 +5,7 @@ import { getNotifications } from '@/marketplace/db/queries/notifications';
 import { unreadCounts } from '@/marketplace/db/queries/messages';
 import SellerShell from './_components/SellerShell';
 import SellerThemeStyle from './_components/SellerThemeStyle';
+import MembershipWatch from './_components/MembershipWatch';
 
 /**
  * The session is read at the top of this component, so the shell cannot be
@@ -53,7 +54,7 @@ export default async function SellerLayout({ children, params }) {
   // application. Subscription lapsed → /marketplace/subscription. Awaited,
   // unlike the shell vendor below, because there is no point streaming a
   // dashboard to someone who is about to be sent elsewhere.
-  const { vendor } = await requireVendor();
+  const { vendor, userId } = await requireVendor();
 
   /* Awaited, unlike the bell's notifications, and the difference is worth
      stating: the bell resolves inside its own Suspense boundary because it is a
@@ -76,6 +77,12 @@ export default async function SellerLayout({ children, params }) {
           green and then snaps to the showroom's colour a moment later is worse
           than one that waits a single narrow select on a primary key. */}
       <SellerThemeStyle vendorId={vendor.id} />
+
+      {/* Renders nothing. Listens on this person's own topic so that losing
+          their place in the showroom — or having their role changed — reaches
+          a tab that is already open, instead of waiting for their next click.
+          The server still makes the decision; see MembershipWatch. */}
+      <MembershipWatch userId={userId} />
 
       <SellerShell
         locale={locale}

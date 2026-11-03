@@ -49,6 +49,7 @@ import {
 import { findUserByEmail } from '@/marketplace/db/queries/admin';
 import { assignableRoles, TEAM_ROLES } from '@/marketplace/lib/team';
 import { sendTeamInviteEmail } from '@/marketplace/auth/mailer';
+import { notifyUser } from '@/marketplace/lib/realtime';
 import { SITE_URL } from '@/marketplace/lib/sitePages';
 
 const stamp = () => Date.now() + Math.random();
@@ -239,6 +240,12 @@ export async function changeMemberRole(prevState, formData) {
   /* Their sidebar is built from this role, so the dashboard shell has to be
      rebuilt for them too — not only this page. */
   revalidatePath('/[locale]/marketplace/seller', 'layout');
+
+  /* And if they have the dashboard OPEN, tell them now. revalidatePath only
+     affects what the NEXT request renders; somebody sitting on a page would
+     keep a sidebar offering pages their new role cannot open until they
+     clicked something. See MembershipWatch. */
+  notifyUser(userId, 'membership_changed', { vendorId, role });
   return ok();
 }
 
@@ -288,6 +295,22 @@ export async function removeTeamMember(prevState, formData) {
 
   revalidateTeam();
   revalidatePath('/[locale]/marketplace/seller', 'layout');
+
+  /**
+   * ── Out of the dashboard NOW, not on their next click ──────────────────
+   *
+   * The server side of this was already immediate: requireVendor() reads
+   * vendor_members on every request, so the moment the row is gone their next
+   * page load bounces. What it could not do is reach a tab that is just
+   * SITTING there — a salesperson who has been let go, with the leads list
+   * open, sees it until they happen to click.
+   *
+   * This is the nudge for that tab. It carries no authority: the client's only
+   * job is to re-ask the server, which then makes the same decision it would
+   * have made anyway. A client that decided for itself would be putting an
+   * authorization check somewhere the person being removed controls.
+   */
+  notifyUser(userId, 'membership_changed', { vendorId, removed: true });
 
   /* Somebody who removed THEMSELVES is no longer a member, so the dashboard
      they are looking at is no longer theirs to look at. Send them out rather

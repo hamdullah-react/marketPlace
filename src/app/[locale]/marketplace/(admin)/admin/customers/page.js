@@ -5,6 +5,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TableSkeleton } from '../../../_components/Skeletons';
+import CountryDiagnosis from '../../_components/CountryDiagnosis';
 import { getViewer } from '@/marketplace/auth/session';
 import { listUsers } from '@/marketplace/db/queries/admin';
 import { localized } from '@/marketplace/lib/listing';
@@ -150,6 +151,9 @@ function countryName(code, locale) {
 
   return (
     <>
+      {/* Silent while the column is working. See CountryDiagnosis. */}
+      <CountryDiagnosis users={users} locale={locale} />
+
       <form action={base} className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
