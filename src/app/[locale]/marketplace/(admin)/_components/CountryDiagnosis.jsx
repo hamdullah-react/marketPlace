@@ -39,8 +39,26 @@ export default function CountryDiagnosis({ users = [], locale = 'ar' }) {
   if (seen.some((u) => u.country)) return null;
 
   const anyIp = seen.some((u) => u.hasIp);
+  /* Everybody we have an address for has an INTERNAL one. That is a proxy
+     forwarding itself rather than the visitor, and it is not a lookup
+     failure — nothing was ever asked, because a private address cannot be
+     resolved and guessing would fill the column with the datacentre. */
+  const allPrivate = anyIp && seen.filter((u) => u.hasIp).every((u) => u.privateIp);
 
-  const { tone, icon: Icon, title, body } = anyIp
+  const { tone, icon: Icon, title, body } = allPrivate
+    ? {
+        tone: 'border-red-500/30 bg-red-500/5 text-red-800 dark:text-red-300',
+        icon: AlertTriangle,
+        title: t(
+          'العنوان الواصل إلى الخادم عنوان داخلي',
+          'The address reaching the server is an internal one',
+        ),
+        body: t(
+          'الخادم يستلم عنواناً داخلياً (مثل 10.x أو 172.x) بدل عنوان الزائر، لأن الخادم العكسي يمرّر عنوانه هو. لا يمكن تحديد دولة من عنوان داخلي، ولن نخمّنها. اضبط X-Forwarded-For في nginx / Coolify / Traefik ليمرّر عنوان الزائر الحقيقي.',
+          'The server is receiving an internal address (10.x, 172.x, 192.168.x) instead of the visitor’s, because the reverse proxy is passing its own. A country cannot be resolved from one, and we will not guess. Set X-Forwarded-For in nginx / Coolify / Traefik to carry the real visitor address.',
+        ),
+      }
+    : anyIp
     ? {
         tone: 'border-amber-500/30 bg-amber-500/5 text-amber-800 dark:text-amber-300',
         icon: Info,

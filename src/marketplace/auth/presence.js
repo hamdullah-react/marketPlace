@@ -82,7 +82,25 @@ export async function touchPresence(userId, seenAt = null, origin = null) {
        * per address: a failed one is retried when their address changes, and
        * again at their next sign-in, where recordSignInOrigin() always asks.
        */
-      } else if (origin.ip && origin.ip !== origin.lastIp) {
+      /**
+       * Otherwise ask — but not for an address we have already asked about.
+       *
+       * `!origin.ip` is in the condition deliberately, and leaving it out was
+       * a bug: with no forwarded address `origin.ip` is null, `null !== null`
+       * is false, and the lookup was never attempted at all. The visible
+       * effect was that only people who SIGNED IN got a country — because
+       * recordSignInOrigin() does try with a null address — while anybody
+       * with a live session sat at "—" for ever. One row resolved, six did
+       * not, and the difference was who had logged in most recently.
+       *
+       * Asking with no address is free in production: lookupCountry() sees a
+       * private (or absent) address, refuses to guess, and returns before it
+       * makes any request — so this cannot become a retry loop against a
+       * rate limit. In development it is what resolves this machine's own
+       * address, which is the only way the column is testable before a
+       * deploy.
+       */
+      } else if (!origin.ip || origin.ip !== origin.lastIp) {
         const country = await lookupCountry(origin.ip);
         if (country) patch.last_country = country;
       }
@@ -167,7 +185,7 @@ export function clientCountry(headers) {
 
 /* A loopback or LAN address resolves to nothing, so it is not worth a request
    — this is every hit in local development. */
-function isPrivate(ip) {
+export function isPrivate(ip) {
   if (!ip) return true;
   if (ip === '::1' || ip.startsWith('127.') || ip.startsWith('::ffff:127.')) return true;
   if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
@@ -187,6 +205,66 @@ function isPrivate(ip) {
  * Two seconds, and a failure is a null. Nobody's sign-in is delayed because a
  * third party is slow — and this runs after the response regardless.
  */
+/**
+ * The services that turn an address into a country, tried in order.
+ *
+ * ── Why there is more than one ─────────────────────────────────────────────
+ *
+ * There used to be exactly one, ipapi.co, and in production it stopped
+ * answering — the admin panel's own diagnosis reported "visitor addresses are
+ * reaching the server, but the service that turns one into a country is not
+ * responding". All three below answered correctly for the same addresses from
+ * a developer machine, so the failure is specific to the server: a free tier
+ * counted per source IP, an outbound rule, or a burst limit. Six rapid calls
+ * were enough to earn a 429 here.
+ *
+ * Any single free, keyless geo service will do this eventually. Depending on
+ * one of them is the actual bug; a chain costs nothing, because the second is
+ * only ever reached when the first has already failed.
+ *
+ * Ordered cheapest-to-fail-fast first: api.country.is returns four fields and
+ * publishes no hard rate limit, ipapi.co is the strictest, ipwho.is is the
+ * backstop.
+ *
+ * `own` is the no-argument form, which answers for the CALLER's address. Only
+ * the development fallback uses it — see lookupCountry.
+ */
+const GEO_PROVIDERS = [
+  {
+    name: 'country.is',
+    url: (ip) => `https://api.country.is/${encodeURIComponent(ip)}`,
+    own: 'https://api.country.is/',
+  },
+  {
+    name: 'ipapi.co',
+    url: (ip) => `https://ipapi.co/${encodeURIComponent(ip)}/country/`,
+    own: 'https://ipapi.co/country/',
+  },
+  {
+    name: 'ipwho.is',
+    url: (ip) => `https://ipwho.is/${encodeURIComponent(ip)}?fields=country_code`,
+    own: 'https://ipwho.is/?fields=country_code',
+  },
+];
+
+/** A two-letter code out of a plain-text or JSON body, or null. */
+function readCountry(body) {
+  const text = String(body ?? '').trim();
+  if (!text) return null;
+
+  if (/^[A-Za-z]{2}$/.test(text)) return text.toUpperCase();
+
+  try {
+    const json = JSON.parse(text);
+    /* `country` before `country_code`: api.country.is uses the first and
+       ipwho.is the second, and a provider that sends both agrees with itself. */
+    const code = json.country || json.country_code || json.countryCode;
+    return typeof code === 'string' && /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function lookupCountry(ip) {
   /**
    * A private address means "we cannot know", and in production that is the
@@ -204,35 +282,48 @@ export async function lookupCountry(ip) {
   const privateAddress = isPrivate(ip);
   if (privateAddress && process.env.NODE_ENV === 'production') return null;
 
-  const url = process.env.GEOIP_URL
-    ? process.env.GEOIP_URL.replace('{ip}', encodeURIComponent(ip ?? ''))
-    : privateAddress
-      ? 'https://ipapi.co/country/'
-      : `https://ipapi.co/${encodeURIComponent(ip)}/country/`;
+  /* An explicit provider replaces the chain rather than joining it: somebody
+     who has configured their own has said which one to trust. */
+  const chain = process.env.GEOIP_URL
+    ? [{
+        name: 'GEOIP_URL',
+        url: (addr) => process.env.GEOIP_URL.replace('{ip}', encodeURIComponent(addr)),
+        own: process.env.GEOIP_URL.replace('{ip}', ''),
+      }]
+    : GEO_PROVIDERS;
 
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(2000),
-      headers: { accept: 'text/plain, application/json' },
-    });
-    if (!res.ok) return null;
+  const failures = [];
 
-    const body = (await res.text()).trim();
-    if (!body) return null;
+  for (const provider of chain) {
+    const url = privateAddress ? provider.own : provider.url(ip);
 
-    /* Plain two-letter body, or JSON from whatever was configured instead. */
-    if (/^[A-Za-z]{2}$/.test(body)) return body.toUpperCase();
     try {
-      const json = JSON.parse(body);
-      const code = json.country_code || json.country || json.countryCode;
-      return typeof code === 'string' && /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : null;
-    } catch {
-      return null;
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(2500),
+        headers: { accept: 'text/plain, application/json' },
+      });
+
+      if (!res.ok) {
+        failures.push(`${provider.name} ${res.status}`);
+        continue;
+      }
+
+      const code = readCountry(await res.text());
+      if (code) return code;
+      failures.push(`${provider.name} unparsed`);
+    } catch (err) {
+      /* Timed out, blocked, offline. Try the next one. */
+      failures.push(`${provider.name} ${err.name === 'TimeoutError' ? 'timeout' : err.name}`);
     }
-  } catch {
-    /* Timed out, offline, rate-limited — all the same answer: we do not know. */
-    return null;
   }
+
+  /**
+   * Logged, once we have asked everybody. The silence here was what made this
+   * hard to diagnose from the outside: a blank column and nothing anywhere
+   * saying which service refused, or whether one was even reached.
+   */
+  console.warn('[presence] no country for', ip, '—', failures.join(', '));
+  return null;
 }
 
 /**

@@ -10,6 +10,7 @@ import 'server-only';
 
 import { io } from 'next/cache';
 import { getMarketplaceDb } from '@/marketplace/db/client';
+import { isPrivate } from '@/marketplace/auth/presence';
 import { getMarketplaceAuthAdmin } from '@/marketplace/auth/admin';
 import { countPendingBoosts } from './boosts';
 
@@ -86,6 +87,18 @@ function shapeUser(user, profile, memberships = [], now = 0) {
      * table they did not ask for.
      */
     hasIp: Boolean(profile?.last_ip),
+    /**
+     * Whether the address we recorded is an INTERNAL one — 10.x, 172.16-31.x,
+     * 192.168.x, loopback.
+     *
+     * Without this the panel misreads the commonest proxy misconfiguration as
+     * a third-party outage: a reverse proxy that forwards its own container
+     * address rather than the visitor's still produces a `last_ip`, so "an
+     * address arrived" is true and "the lookup failed" looks like the
+     * explanation — when in fact nothing was ever asked, because a private
+     * address cannot be resolved and we refuse to guess.
+     */
+    privateIp: Boolean(profile?.last_ip && isPrivate(profile.last_ip)),
     showrooms: memberships
       .filter((m) => m.vendors)
       .map((m) => ({ id: m.vendors.id, slug: m.vendors.slug, name: m.vendors.name, state: m.vendors.state, role: m.role })),
