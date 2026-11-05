@@ -53,7 +53,7 @@ import {
   ROLE_LABELS, ROLE_BLURBS, INVITE_STATUS_LABELS, inviteStatus, assignableRoles,
 } from "@/marketplace/lib/team";
 import {
-  inviteTeamMember, revokeTeamInvite, changeMemberRole, removeTeamMember,
+  inviteTeamMember, revokeTeamInvite, deleteTeamInvite, changeMemberRole, removeTeamMember,
 } from "../_actions/team";
 
 const ROLE_TONE = {
@@ -105,6 +105,7 @@ export default function TeamManager({
     onSuccess: refresh,
   });
   const revoke = useActionResult(revokeTeamInvite, { ok: false, error: null }, { onSuccess: refresh });
+  const drop = useActionResult(deleteTeamInvite, { ok: false, error: null }, { onSuccess: refresh });
   const reRole = useActionResult(changeMemberRole, { ok: false, error: null }, { onSuccess: refresh });
   const remove = useActionResult(removeTeamMember, { ok: false, error: null }, {
     onSuccess: () => { setPendingRemove(null); refresh(); },
@@ -387,10 +388,10 @@ export default function TeamManager({
             {t("الدعوات", "Invitations")}
           </h2>
 
-          {revoke.result?.error ? (
+          {revoke.result?.error || drop.result?.error ? (
             <p className="mt-3 flex items-center gap-2 text-sm text-red-600">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {errorText(revoke.result.error, locale)}
+              {errorText(revoke.result?.error || drop.result?.error, locale)}
             </p>
           ) : null}
 
@@ -414,7 +415,28 @@ export default function TeamManager({
                     {t(INVITE_STATUS_LABELS[status].ar, INVITE_STATUS_LABELS[status].en)}
                   </Badge>
 
-                  {status === "pending" ? (
+                  {status !== "pending" ? (
+                    /* Finished — accepted, cancelled or out of time. The person
+                       it was for is in Team members now, so the row is history
+                       somebody should be able to clear. A live one has Cancel
+                       instead: hiding a link that still works would be the one
+                       state this list must never be in. */
+                    <form action={drop.formAction}>
+                      <input type="hidden" name="vendorId" value={vendorId} />
+                      <input type="hidden" name="inviteId" value={i.id} />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:bg-red-500/10 hover:text-red-700"
+                        aria-label={t("حذف من القائمة", "Remove from the list")}
+                        title={t("حذف من القائمة", "Remove from the list")}
+                        disabled={drop.pending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  ) : (
                     <div className="flex items-center gap-1">
                       <Button
                         type="button"
@@ -442,7 +464,7 @@ export default function TeamManager({
                         </Button>
                       </form>
                     </div>
-                  ) : null}
+                  )}
                 </li>
               );
             })}

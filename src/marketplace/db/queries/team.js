@@ -198,6 +198,41 @@ export async function revokeInvite({ vendorId, inviteId, by }) {
   return { ok: Boolean(data), error: error?.message ?? null };
 }
 
+/**
+ * Clear a FINISHED invitation off the list.
+ *
+ * ── A real delete, unlike revoke ───────────────────────────────────────────
+ *
+ * revokeInvite() marks a live invitation dead and keeps the row, because the
+ * showroom needs to see that a link was sent and withdrawn. This is the other
+ * thing an owner wants and could not do: an invitation that is ACCEPTED,
+ * revoked or expired has done its job and sits on the page for ever. The
+ * person it was for is in Team members now; the row is just clutter, and a
+ * list that only grows is one nobody reads.
+ *
+ * Refused while the invitation is still PENDING — the guard is in the SQL
+ * here, not only in the action. A live link that vanished from the page would
+ * still work for whoever holds it, and nobody would be able to see it, which
+ * is the one state this table must never be in. Cancel it first; that is what
+ * revoke is for, and a revoked row can then be cleared.
+ */
+export async function deleteInvite({ vendorId, inviteId }) {
+  const { data, error } = await getMarketplaceDb()
+    .from('vendor_invites')
+    .delete()
+    .eq('id', inviteId)
+    .eq('vendor_id', vendorId)
+    /* Not pending: taken up, killed, or simply out of time. The third arm
+       matters — an EXPIRED invitation has neither moment stamped on it, so a
+       filter built from those two alone would have made exactly the rows that
+       pile up the ones that could never be cleared. */
+    .or(`accepted_at.not.is.null,revoked_at.not.is.null,expires_at.lt.${new Date().toISOString()}`)
+    .select('id')
+    .maybeSingle();
+
+  return { ok: Boolean(data), error: error?.message ?? null };
+}
+
 /** Change what a member may do. The owner-count rule is checked by the caller. */
 export async function setMemberRole({ vendorId, userId, role }) {
   const { data, error } = await getMarketplaceDb()

@@ -370,7 +370,7 @@ function SectionHead({ eyebrow, title, href, linkLabel, isAr }) {
  * Kinds tab drives did not reach the home page at all.
  */
 async function FeaturedGrid({ locale }) {
-  const { items, cardSpecs } = await getHomeFeatured(locale);
+  const { items, cardSpecs } = await getHomeFeatured(locale).catch(() => ({ items: [], cardSpecs: {} }));
 
   /**
    * Which of these the visitor has already saved.
@@ -461,7 +461,7 @@ async function MostViewedGrid({ locale }) {
 }
 
 async function VendorGrid({ locale, t }) {
-  const vendors = await getHomeVendors(locale);
+  const vendors = await getHomeVendors(locale).catch(() => []);
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5">

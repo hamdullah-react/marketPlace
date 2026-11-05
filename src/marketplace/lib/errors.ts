@@ -427,6 +427,11 @@ export const ERRORS = {
   },
   TEAM_MEMBER_NOT_FOUND: { ar: 'لم يُعثر على هذا العضو', en: 'That member could not be found' },
   TEAM_INVITE_NOT_FOUND: { ar: 'لم يُعثر على هذه الدعوة', en: 'That invitation could not be found' },
+  // Deleting a PENDING invitation would hide a link that still works.
+  TEAM_INVITE_STILL_OPEN: {
+    ar: 'هذه الدعوة ما زالت فعّالة. ألغِها أولاً ثم احذفها.',
+    en: 'That invitation is still live. Cancel it first, then remove it.',
+  },
   // ── invitations, from the invitee's side ──
   INVITE_INVALID: {
     ar: 'هذا الرابط غير صحيح. اطلب من المعرض إرسال دعوة جديدة.',

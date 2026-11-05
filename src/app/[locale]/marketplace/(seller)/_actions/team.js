@@ -38,6 +38,7 @@ import {
   createInvite,
   openInviteFor,
   revokeInvite,
+  deleteInvite,
   setMemberRole,
   removeMember,
   memberRole,
@@ -173,6 +174,37 @@ export async function revokeTeamInvite(prevState, formData) {
     return bad('SAVE_FAILED');
   }
   if (!done) return bad('TEAM_INVITE_NOT_FOUND');
+
+  revalidateTeam();
+  return ok();
+}
+
+/**
+ * Clear a finished invitation off the list.
+ *
+ * Separate from revoking on purpose: revoke stops a live link working and
+ * leaves the record, this removes a record that has already finished. The
+ * query refuses a PENDING row, so a link cannot be hidden while it still
+ * works — see deleteInvite().
+ */
+export async function deleteTeamInvite(prevState, formData) {
+  const inviteId = str(formData, 'inviteId');
+  const wanted = str(formData, 'vendorId') || null;
+
+  if (!inviteId) return bad('TEAM_INVITE_NOT_FOUND');
+
+  const { vendorId, error: denied } = await vendorForAction(wanted, 'team');
+  if (denied) return bad(denied);
+
+  const { ok: done, error } = await deleteInvite({ vendorId, inviteId });
+
+  if (error) {
+    console.error('[team] invite delete failed:', error);
+    return bad('SAVE_FAILED');
+  }
+  /* Either it is not this showroom's, or it is still live. The message names
+     the second, because it is the one somebody will actually hit. */
+  if (!done) return bad('TEAM_INVITE_STILL_OPEN');
 
   revalidateTeam();
   return ok();
