@@ -100,14 +100,27 @@ const NAV_CUSTOMERS = [
   { href: "/marketplace/seller/billing", icon: WalletIcon, ar: "المستحقات", en: "Billing" },
 ];
 
-const NAV_SECONDARY = [
-  { href: "/marketplace/seller/settings", icon: SettingsIcon, ar: "الإعدادات", en: "Settings" },
-  /* Its own entry rather than a tab inside Settings. A showroom's team is not
-     a preference — it is the answer to "who else can get into this account",
-     which is the question somebody asks when they are hiring, and when they
-     have just let somebody go. A page reachable only by knowing it is a tab on
-     another page is a page people are told about rather than find. */
+/**
+ * Settings, with the team inside it.
+ *
+ * Team used to be a flat entry beside Settings, on the argument that "who else
+ * can get into this account" is not a preference. It is still not a preference
+ * — but it IS at /seller/settings/team, and a sidebar that lists a child route
+ * as a sibling of its parent tells the seller the two are unrelated. One
+ * expandable Settings says where the page lives, and the group opens itself on
+ * any settings route, so landing on Team shows Team ticked underneath it.
+ *
+ * The 'exact' flag on the parent row matters here and nowhere else in the nav:
+ * every other sub-item has a path that is not a prefix of its siblings.
+ * Without it, isActive's startsWith lights up Store details while the seller
+ * is standing on Team.
+ */
+const NAV_SETTINGS = [
+  { href: "/marketplace/seller/settings", icon: StoreIcon, ar: "بيانات المعرض", en: "Store details", exact: true },
   { href: "/marketplace/seller/settings/team", icon: UsersIcon, ar: "الفريق", en: "Team" },
+];
+
+const NAV_SECONDARY = [
   { href: "/marketplace/help", icon: HelpCircleIcon, ar: "المساعدة", en: "Get Help" },
   // The public grid, not /marketplace/search — that route is gone, because
   // search is a modal in the header now.
@@ -391,13 +404,14 @@ export default function SellerShell({
       main: allowed(NAV_MAIN),
       crm: allowed(NAV_CRM),
       customers: allowed(NAV_CUSTOMERS),
+      settings: allowed(NAV_SETTINGS),
       secondary: allowed(NAV_SECONDARY),
     };
   }, [role]);
 
   // Header title: deepest matching nav item, so it tracks the route instead of
   // being hardcoded the way the block's "Documents" is.
-  const current = [...NAV_MAIN, ...NAV_CRM, ...NAV_CUSTOMERS, ...NAV_SECONDARY]
+  const current = [...NAV_MAIN, ...NAV_CRM, ...NAV_CUSTOMERS, ...NAV_SETTINGS, ...NAV_SECONDARY]
     .filter((i) => isActive(i.href, i.exact))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
@@ -411,6 +425,11 @@ export default function SellerShell({
   // Whether any CRM page is the current one — which is also whether the group
   // starts open.
   const inCrm = NAV_CRM.some((item) => isActive(item.href));
+
+  /* Same for Settings, from the PREFIX rather than from the two rows: the
+     settings area has sub-pages that are not in the nav, and a seller standing
+     on one of them should not find the group shut over their own page. */
+  const inSettings = isActive("/marketplace/seller/settings");
 
   /**
    * How many leads nobody here has opened — and a chime when one lands.
@@ -507,7 +526,24 @@ export default function SellerShell({
           {nav.customers.length ? (
             <NavGroupView label={t("العملاء", "Customers")} items={nav.customers} {...navCtx} />
           ) : null}
-          <NavGroupView items={nav.secondary} className="mt-auto" {...navCtx} />
+          {/* mt-auto belongs to whichever of the two bottom groups renders
+              first — it pushes its OWN element down, so leaving it on Help
+              while Settings sat above would strand Settings mid-sidebar. */}
+          {nav.settings.length ? (
+            <NavCollapsibleView
+              label={t("الإعدادات", "Settings")}
+              icon={SettingsIcon}
+              items={nav.settings}
+              defaultOpen={inSettings}
+              className="mt-auto"
+              {...collapsibleCtx}
+            />
+          ) : null}
+          <NavGroupView
+            items={nav.secondary}
+            className={nav.settings.length ? undefined : "mt-auto"}
+            {...navCtx}
+          />
         </SidebarContent>
 
         <SidebarFooter>
@@ -742,11 +778,11 @@ function NavGroupView({ label, items, className, badges, isActive, t, locale }) 
  * likely to blame the sidebar for it.
  */
 function NavCollapsibleView({
-  label, icon: Icon, items, defaultOpen, badges, total, dot,
+  label, icon: Icon, items, defaultOpen, badges, total, dot, className,
   isActive, t, locale, live, reason, isAr,
 }) {
   return (
-    <SidebarGroup>
+    <SidebarGroup className={className}>
       <SidebarGroupContent>
         <SidebarMenu>
           <Collapsible defaultOpen={defaultOpen} className="group/collapsible">
@@ -764,9 +800,9 @@ function NavCollapsibleView({
 
               <CollapsibleContent>
                 <SidebarMenuSub>
-                  {items.map(({ href, icon: ItemIcon, ar, en }) => (
+                  {items.map(({ href, icon: ItemIcon, ar, en, exact }) => (
                     <SidebarMenuSubItem key={href}>
-                      <SidebarMenuSubButton asChild isActive={isActive(href)}>
+                      <SidebarMenuSubButton asChild isActive={isActive(href, exact)}>
                         <Link href={`/${locale}${href}`}>
                           <ItemIcon className="h-4 w-4" />
                           <span>{t(ar, en)}</span>

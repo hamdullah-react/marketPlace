@@ -1,4 +1,6 @@
 import { Suspense } from 'react';
+import Link from 'next/link';
+import { UsersIcon } from 'lucide-react';
 import { setRequestLocale } from 'next-intl/server';
 import { resolveSettingsVendor, getSettingsPageData } from './_apicalls/settingsPageApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +44,18 @@ export default async function SellerSettingsPage({ params, searchParams }) {
               'How your store appears to buyers, your preferences, and your backups.'
             )}
           </p>
+
+          {/* Team is a settings page too — /seller/settings/team — and the
+              sidebar now nests it under Settings. This is the same door from
+              inside the room: somebody who came here looking for "who else can
+              get in" should not have to go back out to the nav to find it. */}
+          <Link
+            href={`/${locale}/marketplace/seller/settings/team`}
+            className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-brand-primary underline-offset-4 hover:underline"
+          >
+            <UsersIcon className="h-4 w-4" />
+            {t('الفريق وصلاحيات الوصول', 'Team & access')}
+          </Link>
         </div>
 
         <div className="px-4 lg:px-6">

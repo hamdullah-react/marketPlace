@@ -3,6 +3,9 @@
 Companion to [MARKETPLACE-STRUCTURE.md](MARKETPLACE-STRUCTURE.md). That doc says where
 code lives; this one says how the system behaves.
 
+[MARKETPLACE-ACCOUNTING.md](MARKETPLACE-ACCOUNTING.md) says how a showroom knows whether it is
+making money, and which of the money tables below are dormant.
+
 This replaces the earlier C2C car-selling flowchart. That diagram modelled **individuals
 selling cars by negotiation**. What is being built is a **multi-vendor marketplace** where
 sellers list parts, cars, services and accessories — which changes the transaction model,
