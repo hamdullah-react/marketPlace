@@ -11,17 +11,27 @@ import models from './models.json';
 import trims from './trims.json';
 import years from './years.json';
 import colors from './colors.json';
-import specifications from './specifications.json';
 import offerNames from './offer-names.json';
 
 export const MANIFEST = manifest;
 
+/**
+ * `specifications` is NOT here any more, and specifications.json is deleted.
+ *
+ * It was a photograph of another dealership's 79 specification definitions,
+ * with 91 of their icon files downloaded into this repo — and installing it
+ * was the only way a showroom could describe a car, which is why four
+ * showrooms on this database each hold a copy of it.
+ *
+ * The list ships as lib/spec-template.js now: 298 entries, authored rather
+ * than scraped, with marks from the icon set this application already has.
+ * There is nothing to install, so there is no template. See schema.sql §35.
+ */
 export const TEMPLATES = {
   brands,
   models,
   trims,
   years,
   colors,
-  specifications,
   'offer-names': offerNames,
 };

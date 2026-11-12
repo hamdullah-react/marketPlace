@@ -5,6 +5,11 @@ import { getMarketplaceDb } from '@/marketplace/db/client';
 import { vendorForAction } from '@/marketplace/auth/session';
 import { getCatalogNames } from '@/marketplace/db/queries/catalog';
 import { getAttributeSlugs, getAttributeLabels } from '@/marketplace/db/queries/attributes';
+import {
+  ensureSpecDefinitions,
+  isTemplateId,
+  slugOfTemplateId,
+} from '@/marketplace/db/queries/spec-catalog';
 import { listingStem, slugify } from '@/marketplace/lib/slug';
 import { i18n } from '@/marketplace/lib/listing';
 import { listingSeo, keywordList } from '@/marketplace/lib/seo';
@@ -313,6 +318,100 @@ async function saveFaqs(db, listingId, vendorId, faqs) {
 
   const { error } = await db.from('listing_faqs').insert(rows);
   if (error) throw new Error(`faqs: ${error.message}`);
+}
+
+/**
+ * Turn what the checklist posted into attribute ids the database will accept.
+ *
+ * The Specifications tab is a checklist over the 298-entry car template
+ * (schema.sql §35), and most of those entries have no `spec_attributes` row
+ * until somebody ticks them — a showroom that never mentions a wading depth
+ * never gets a row for one. So two things arrive here that saveSpecs cannot
+ * store as they are:
+ *
+ *   `tpl:<slug>` as the KEY     a template entry with no definition yet.
+ *   { ar, en } as a CHOICE       an answer picked from the template's own list,
+ *                                before that list existed as rows.
+ *
+ * Both are resolved by creating what is missing and swapping the placeholder
+ * for the real id. The swap matters more than it looks: without it the same
+ * answer would be an option id on one car and free text on another, and the
+ * browse facet would offer "Petrol" twice.
+ *
+ * ── It never fails the save ───────────────────────────────────────────────
+ *
+ * A definition that could not be created is DROPPED from the payload and
+ * logged. The alternative is an insert that fails on a foreign key and takes
+ * the whole listing's specifications with it — which is the one outcome a
+ * seller cannot work around, because the form has no way to tell them which
+ * tick was the problem.
+ */
+async function resolveSpecKeys(db, vendorId, specs) {
+  const entries = Object.entries(specs ?? {});
+  if (!entries.length || !vendorId) return specs ?? {};
+
+  /* A plain {ar, en} with no `raw`/`label` wrapper is a choice the checklist
+     could not give an id to. A value RE-POSTED from an edit form is wrapped,
+     and must not be mistaken for one. */
+  const isBareBilingual = (v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+    && v.raw === undefined && v.label === undefined
+    && (typeof v.en === 'string' || typeof v.ar === 'string');
+
+  const templateKeys = entries.filter(([k]) => isTemplateId(k));
+  const bilingualSaved = entries.filter(([k, v]) => !isTemplateId(k) && isBareBilingual(v));
+
+  if (!templateKeys.length && !bilingualSaved.length) return specs;
+
+  /* The slugs to make sure exist: every ticked template entry, plus the
+     definitions whose answer came through as text so their option list can be
+     consulted. */
+  const slugs = templateKeys.map(([k]) => slugOfTemplateId(k));
+
+  const slugById = new Map();
+  if (bilingualSaved.length) {
+    const { data } = await db
+      .from('spec_attributes')
+      .select('id, slug')
+      .in('id', bilingualSaved.map(([k]) => k));
+
+    for (const row of data ?? []) {
+      slugById.set(row.id, row.slug);
+      slugs.push(row.slug);
+    }
+  }
+
+  const { idBySlug, optionIdByKey, error } = await ensureSpecDefinitions(vendorId, slugs);
+  if (error) console.warn('[specs] definitions not created:', error);
+
+  const out = {};
+  for (const [key, value] of entries) {
+    let id = key;
+    let slug = slugById.get(key) ?? null;
+
+    if (isTemplateId(key)) {
+      slug = slugOfTemplateId(key);
+      const made = idBySlug.get(slug);
+      if (!made) {
+        console.warn('[specs] dropped "%s": no definition could be created', slug);
+        continue;
+      }
+      id = made;
+    }
+
+    /* The text → option-id swap. Keyed on the ENGLISH answer because that is
+       what the template and the created rows both carry; a missing key simply
+       leaves the bilingual label in place, which the sheet renders correctly. */
+    let next = value;
+    if (slug && isBareBilingual(value) && value.en) {
+      const optionId = optionIdByKey.get(slug + '|' + value.en);
+      if (optionId) next = optionId;
+    }
+
+    out[id] = next;
+  }
+
+  return out;
 }
 
 /**
@@ -787,7 +886,11 @@ export async function saveListing(prevState, formData) {
 
     try {
       await saveVariants(db, listingId, raw.variants);
-      await saveSpecs(db, listingId, raw.specs);
+      /* The checklist's `tpl:<slug>` keys become real definitions here, not in
+         saveSpecs — resolving them is a write of its own against a different
+         table, and keeping the two apart is what lets a definition that cannot
+         be created drop one tick rather than fail the whole sheet. */
+      await saveSpecs(db, listingId, await resolveSpecKeys(db, raw.vendorId, raw.specs));
       await saveFaqs(db, listingId, raw.vendorId, raw.faqs);
     } catch (err) {
       // The listing saved; only the colour variants failed. Say exactly that

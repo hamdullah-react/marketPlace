@@ -133,44 +133,24 @@ export const ENTITIES = {
        Picked here rather than on each offer so one promotion is one colour. */
     hasColor: true,
   },
-  specs: {
-    table: 'spec_attributes',
-    ar: 'المواصفات', en: 'Specifications',
-    parent: null,
-    hasSlug: true, hasDescription: true, hasActive: true, hasImage: true,
-    // Specs carry TWO names (category and attribute) and TWO icons, mirroring
-    // how the car page groups them. That is why they aren't just `name`.
-    // Specs are grouped by category on the car page, so the manager filters
-    // by category the same way options filter by kind.
-    categorized: true,
-    /**
-     * Owned like every other catalog row, since schema.sql §30.
-     *
-     * Specifications were the worst case of the missing-owner bug: the row
-     * saved, belonged to nobody, and vanished from the tab it was added on — so
-     * the same spec got typed again and again. `seats`, `seatss`, `seatsss` and
-     * `setas` in the old database were one person trying four times.
-     *
-     * The workaround that lived here — a receipt-based membership flag and a
-     * list declaring these columns absent — is gone. §30 added
-     * created_by_vendor_id, is_custom and approved to this table and made
-     * ownership the only thing vendor_catalog_rows reads, at which point
-     * declaring the columns absent stripped the owner on save and reproduced
-     * the exact bug it had been written to work around.
-     */
-    nameField: 'attribute_name',
-    iconField: 'attribute_icon_url',
-    sequenceField: 'attribute_sequence',
-    extra: [
-      // bilingual, not text: 'L' is 'لتر'. See the unit_code migration in
-      // schema.sql for why this stopped being a plain string.
-      { key: 'unit_code', ar: 'الوحدة', en: 'Unit', type: 'i18n' },
-      { key: 'display_type', ar: 'نوع الحقل', en: 'Field type', type: 'select',
-        options: ['text', 'numeric', 'yesno', 'select', 'multi'] },
-      { key: 'show_on_card', ar: 'يظهر على البطاقة', en: 'Show on card', type: 'boolean' },
-      { key: 'is_key', ar: 'مواصفة رئيسية', en: 'Key spec', type: 'boolean' },
-    ],
-  },
+  /**
+   * `specs` — the specification definitions — used to be here, and are gone
+   * for the same reason `attributes` above is: it was a list a showroom had to
+   * invent before it could describe a car, and what four showrooms invented was
+   * four copies of the same 79 rows scraped off another dealership's site, plus
+   * `seats` / `seatss` / `seatsss` / `setas` in the original database — one
+   * person trying four times, because the row they saved belonged to nobody.
+   *
+   * A specification is a property of CARS, not of a showroom, so the list ships
+   * with the application (lib/spec-template.js, 298 entries) and the seller
+   * ticks what their car has on the listing form's Specifications tab. Adding
+   * one the template does not name, clearing one, choosing its mark and
+   * flagging it for the card all happen THERE, on the row itself, which is
+   * where somebody is standing when they notice it is missing.
+   *
+   * `spec_attributes` and `spec_attribute_values` are untouched and still
+   * read — queries/spec-catalog.js owns them now. See schema.sql §35.
+   */
 };
 
 export const ENTITY_KEYS = Object.keys(ENTITIES);

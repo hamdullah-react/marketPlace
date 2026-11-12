@@ -5,7 +5,8 @@ import { getVendorSettings } from '@/marketplace/db/queries/settings';
 import { getVendorMedia, getListingVariants } from '@/marketplace/db/queries/media';
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { getViewer } from '@/marketplace/auth/session';
-import { getSpecDefinitions, getListingSpecs } from '@/marketplace/db/queries/specs';
+import { getListingSpecs } from '@/marketplace/db/queries/specs';
+import { getSpecChecklist } from '@/marketplace/db/queries/spec-catalog';
 
 /**
  * Everything the listing form needs, for both new and edit.
@@ -110,14 +111,33 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
     // activeVendorId is resolved at the top of the function now, because the
     // catalog scope is derived from it rather than being a separate decision.
 
-    // Spec definitions are shared reference data — one fetch, grouped ready
-    // for the accordions. Absent table must not take down the whole form.
+    /**
+     * The Specifications checklist: the 298-entry car template merged with
+     * whatever definitions this showroom already holds, plus how many cars
+     * answer each one.
+     *
+     * It used to be getSpecDefinitions(locale, scope) — the showroom's CATALOG,
+     * and nothing else. A showroom whose catalog was empty got an empty
+     * Specifications tab and no way to fill it except Catalog → Specifications,
+     * which is the model schema.sql §35 removed. The template means the tab is
+     * complete before anybody has installed anything.
+     *
+     * Still scoped to the showroom, for the same reason as the brand list: the
+     * DEFINITIONS are per-vendor since §30, and merging another showroom's
+     * would offer a seller a specification they cannot edit.
+     *
+     * Never throws (see getSpecChecklist), so a failed read degrades to the
+     * template alone — which is a working tab, not a broken one.
+     */
     let specGroups = [];
-    // locale matters: the category headings are built here, not in the client.
-    // `scope` here too — the spec sheet is part of the seller's catalog, and
-    // showing all eighty definitions beside an empty brand list was the form
-    // giving two different answers to the same question.
-    try { specGroups = await getSpecDefinitions(locale, scope); } catch { specGroups = []; }
+    let specIconsMissing = false;
+    try {
+      const checklist = await getSpecChecklist(scope, locale);
+      specGroups = checklist.groups;
+      specIconsMissing = checklist.iconsMissing;
+    } catch {
+      specGroups = [];
+    }
 
     // Which language(s) the bilingual fields offer. This is the vendor's
     // "Language & preferences" setting, exactly as the catalog page reads it —
@@ -162,7 +182,7 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
       if (!viewer || (!viewer.isStaff && !mine.length)) {
         return {
           brands, years, colors, vendors, attributeGroups, optionKinds,
-          assets, specGroups, existing: null, activeVendorId, fieldMode, error: null,
+          assets, specGroups, specIconsMissing, existing: null, activeVendorId, fieldMode, error: null,
         };
       }
       // `name` and `description` are jsonb {ar,en} — there are no title_ar /
@@ -222,12 +242,12 @@ export async function getListingFormData({ vendorId = null, listingId = null, lo
 
     return {
       brands, years, colors, vendors, attributeGroups, optionKinds,
-      assets, specGroups, existing, activeVendorId, fieldMode, error: null,
+      assets, specGroups, specIconsMissing, existing, activeVendorId, fieldMode, error: null,
     };
   } catch (err) {
     return {
       brands: [], years: [], colors: [], vendors: [], attributeGroups: {}, optionKinds: [],
-      assets: [], specGroups: [], existing: null, activeVendorId: null,
+      assets: [], specGroups: [], specIconsMissing: false, existing: null, activeVendorId: null,
       fieldMode: 'both', error: err.message,
     };
   }

@@ -432,6 +432,73 @@ export const ERRORS = {
     ar: 'هذه الدعوة ما زالت فعّالة. ألغِها أولاً ثم احذفها.',
     en: 'That invitation is still live. Cancel it first, then remove it.',
   },
+  // ── specifications (schema.sql §35) ──
+  SPEC_NAME_REQUIRED: {
+    ar: 'اكتب اسم المواصفة',
+    en: 'Give the specification a name',
+  },
+  SPEC_KIND_INVALID: {
+    ar: 'نوع الحقل غير صحيح',
+    en: 'That field type is not one of the four',
+  },
+  SPEC_CATEGORY_INVALID: {
+    ar: 'اختر القسم الذي تنتمي إليه المواصفة',
+    en: 'Choose the section the specification belongs to',
+  },
+  SPEC_ALREADY_EXISTS: {
+    ar: 'لديك مواصفة بهذا الاسم. ابحث عنها في القائمة.',
+    en: 'You already have a specification by that name. Search the list for it.',
+  },
+  SPEC_NOT_FOUND: { ar: 'لم يُعثر على هذه المواصفة', en: 'That specification could not be found' },
+  // The checklist does not offer the control for an unsaved template entry,
+  // so this is a stale form rather than something the seller did.
+  SPEC_NOT_SAVED: {
+    ar: 'هذه المواصفة من القائمة الجاهزة ولم تُحفظ بعد، فلا شيء لحذفه.',
+    en: 'That one comes from the ready-made list and is not saved yet, so there is nothing to remove.',
+  },
+  // The rule that protects the cars already answering it. listing_specs
+  // deletes with RESTRICT, so the database refuses this too.
+  SPEC_IN_USE: {
+    ar: 'لا يمكن حذف مواصفة تستخدمها سيارات معروضة. أزِلها من تلك السيارات أولاً.',
+    en: 'A specification your cars have answered cannot be removed. Clear it from those cars first.',
+  },
+  // The card has room for four. Said with the number, because the seller's
+  // next move is to take one off and the message has to point at that.
+  SPEC_CARD_FULL: {
+    ar: 'بطاقة السيارة تتسع لأربع مواصفات فقط. أزِل واحدة من المختارة بالأعلى أولاً.',
+    en: 'A car card shows four specifications at most. Take one off the list above first.',
+  },
+  // ── specification SECTIONS (schema.sql §36) ──
+  SECTION_NAME_REQUIRED: {
+    ar: 'اكتب اسم القسم',
+    en: 'Give the section a name',
+  },
+  SECTION_NOT_FOUND: { ar: 'لم يُعثر على هذا القسم', en: 'That section could not be found' },
+  // Its specifications would keep printing a heading nobody could edit.
+  SECTION_IN_USE: {
+    ar: 'لا يمكن حذف قسم يحتوي مواصفات. انقلها أو احذفها أولاً.',
+    en: 'A section with specifications in it cannot be removed. Move or clear them first.',
+  },
+  // §36 has not been run on this database.
+  SECTIONS_UNAVAILABLE: {
+    ar: 'تعديل الأقسام يحتاج تشغيل القسم 36 من schema.sql.',
+    en: 'Editing sections needs section 36 of schema.sql to have been run.',
+  },
+  // A list type with no answers is the "Add options in Catalog" dead end the
+  // checklist was built to remove, reappearing from the other direction.
+  SPEC_ANSWERS_REQUIRED: {
+    ar: 'اكتب إجابة واحدة على الأقل لهذه القائمة',
+    en: 'Give the list at least one answer',
+  },
+  SPEC_ICON_INVALID: {
+    ar: 'اختر أيقونة من القائمة',
+    en: 'Pick an icon from the list',
+  },
+  // §35 has not been run on this database — the flag saved, the icon did not.
+  SPEC_ICONS_UNAVAILABLE: {
+    ar: 'تم الحفظ، لكن الأيقونات تحتاج تشغيل القسم 35 من schema.sql.',
+    en: 'Saved, but icons need section 35 of schema.sql to have been run.',
+  },
   // ── invitations, from the invitee's side ──
   INVITE_INVALID: {
     ar: 'هذا الرابط غير صحيح. اطلب من المعرض إرسال دعوة جديدة.',

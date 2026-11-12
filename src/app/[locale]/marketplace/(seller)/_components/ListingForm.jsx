@@ -35,7 +35,7 @@ import { localized } from "@/marketplace/lib/listing";
 import { listingStem } from "@/marketplace/lib/slug";
 import { thumbUrl, THUMB } from "@/marketplace/lib/image";
 import { errorText } from "@/marketplace/lib/errors";
-import SpecEditor from "./SpecEditor";
+import SpecChecklist from "./SpecChecklist";
 import BilingualField from "./BilingualField";
 import BilingualSelect from "./BilingualSelect";
 import {
@@ -408,7 +408,7 @@ export default function ListingForm(props) {
 
 function ListingFormInstance({
   locale, vendors, brands: initialBrands, years: initialYears, colors: initialColors,
-  attributeGroups = {}, optionKinds = [], assets = [], specGroups = [], existing = null,
+  attributeGroups = {}, optionKinds = [], assets = [], specGroups = [], specIconsMissing = false, existing = null,
   defaultVendorId = null, fieldMode = 'both', onSaved = null,
   /* The marketplace’s own name and currency, for the SEO preview. Passed
      in rather than read here: this is a client component, and the preview
@@ -1742,11 +1742,19 @@ function ListingFormInstance({
               <h2 className={sectionTitle}>{t("مواصفات السيارة", "Car specifications")}</h2>
               <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
                 {t(
-                  "املأ ما تعرفه فقط — الحقول الفارغة لا تظهر للمشتري.",
-                  "Fill in only what you know — anything left empty is hidden from buyers."
+                  "حدِّد ما تحتويه السيارة — غير المحدَّد لا يظهر للمشتري. والقائمة جاهزة، فلا حاجة لإضافة شيء من الكتالوج.",
+                  "Tick what the car has — anything unticked is hidden from buyers. The list is ready-made, so nothing has to be added in Catalog first."
                 )}
               </p>
-              <SpecEditor locale={locale} groups={specGroups} values={specs} onChange={setSpecs} fieldMode={fieldMode} vendorId={vendorId} />
+              <SpecChecklist
+                locale={locale}
+                groups={specGroups}
+                values={specs}
+                onChange={setSpecs}
+                vendorId={vendorId}
+                iconsMissing={specIconsMissing}
+                fieldMode={fieldMode}
+              />
             </div>
           </div>
 

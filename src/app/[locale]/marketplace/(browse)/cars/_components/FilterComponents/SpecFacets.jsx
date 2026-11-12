@@ -21,6 +21,7 @@
  */
 
 import { SlidersHorizontal } from "lucide-react";
+import { glyphFor } from "@/marketplace/ui/SpecGlyph";
 import FilterSection from "./FilterSection";
 import FilterPill from "./FilterPill";
 import NumberPair from "./NumberPair";
@@ -72,8 +73,7 @@ export default function SpecFacets({
             return (
               <FilterSection
                 key={key}
-                icon={SlidersHorizontal}
-                iconSrc={facet.iconUrl}
+                icon={glyphFor(facet.icon) ?? SlidersHorizontal}
                 title={
                   <>
                     {nameOf(facet.name, facet.slug)}

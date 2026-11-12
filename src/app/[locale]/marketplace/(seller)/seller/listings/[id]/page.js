@@ -4,7 +4,6 @@ import { setRequestLocale } from 'next-intl/server';
 import { getListingFormData } from '../../../_apicalls/formData';
 import ListingForm from '../../../_components/ListingForm';
 import SetupNotice from '../../../_components/SetupNotice';
-import EmptyCatalogNotice from '../../../_components/EmptyCatalogNotice';
 import { getSiteSettings } from '@/marketplace/db/queries/site';
 
 /**
@@ -94,15 +93,6 @@ export default async function EditListingPage({ params }) {
         </div>
       ) : null}
 
-      {/* Not an error — a step this seller has not taken yet. Only when the
-          catalog is genuinely empty, so it disappears the moment they install
-          anything rather than nagging forever. */}
-      {!data.error && !data.brands.length ? (
-        <div className="mt-6">
-          <EmptyCatalogNotice locale={locale} />
-        </div>
-      ) : null}
-
       <div className="mt-6">
         <ListingForm
           locale={locale}
@@ -116,6 +106,7 @@ export default async function EditListingPage({ params }) {
           attributeGroups={data.attributeGroups}
           optionKinds={data.optionKinds}
           specGroups={data.specGroups}
+          specIconsMissing={data.specIconsMissing}
           fieldMode={data.fieldMode}
           existing={existing}
         />

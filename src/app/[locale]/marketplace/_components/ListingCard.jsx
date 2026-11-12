@@ -47,7 +47,7 @@
  */
 
 import Img, { isVector } from '@/marketplace/ui/Img';
-import SpecIcon from "@/marketplace/ui/SpecIcon";
+import SpecGlyph from "@/marketplace/ui/SpecGlyph";
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -735,17 +735,19 @@ export default function ListingCard({
               } ${i > 0 ? "border-s border-black/10 dark:border-white/10" : ""}`}
             >
               <div className="flex w-full min-w-0 items-center justify-center gap-0.5 sm:gap-1">
-                {/* No fallback glyph: a spec without artwork shows its value
-                    alone rather than a generic icon that looks wrong. */}
-                {/* Masked, not <Img>, so the mark takes the brand colour from
-                    the theme instead of whatever colour the catalog file was
-                    drawn in — see SpecIcon. */}
-                {f.icon ? (
-                  <SpecIcon
-                    src={f.icon}
-                    className="h-2.5 w-2.5 opacity-70 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5"
-                  />
-                ) : null}
+                {/* `fallback={null}`: a specification with no mark chosen
+                    shows its value alone rather than a generic icon that looks
+                    wrong on a 10px strip. Everywhere the mark has room, the
+                    neutral fallback keeps the gutter steady instead.
+
+                    An icon is a TOKEN now and this is a lucide mark inheriting
+                    currentColor, so it follows the theme by itself — no mask,
+                    no per-request colour substitution, no <Img>. See §35. */}
+                <SpecGlyph
+                  icon={f.icon}
+                  fallback={null}
+                  className="h-2.5 w-2.5 opacity-70 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5"
+                />
                 <span className="truncate text-[8px] font-bold tabular-nums text-neutral-900 dark:text-neutral-50 sm:text-[10px] md:text-[11px]">
                   {f.value}
                 </span>

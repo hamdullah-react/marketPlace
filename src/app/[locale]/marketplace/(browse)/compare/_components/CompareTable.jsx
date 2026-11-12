@@ -34,7 +34,7 @@
 
 import Img from '@/marketplace/ui/Img';
 import Image from 'next/image';
-import SpecIcon from "@/marketplace/ui/SpecIcon";
+import SpecGlyph from "@/marketplace/ui/SpecGlyph";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -629,7 +629,7 @@ export default function CompareTable({
               >
                 <div className="flex min-w-0 items-center gap-2 md:gap-3">
                   {group.icon ? (
-                    <SpecIcon src={group.icon} className="h-8 w-8 md:h-10 md:w-10" />
+                    <SpecGlyph icon={group.icon} className="h-8 w-8 md:h-10 md:w-10" />
                   ) : null}
                   <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100 md:text-base">
                     {group.name}
@@ -928,7 +928,7 @@ function SpecRow({ row, cars, tone }) {
       >
         <div className="flex items-center gap-1.5 md:gap-2">
           {row.icon ? (
-            <SpecIcon src={row.icon} className="h-6 w-6 md:h-8 md:w-8" />
+            <SpecGlyph icon={row.icon} className="h-6 w-6 md:h-8 md:w-8" />
           ) : null}
           <span
             className={`line-clamp-2 text-xs font-medium md:text-sm ${

@@ -43,6 +43,7 @@ import {
   SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
@@ -55,10 +56,47 @@ import SidebarAutoClose from "../../_components/SidebarAutoClose";
 import { useLiveLeads } from "./useLiveLeads";
 import { canOpen } from "@/marketplace/lib/team";
 
+/**
+ * Adding a car is the dashboard's PRIMARY ACTION, so it is a filled button at
+ * the TOP OF THE SIDEBAR — under the showroom, above the nav — rather than the
+ * third row of the nav list.
+ *
+ * ── Why it moved ──────────────────────────────────────────────────────────
+ *
+ * As a nav row it was one of eight identical lines, below Listings and above
+ * Offers, with nothing to say it is the thing a showroom does twenty times a
+ * week while the others are places they visit.
+ *
+ * It is rendered in SidebarHeader rather than beside the page title, which is
+ * where it briefly went: the sidebar is where a seller already looks to move
+ * around, the full width gives it the weight the action has, and the filled
+ * treatment makes it the only button of its kind on the panel.
+ *
+ * ── It is still in the nav's title list ───────────────────────────────────
+ *
+ * TITLE_ONLY below. `current` resolves the header's own heading from the nav
+ * arrays by longest matching prefix, so a route with no entry anywhere would
+ * fall back to its parent — /seller/listings/new would have been titled
+ * "Listings" while the seller was looking at the add form.
+ */
+const ADD_CAR = {
+  href: "/marketplace/seller/listings/new",
+  icon: PlusIcon,
+  ar: "إضافة سيارة",
+  en: "Add a car",
+};
+
+/**
+ * Routes that need a HEADING but not a sidebar row.
+ *
+ * Merged into `current` and into nothing else. Keeping the heading and the
+ * row in one list is what made removing a row silently rename a page.
+ */
+const TITLE_ONLY = [ADD_CAR];
+
 const NAV_MAIN = [
   { href: "/marketplace/seller", icon: LayoutDashboardIcon, ar: "لوحة التحكم", en: "Dashboard", exact: true },
   { href: "/marketplace/seller/listings", icon: CarIcon, ar: "إعلاناتي", en: "Listings" },
-  { href: "/marketplace/seller/listings/new", icon: PlusIcon, ar: "إضافة سيارة", en: "Add a car" },
   { href: "/marketplace/seller/offers", icon: TagIcon, ar: "العروض", en: "Offers" },
   { href: "/marketplace/seller/promotions", icon: SparklesIcon, ar: "الترويج", en: "Promotions" },
   { href: "/marketplace/seller/media", icon: ImagesIcon, ar: "مكتبة الصور", en: "Media" },
@@ -401,6 +439,12 @@ export default function SellerShell({
   const nav = useMemo(() => {
     const allowed = (items) => items.filter((i) => canOpen(role, i.href));
     return {
+      /* The header button asks the same question the rows do, through the same
+         capability map — so it cannot offer an action the page would bounce
+         them from. A salesperson HAS `listings`, so in practice all three
+         roles see it; the check is here so a role that loses the capability
+         loses the button in the same commit. */
+      canAddCar: canOpen(role, ADD_CAR.href),
       main: allowed(NAV_MAIN),
       crm: allowed(NAV_CRM),
       customers: allowed(NAV_CUSTOMERS),
@@ -411,7 +455,7 @@ export default function SellerShell({
 
   // Header title: deepest matching nav item, so it tracks the route instead of
   // being hardcoded the way the block's "Documents" is.
-  const current = [...NAV_MAIN, ...NAV_CRM, ...NAV_CUSTOMERS, ...NAV_SETTINGS, ...NAV_SECONDARY]
+  const current = [...NAV_MAIN, ...NAV_CRM, ...NAV_CUSTOMERS, ...NAV_SETTINGS, ...NAV_SECONDARY, ...TITLE_ONLY]
     .filter((i) => isActive(i.href, i.exact))
     .sort((a, b) => b.href.length - a.href.length)[0];
 
@@ -504,6 +548,39 @@ export default function SellerShell({
               </Suspense>
             </SidebarMenuItem>
           </SidebarMenu>
+
+          {/* ── Add a car ─────────────────────────────────────────────────
+              Directly under the showroom and above the nav, full width, and
+              the only filled button in the sidebar — so the one thing a
+              showroom does twenty times a week does not read as the third of
+              eight identical rows, which is where it used to live.
+
+              `raised-solid bg-brand-primary` rather than any colour written
+              here: that is the platform's primary-button treatment, and its
+              FILL comes from the brand token. So the button is painted by
+              whatever the showroom set on Settings → Appearance, like every
+              other primary action in the dashboard, and the same markup is a
+              different colour in each showroom.
+
+              Not hidden on the add page itself, unlike a header button would
+              be. It sits above the nav, so removing it would shift every row
+              under it the moment you arrived — and as the anchor of the list
+              it reads as a destination there. `aria-current` says you are on
+              it instead. */}
+          {nav.canAddCar ? (
+            <Button
+              asChild
+              className="raised-solid h-11 w-full justify-center gap-2 rounded-xl bg-brand-primary text-sm font-semibold text-white hover:bg-[var(--brand-dark)]"
+            >
+              <Link
+                href={`/${locale}${ADD_CAR.href}`}
+                aria-current={isActive(ADD_CAR.href) ? "page" : undefined}
+              >
+                <PlusIcon className="size-4" />
+                {t(ADD_CAR.ar, ADD_CAR.en)}
+              </Link>
+            </Button>
+          ) : null}
         </SidebarHeader>
 
         <SidebarContent>

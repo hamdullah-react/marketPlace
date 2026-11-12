@@ -73,6 +73,11 @@
 --   29  social links   the showroom's own list of links, with icons
 --   30  per-vendor catalog  every showroom owns its own rows
 --   31  variant price  a colour can cost more than the car's base price
+--   32  site SEO       the defaults every page inherits, and the organisation
+--   33  presence       who is here, and where from
+--   34  team           inviting a colleague, and what they may do
+--   35  specifications the car template, and icons of our own
+--   36  spec sections  the showroom renames and adds its own headings
 -- ═══════════════════════════════════════════════════════════════════════════
 
 create extension if not exists pgcrypto;
@@ -7988,5 +7993,334 @@ begin
     'Team: % membership(s) across % showroom(s), % invitation(s) outstanding.',
     members, teams, open_invites;
 end $team$;
+
+notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 35. SPECIFICATIONS BECOME A TEMPLATE, AND THE ICONS STOP BEING SOMEBODY
+--     ELSE'S
+--
+--     Run this section in Supabase → SQL Editor. Safe to re-run.
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- §18 made the specification list per-seller and §30 gave every showroom its
+-- own rows. Both were right and neither fixed the thing that was actually
+-- wrong: a specification was a CATALOG ENTITY, so a showroom had to invent the
+-- list before it could describe a car.
+--
+-- What they invented, four times over, is in this database: four showrooms
+-- each holding a copy of the same 79 rows installed from a template that was
+-- SCRAPED OFF ANOTHER DEALERSHIP'S SITE — 318 rows, 236 of them yes/no
+-- questions — plus the wreckage of somebody trying to add their own by hand.
+-- The original database still holds `seats`, `seatss`, `seatsss` and `setas`:
+-- one person, four attempts, because the row they saved belonged to nobody and
+-- vanished from the tab they added it on.
+--
+-- A specification is not something a showroom invents. Every car has a
+-- wheelbase, a drive type, airbags, and a sunroof or not. The list is a
+-- property of CARS, so it now ships with the application —
+-- src/marketplace/lib/spec-template.js, 298 entries across 14 sections,
+-- cross-checked against how Saudi spec pages are actually written — and the
+-- seller's job is to tick the ones their car has.
+--
+-- ── Nothing here migrates any data, and that is the point ──────────────────
+--
+-- This section adds TWO COLUMNS. It does not delete a definition, rewrite a
+-- name, re-slug anything or touch a single `listing_specs` row.
+--
+-- It does not have to, because the template REUSES THE OLD SLUGS: 67 of the 79
+-- scraped rows carry the slug the template entry carries, so mergeTemplate()
+-- joins them on slug and the pair is one row in the checklist. A showroom's
+-- existing "Engine capacity" definition is the one a tick writes against, every
+-- value already filed under it still points at it, and no showroom ends up
+-- holding both "ABS" and "Anti-lock braking system (ABS)".
+--
+-- The other twelve are the near-duplicates the scrape produced — `sunroof`,
+-- `panoramic-sunroof` and `electric-sunroof-with-anti-leak` are three yes/no
+-- questions where one choice field belongs; `led-headlights` and
+-- `halogen-headlights` likewise. The template states the clean version and
+-- those rows are LEFT ALONE: they keep rendering on the cars that answered
+-- them, and the checklist shows them as the showroom's own extras, to clear
+-- once nothing uses them. Tidying a list is not worth rewriting somebody's
+-- answered specifications for.
+--
+-- ── Why the icon columns are new rather than reused ────────────────────────
+--
+-- `attribute_icon_url` and `category_icon_url` hold links to SVG files that
+-- came with the scrape. They sit in this deployment's bucket, which makes them
+-- look like ours. They are not, and an application sold to somebody else must
+-- not ship another dealership's artwork as its own.
+--
+-- They were also awkward in every other way. The files are two-tone — a filled
+-- hexagon with the symbol knocked out in white — so CSS cannot tint them: a
+-- mask reads alpha, paints hexagon and symbol alike, and the symbol
+-- disappears. That is the entire reason /api/marketplace/icon exists,
+-- substituting the brand colour into the file per request, and the reason the
+-- seller's editor had a `brightness-0 invert` on the selected tab. And a
+-- showroom adding "Sunroof" had no way to give it a mark at all, because an
+-- icon meant uploading a file.
+--
+-- So an icon is a TOKEN naming one of the icons the application already ships
+-- — `fuel`, `snowflake`, `shield-check` — drawn by ui/SpecGlyph.jsx. It
+-- inherits currentColor, so it follows the showroom's theme with nothing
+-- substituted and nothing cached; it needs no upload; and the set is closed, so
+-- a seller cannot point an icon at a tracking pixel on somebody else's host.
+-- The same argument §20 makes about form styles and §25.1 about badge colours.
+--
+-- The URL columns are KEPT and are no longer read by anything. Dropping them
+-- would destroy the only record of which file a row used, for no gain — and if
+-- the bucket's spec-icons/ and category-icons/ folders are to be emptied, that
+-- is a storage decision to take deliberately, not a side effect of a schema
+-- run. Nothing renders them: see queries/specs.ts.
+
+-- A token from lib/spec-icons.js, e.g. 'fuel'. Null means the template's own
+-- icon for that slug, and a neutral mark for a row the template does not name.
+alter table spec_attributes add column if not exists icon text;
+
+-- The SECTION's mark. Denormalised onto every row of the section, like
+-- category_name and category_sequence already are — there is no categories
+-- table for specifications, for the reason §14 gives about car_attributes.kind.
+alter table spec_attributes add column if not exists category_icon text;
+
+-- ── A token is short and from a closed set ─────────────────────────────────
+--
+-- Not an enum: the set lives in lib/spec-icons.js and grows there, and a new
+-- icon must not need a migration. The check is a SHAPE, like
+-- site_settings.currency — it stops a URL or a script being stored in a column
+-- that renders inside a component, and SpecGlyph falls back to a neutral mark
+-- for any token this build does not know.
+alter table spec_attributes drop constraint if exists spec_attributes_icon_shape;
+alter table spec_attributes add constraint spec_attributes_icon_shape
+  check (
+    (icon is null or icon ~ '^[a-z0-9-]{1,40}$') and
+    (category_icon is null or category_icon ~ '^[a-z0-9-]{1,40}$')
+  );
+
+-- ── The template writes rows LAZILY, so uniqueness is the guard ────────────
+--
+-- A seller who ticks "Wading depth" on a showroom that has no definition for
+-- one gets the row created at save time (ensureSpecDefinitions in
+-- db/queries/spec-catalog.js). Two cars saved in the same instant would
+-- otherwise create it twice, and the showroom's checklist would show the
+-- specification twice with half its cars on each row.
+--
+-- §30.3 already added `unique nulls not distinct (slug, created_by_vendor_id)`
+-- as spec_attributes_slug_vendor_key, which is exactly the constraint that
+-- upsert needs. It is asserted here rather than assumed: a database that ran
+-- §30 before that line was corrected, or where the ALTER was refused over
+-- existing duplicates, would let the race through silently.
+do $spec_slug$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'spec_attributes_slug_vendor_key'
+  ) and not exists (
+    select 1 from pg_indexes
+    where schemaname = 'public' and indexname = 'spec_attributes_slug_vendor_idx'
+  ) then
+    begin
+      execute 'create unique index spec_attributes_slug_vendor_idx
+                 on spec_attributes (slug, created_by_vendor_id)';
+      raise notice 'Specifications: per-showroom slug uniqueness created.';
+    exception when others then
+      raise warning
+        'Specifications: could not make slug unique per showroom (%). Ticking a specification a showroom does not yet have could create it twice. To see the clashes: select slug, created_by_vendor_id, count(*) from spec_attributes group by 1,2 having count(*) > 1;',
+        sqlerrm;
+    end;
+  end if;
+end $spec_slug$;
+
+-- The checklist reads one showroom's definitions, ordered as the sheet renders.
+-- Partial on `active`, because a retired definition is not offered for ticking
+-- and the index should not carry it.
+create index if not exists spec_attributes_vendor_sheet_idx
+  on spec_attributes (created_by_vendor_id, category_sequence, attribute_sequence)
+  where active;
+
+-- ── Deleting a specification can never disturb a car that answered it ──────
+--
+-- `listing_specs.attribute_id` references spec_attributes ON DELETE RESTRICT,
+-- which has been true since §5 and is what makes the checklist's delete button
+-- safe to offer: the database refuses to remove a definition any listing has an
+-- answer against, so the worst a mis-click can do is fail.
+--
+-- deleteSpecDefinition() counts the cars first and says so in words rather than
+-- surfacing a foreign-key error, but the guard that MATTERS is this one,
+-- because it is the one no code path can forget. Asserted rather than assumed,
+-- for the same reason as the index above.
+do $spec_fk$
+declare
+  rule text;
+begin
+  select confdeltype into rule
+  from pg_constraint
+  where conrelid = 'listing_specs'::regclass
+    and contype = 'f'
+    and conkey = array[(
+      select attnum from pg_attribute
+      where attrelid = 'listing_specs'::regclass and attname = 'attribute_id'
+    )::smallint];
+
+  if rule is null then
+    raise warning 'Specifications: listing_specs.attribute_id has no foreign key. Deleting a definition could orphan the answers filed under it.';
+  elsif rule <> 'r' then
+    raise warning
+      'Specifications: listing_specs.attribute_id deletes with rule "%" rather than RESTRICT. Deleting a definition would take the answers with it, and the checklist assumes the database refuses that.',
+      rule;
+  end if;
+end $spec_fk$;
+
+do $spec_report$
+declare
+  defs int; owned int; sheets int; answered int; legacy int;
+begin
+  select count(*) into defs from spec_attributes;
+  select count(distinct created_by_vendor_id) into owned
+    from spec_attributes where created_by_vendor_id is not null;
+  select count(distinct listing_id) into sheets from listing_specs;
+  select count(*) into answered from listing_specs;
+  select count(*) into legacy from spec_attributes
+   where coalesce(attribute_icon_url, category_icon_url) is not null;
+
+  raise notice
+    'Specifications: % definition(s) across % showroom(s); % answer(s) on % car(s) untouched. % row(s) still carry a scraped icon URL, which nothing reads any more — the template supplies the mark, and the checklist can set one per row.',
+    defs, owned, answered, sheets, legacy;
+end $spec_report$;
+
+notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 36. THE SHOWROOM'S OWN SPECIFICATION SECTIONS
+--
+--     Run this section in Supabase → SQL Editor. Safe to re-run.
+-- ════════════════════════════════════════════════════════════════════════════
+--
+-- §35 shipped the specification list as a template: 298 entries in 14 sections,
+-- and the sections were a constant in lib/spec-template.js. That is right for
+-- the ENTRIES — every car has a wheelbase — and wrong for the HEADINGS, which
+-- are how one showroom organises its own sheet. A dealership selling armoured
+-- cars wants an Armour section; one selling classics wants Originality; and
+-- neither can be in a list the application ships.
+--
+-- ── Why a table, when a category has never had one ────────────────────────
+--
+-- A section has been three denormalised columns on every specification row —
+-- `category_name`, `category_sequence`, and `category_icon` since §35 — and
+-- that works for READING: the car page groups by the name it finds on the row
+-- and needs no join. It fails at exactly the two things being asked for here,
+-- and for the reasons §14 wrote out when it gave `car_attributes.kind` a table:
+--
+--   no NAME of its own     renaming "Engine" means rewriting category_name on
+--                          every Engine row, and a half-finished rewrite
+--                          leaves two sections where there was one
+--   no EXISTENCE of its own a section appears when its first specification is
+--                          filed under it and vanishes with the last, so
+--                          "add a section" cannot mean anything at all
+--
+-- So a section gets a row. The denormalised columns STAY and are still what
+-- the public page reads — this table is the editable definition, and renaming
+-- through it rewrites the rows it owns so the two cannot drift.
+--
+-- ── One table, two jobs ───────────────────────────────────────────────────
+--
+-- `key` is what decides which:
+--
+--   a TEMPLATE key ('engine', 'safety', …)  an override. The showroom has
+--       renamed, re-iconed or reordered one of the 14 the application ships.
+--       The entries in it are unchanged; only the heading is theirs.
+--   anything else                            a section of their own, which
+--       exists whether or not anything is in it yet.
+--
+-- That is one table rather than two because the UI is one list — a seller
+-- editing "Engine & transmission" and editing their own "Armour" is doing the
+-- same thing, and a separate overrides table would mean the rail reads from
+-- two places and the edit form writes to whichever one applies.
+--
+-- ── Per showroom, like everything else since §30 ──────────────────────────
+--
+-- vendor_id is NOT NULL. A section is one showroom's organisation of its own
+-- sheet; there is no platform-wide one to inherit, because the 14 the
+-- application ships are in code and need no row to exist.
+
+create table if not exists spec_sections (
+  id         uuid primary key default gen_random_uuid(),
+  vendor_id  uuid not null references vendors (id) on delete cascade,
+
+  -- Slugified and stable. For an override it is the template section's own
+  -- key, which is what joins the two; for a section of their own it is
+  -- generated once from the English name and never rewritten by a rename —
+  -- the same rule media_folders.slug states, and for the same reason.
+  key        text not null,
+
+  name       jsonb not null default '{}'::jsonb,
+
+  -- A token from lib/spec-icons.js, exactly like spec_attributes.icon. Same
+  -- shape check, same closed set, same reason: it renders inside a component.
+  icon       text,
+
+  -- Where it sits in the rail. The template's own sections are 10..140 in
+  -- steps of ten, so a new one defaults to 500 and lands after them until
+  -- somebody moves it.
+  sequence   integer not null default 500,
+
+  active     boolean not null default true,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  -- One row per key per showroom. Without it a seller who renames "Engine"
+  -- twice in two tabs ends up with two overrides and the rail shows whichever
+  -- came back first.
+  unique (vendor_id, key)
+);
+
+alter table spec_sections drop constraint if exists spec_sections_icon_shape;
+alter table spec_sections add constraint spec_sections_icon_shape
+  check (icon is null or icon ~ '^[a-z0-9-]{1,40}$');
+
+alter table spec_sections drop constraint if exists spec_sections_key_shape;
+alter table spec_sections add constraint spec_sections_key_shape
+  check (key ~ '^[a-z0-9-]{1,60}$');
+
+-- The rail's read: one showroom's sections, in the order they are drawn.
+create index if not exists spec_sections_vendor_idx
+  on spec_sections (vendor_id, sequence) where active;
+
+drop trigger if exists spec_sections_updated_at on spec_sections;
+create trigger spec_sections_updated_at before update on spec_sections
+  for each row execute function set_updated_at();
+
+alter table spec_sections enable row level security;
+
+-- Members read their own showroom's; staff read all. Nobody WRITES through
+-- this connection — creating, renaming and removing a section all go through
+-- server actions on the service role, like every other seller write since §34.
+drop policy if exists spec_sections_member_read on spec_sections;
+create policy spec_sections_member_read on spec_sections
+  for select using (is_vendor_member(vendor_id) or is_staff());
+
+-- ── A section's name is also ON the specifications in it ──────────────────
+--
+-- Deliberately, and it is not a cache to be invalidated. The public car page
+-- groups a sheet by `spec_attributes.category_name` and has no business
+-- joining a seller's organisation table to render a heading; a sold car whose
+-- showroom later deleted a section must still print the heading it was sold
+-- under.
+--
+-- So renaming a section REWRITES those columns on the rows it owns, in the
+-- same action (updateSpecSection in db/queries/spec-catalog.js). The index
+-- below is what makes that rewrite a lookup rather than a scan of every
+-- specification on the platform.
+create index if not exists spec_attributes_vendor_category_idx
+  on spec_attributes (created_by_vendor_id, (category_name ->> 'en'));
+
+do $spec_sections$
+declare
+  n int; owners int;
+begin
+  select count(*), count(distinct vendor_id) into n, owners from spec_sections;
+  raise notice
+    'Specification sections: % row(s) across % showroom(s). None is required — a showroom with no rows here sees the 14 the application ships, which is what every showroom saw before this section existed.',
+    n, owners;
+end $spec_sections$;
 
 notify pgrst, 'reload schema';

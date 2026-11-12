@@ -86,19 +86,5 @@
     },
     "needs": [],
     "count": 12
-  },
-  {
-    "key": "specifications",
-    "table": "spec_attributes",
-    "name": {
-      "ar": "المواصفات",
-      "en": "Specifications"
-    },
-    "description": {
-      "ar": "تعريفات المواصفات مع مجموعاتها وأيقوناتها وقيمها.",
-      "en": "Specification definitions with their categories, icons and allowed values."
-    },
-    "needs": [],
-    "count": 79
   }
 ]

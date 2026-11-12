@@ -1,6 +1,66 @@
 import { getMarketplaceDb } from '@/marketplace/db/client';
 import { localized } from '@/marketplace/lib/listing';
+import { templateFor, legacyCategoryIcon, SPEC_CATEGORIES } from '@/marketplace/lib/spec-template';
 import type { LooseRow } from '@/marketplace/lib/row';
+
+/**
+ * A specification's mark, falling back to the template's.
+ *
+ * ── Why the fallback is not optional ──────────────────────────────────────
+ *
+ * `spec_attributes.icon` is null on every row that predates §35 — which is
+ * every row on a live database, because the scraped definitions carried a
+ * FILE and the token column is new. Reading the column alone would mean a car
+ * page whose whole specification sheet drew the neutral fallback mark until a
+ * seller had been through 80 rows picking icons by hand, and the sheet would
+ * look worse than it did with the borrowed artwork. Nobody would thank us for
+ * that trade.
+ *
+ * So the template supplies the mark for any specification it names, through
+ * templateFor — the SAME matcher the seller's checklist uses, so the editor
+ * and the car page cannot show different marks for one specification. A
+ * stored token always wins: it is the showroom's own choice, made on the row.
+ *
+ * templateFor rather than a plain slug lookup, and that is not a refinement.
+ * The two live databases spell these differently — one has `torque`, the other
+ * `engine-torque` — so a direct lookup found nothing on the second and a car
+ * page with seventy-six filled-in specifications drew a neutral mark beside
+ * every one of them. Measured, not theorised.
+ *
+ * A specification the template does not name and nobody has given a mark to
+ * returns null, and SpecGlyph draws a neutral mark so the row keeps its
+ * gutter.
+ */
+function iconFor(row: LooseRow): string | null {
+  const own = typeof row?.icon === 'string' ? row.icon : null;
+  if (own) return own;
+
+  return templateFor(row)?.icon ?? null;
+}
+
+/**
+ * A section's mark, the same way.
+ *
+ * Matched on the category's NAME rather than a key, because that is all the
+ * row carries — there is no categories table for specifications, and
+ * schema.sql §14 gives the reason. Both languages are tried, so a sheet
+ * authored in Arabic finds its section too.
+ *
+ * Then the scraped names, which match no template section: every existing car
+ * page is grouped under "External equipment", "Ease and comfort" and six
+ * others, and without that second lookup every heading on every one of them
+ * draws the neutral mark. See legacyCategoryIcon.
+ */
+function categoryIconFor(row: LooseRow): string | null {
+  const own = typeof row?.category_icon === 'string' ? row.category_icon : null;
+  if (own) return own;
+
+  const name = row?.category_name as { ar?: string; en?: string } | null;
+  const hit = SPEC_CATEGORIES.find((c) => c.en === name?.en || c.ar === name?.ar);
+  if (hit) return hit.icon;
+
+  return legacyCategoryIcon(name?.en) ?? legacyCategoryIcon(name?.ar);
+}
 
 /**
  * Spec sheet: definitions and per-listing values.
@@ -9,13 +69,35 @@ import type { LooseRow } from '@/marketplace/lib/row';
  * categories, each carrying its own icon at BOTH levels, ordered by
  * category_sequence then attribute_sequence. `show_on_card` marks the handful
  * that surface in the "Car Information" grid above the full sheet.
+ *
+ * ── The icons are tokens now, not URLs ────────────────────────────────────
+ *
+ * `attribute_icon_url` and `category_icon_url` held SVG files that arrived
+ * with a template scraped off another dealership's site. Nothing here reads
+ * them any more: §35 added `icon` and `category_icon`, which name one of the
+ * icons this application ships, and ui/SpecGlyph.jsx draws them. The columns
+ * are left in the table — see §35 on why dropping them buys nothing — and are
+ * deliberately absent from every select below, so nothing can start rendering
+ * them again by accident.
  */
 
 const DEF_SELECT = `
-  id, slug, category_name, category_icon_url, category_sequence,
-  attribute_name, attribute_icon_url, attribute_sequence,
+  id, slug, category_name, category_icon, category_sequence,
+  attribute_name, icon, attribute_sequence,
   unit_code, display_type, show_on_card, is_key
 `;
+
+/**
+ * The same list without §35's two columns.
+ *
+ * schema.sql is run by hand, and a select naming a column that does not exist
+ * fails the WHOLE select in PostgREST (42703) — which here would mean a car
+ * page with no specification sheet at all. The same two-tier shape
+ * session.js's PROFILE_FULL uses, and for the same reason.
+ */
+const DEF_SELECT_NO_ICONS = DEF_SELECT
+  .replace('category_icon, ', '')
+  .replace('icon, ', '');
 
 /**
  * All definitions, already nested into the categories the UI renders.
@@ -59,20 +141,51 @@ export async function getSpecDefinitions(locale = 'ar', vendorId = null) {
     }
   }
 
-  let query = db
-    .from('spec_attributes')
-    .select(DEF_SELECT)
-    .eq('active', true)
-    .order('category_sequence', { ascending: true })
-    .order('attribute_sequence', { ascending: true });
+  /* Spelled out twice rather than built from a variable: supabase-js parses
+     the select string at the TYPE level, so a computed one types every row as a
+     parser error and nothing downstream checks. */
+  const scoped = <T>(q: T) => (allowed ? (q as { in: (a: string, b: string[]) => T }).in('id', allowed) : q);
 
-  if (allowed) query = query.in('id', allowed);
+  const withIcons = () =>
+    scoped(
+      db
+        .from('spec_attributes')
+        .select(`
+          id, slug, category_name, category_icon, category_sequence,
+          attribute_name, icon, attribute_sequence,
+          unit_code, display_type, show_on_card, is_key
+        `)
+        .eq('active', true)
+        .order('category_sequence', { ascending: true })
+        .order('attribute_sequence', { ascending: true }),
+    );
 
-  const { data, error } = await query;
+  const withoutIcons = () =>
+    scoped(
+      db
+        .from('spec_attributes')
+        .select(`
+          id, slug, category_name, category_sequence,
+          attribute_name, attribute_sequence,
+          unit_code, display_type, show_on_card, is_key
+        `)
+        .eq('active', true)
+        .order('category_sequence', { ascending: true })
+        .order('attribute_sequence', { ascending: true }),
+    );
 
-  if (error) throw new Error(`getSpecDefinitions: ${error.message}`);
+  let rows: LooseRow[] = [];
+  const first = await withIcons();
 
-  const rows = data ?? [];
+  /* §35 has not been run on this database. A sheet with no marks beats no
+     sheet, so this retries without them rather than throwing. */
+  if (first.error) {
+    const plain = await withoutIcons();
+    if (plain.error) throw new Error(`getSpecDefinitions: ${plain.error.message}`);
+    rows = (plain.data ?? []) as LooseRow[];
+  } else {
+    rows = (first.data ?? []) as LooseRow[];
+  }
 
   // Option lists for the choice-type attributes. Fetched as one flat query and
   // grouped in memory rather than as a nested select — PostgREST caps embedded
@@ -81,7 +194,7 @@ export async function getSpecDefinitions(locale = 'ar', vendorId = null) {
   //
   // A failure here degrades to no options, which the editor renders as a text
   // box: the same behaviour as before this table existed, not a broken form.
-  let optionsByAttribute = new Map();
+  let optionsByAttribute = new Map<string, LooseRow[]>();
   try {
     const { data: values, error: valueError } = await db
       .from('spec_attribute_values')
@@ -94,16 +207,16 @@ export async function getSpecDefinitions(locale = 'ar', vendorId = null) {
 
     optionsByAttribute = (values ?? []).reduce((map, value) => {
       const list = map.get(value.attribute_id) ?? [];
-      list.push(value);
+      list.push(value as LooseRow);
       return map.set(value.attribute_id, list);
-    }, new Map());
+    }, new Map<string, LooseRow[]>());
   } catch {
     optionsByAttribute = new Map();
   }
 
   const withOptions = rows.map((row) => ({
     ...row,
-    options: optionsByAttribute.get(row.id) ?? [],
+    options: optionsByAttribute.get(row.id as string) ?? [],
   }));
 
   return groupByCategory(withOptions, locale);
@@ -124,7 +237,8 @@ export function groupByCategory(rows: LooseRow[], locale = 'ar') {
       groups.set(key, {
         key,
         name: localized(row.category_name, locale),
-        icon: row.category_icon_url,
+        /* A TOKEN, for SpecGlyph — not a URL for an <img>. */
+        icon: categoryIconFor(row),
         sequence: row.category_sequence,
         items: [],
       });
@@ -138,14 +252,21 @@ export function groupByCategory(rows: LooseRow[], locale = 'ar') {
 export async function getListingSpecs(listingId: string) {
   if (!listingId) return [];
 
-  const { data, error } = await getMarketplaceDb()
-    .from('listing_specs')
-    .select(`id, attribute_id, value, display_value, sequence, spec_attributes ( ${DEF_SELECT} )`)
-    .eq('listing_id', listingId)
-    .order('sequence', { ascending: true });
+  const db = getMarketplaceDb();
 
-  if (error) throw new Error(`getListingSpecs: ${error.message}`);
-  return data ?? [];
+  const read = (columns: string) =>
+    db
+      .from('listing_specs')
+      .select(`id, attribute_id, value, display_value, sequence, spec_attributes ( ${columns} )`)
+      .eq('listing_id', listingId)
+      .order('sequence', { ascending: true });
+
+  const { data, error } = await read(DEF_SELECT);
+  if (!error) return data ?? [];
+
+  const plain = await read(DEF_SELECT_NO_ICONS);
+  if (plain.error) throw new Error(`getListingSpecs: ${plain.error.message}`);
+  return plain.data ?? [];
 }
 
 /**
@@ -165,23 +286,49 @@ export async function getCardSpecs(listingIds = [], locale = 'ar', limit = 4) {
   const ids = [...new Set(listingIds.filter(Boolean))];
   if (!ids.length) return new Map();
 
-  const { data, error } = await getMarketplaceDb()
-    .from('listing_specs')
-    .select(
-      `listing_id, value, display_value, sequence,
-       spec_attributes!inner ( id, slug, attribute_name, attribute_icon_url, attribute_sequence, unit_code, display_type, show_on_card )`
-    )
-    .in('listing_id', ids)
-    // !inner above plus this filter is what makes the database do the
-    // selecting. Pulling all forty specs per car and filtering in JS would
-    // move roughly ten times the rows across the wire for the same four icons.
-    .eq('spec_attributes.show_on_card', true);
+  const db = getMarketplaceDb();
 
-  if (error) throw new Error(`getCardSpecs: ${error.message}`);
+  /* Spelled out twice rather than interpolated: supabase-js parses the select
+     string at the TYPE level, so a computed one makes every row a ParserError
+     and nothing downstream type-checks. !inner plus the show_on_card filter is
+     what makes the DATABASE do the selecting — pulling all forty specs per car
+     and filtering here would move ten times the rows for the same four icons. */
+  const cardQuery = () =>
+    db
+      .from('listing_specs')
+      .select(
+        `listing_id, value, display_value, sequence,
+         spec_attributes!inner ( id, slug, attribute_name, icon, attribute_sequence, category_name, unit_code, display_type, show_on_card )`
+      )
+      .in('listing_id', ids)
+      .eq('spec_attributes.show_on_card', true);
+
+  const cardQueryNoIcon = () =>
+    db
+      .from('listing_specs')
+      .select(
+        `listing_id, value, display_value, sequence,
+         spec_attributes!inner ( id, slug, attribute_name, attribute_sequence, category_name, unit_code, display_type, show_on_card )`
+      )
+      .in('listing_id', ids)
+      .eq('spec_attributes.show_on_card', true);
+
+  let rows: LooseRow[] = [];
+  const first = await cardQuery();
+
+  if (first.error) {
+    /* §35 not run on this database. A fact strip with no marks beats a card
+       that throws. */
+    const plain = await cardQueryNoIcon();
+    if (plain.error) throw new Error(`getCardSpecs: ${plain.error.message}`);
+    rows = (plain.data ?? []) as LooseRow[];
+  } else {
+    rows = (first.data ?? []) as LooseRow[];
+  }
 
   const out = new Map();
-  for (const row of data ?? []) {
-    const def = row.spec_attributes;
+  for (const row of rows) {
+    const def = row.spec_attributes as LooseRow | null;
     const value = specValue(row, locale);
     if (!def || !value) continue;
 
@@ -192,7 +339,7 @@ export async function getCardSpecs(listingIds = [], locale = 'ar', limit = 4) {
       label: localized(def.attribute_name, locale),
       ...withValues(value, { ...row, display_type: def.display_type }),
       unit: localized(def.unit_code, locale) || null,
-      icon: def.attribute_icon_url ?? null,
+      icon: iconFor(def),
       sequence: def.attribute_sequence ?? 0,
     });
     out.set(row.listing_id, list);
@@ -365,7 +512,7 @@ export function buildSpecSheet(rows: LooseRow[], locale = 'ar') {
       id: item.id,
       slug: item.slug,
       label: localized(item.attribute_name, locale),
-      icon: item.attribute_icon_url,
+      icon: iconFor(item),
       // jsonb, like every other translatable — see schema.sql.
       unit: localized(item.unit_code, locale),
       displayType: item.display_type,
@@ -430,25 +577,52 @@ export async function getSpecFacets(listingIds: string[] = [], locale = 'ar') {
   const ids = [...new Set(listingIds.filter(Boolean))];
   if (!ids.length) return [];
 
-  const { data, error } = await getMarketplaceDb()
-    .from('listing_specs')
-    .select(
-      `listing_id, value, display_value,
-       spec_attributes!inner (
-         id, slug, attribute_name, attribute_icon_url, attribute_sequence,
-         category_name, category_icon_url, category_sequence,
-         unit_code, display_type, active
-       )`
-    )
-    .in('listing_id', ids)
-    .eq('spec_attributes.active', true);
+  const db = getMarketplaceDb();
 
-  if (error) throw new Error(`getSpecFacets: ${error.message}`);
+  /* Two literals, for the reason given in getCardSpecs. */
+  const facetQuery = () =>
+    db
+      .from('listing_specs')
+      .select(
+        `listing_id, value, display_value,
+         spec_attributes!inner (
+           id, slug, attribute_name, attribute_sequence, icon,
+           category_name, category_sequence, category_icon,
+           unit_code, display_type, active
+         )`
+      )
+      .in('listing_id', ids)
+      .eq('spec_attributes.active', true);
+
+  const facetQueryNoIcons = () =>
+    db
+      .from('listing_specs')
+      .select(
+        `listing_id, value, display_value,
+         spec_attributes!inner (
+           id, slug, attribute_name, attribute_sequence,
+           category_name, category_sequence,
+           unit_code, display_type, active
+         )`
+      )
+      .in('listing_id', ids)
+      .eq('spec_attributes.active', true);
+
+  let rows: LooseRow[] = [];
+  const first = await facetQuery();
+
+  if (first.error) {
+    const plain = await facetQueryNoIcons();
+    if (plain.error) throw new Error(`getSpecFacets: ${plain.error.message}`);
+    rows = (plain.data ?? []) as LooseRow[];
+  } else {
+    rows = (first.data ?? []) as LooseRow[];
+  }
 
   const attrs = new Map();
 
-  for (const row of data ?? []) {
-    const def = row.spec_attributes;
+  for (const row of rows) {
+    const def = row.spec_attributes as LooseRow | null;
     if (!def) continue;
 
     /* yesno is not a facet with two options — it is a switch, and "Leather
@@ -462,9 +636,12 @@ export async function getSpecFacets(listingIds: string[] = [], locale = 'ar') {
     const entry = attrs.get(def.slug) ?? {
       slug: def.slug,
       name: def.attribute_name,
-      iconUrl: def.attribute_icon_url ?? null,
+      /* `icon`, not `iconUrl` — the rail draws it with SpecGlyph now, and
+         leaving the old name would have let a URL-shaped prop keep flowing to
+         a component that no longer takes one. */
+      icon: iconFor(def),
       categoryName: def.category_name,
-      categoryIconUrl: def.category_icon_url ?? null,
+      categoryIcon: categoryIconFor(def),
       categorySequence: def.category_sequence ?? 0,
       sequence: def.attribute_sequence ?? 0,
       unit: localized(def.unit_code, locale) || null,
@@ -496,9 +673,9 @@ export async function getSpecFacets(listingIds: string[] = [], locale = 'ar') {
     .map((a) => ({
       slug: a.slug,
       name: a.name,
-      iconUrl: a.iconUrl,
+      icon: a.icon,
       categoryName: a.categoryName,
-      categoryIconUrl: a.categoryIconUrl,
+      categoryIcon: a.categoryIcon,
       categorySequence: a.categorySequence,
       sequence: a.sequence,
       unit: a.unit,

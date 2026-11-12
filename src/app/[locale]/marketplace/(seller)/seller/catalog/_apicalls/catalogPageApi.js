@@ -1,5 +1,5 @@
 import {
-  listEntity, listParentOptions, listKinds, listSpecCategories, listSpecValuesFor,
+  listEntity, listParentOptions, listKinds, listSpecCategories,
   listKindsWithCounts, DEFAULT_PAGE_SIZE,
 } from '@/marketplace/db/queries/catalog-admin';
 import { getVendorOptions } from '@/marketplace/db/queries/seller';
@@ -129,17 +129,12 @@ export async function getCatalogPageData(searchParams = {}, { vendorId } = {}) {
       : Promise.resolve([]),
   ]);
 
-  // Spec rows carry their option list so the editor can show and edit it.
-  // Only for the page on screen — see listSpecValuesFor.
-  let items = list.items;
-  if (entityKey === 'specs' && items.length) {
-    try {
-      const byAttribute = await listSpecValuesFor(items.map((i) => i.id));
-      items = items.map((i) => ({ ...i, options: byAttribute.get(i.id) ?? [] }));
-    } catch {
-      items = items.map((i) => ({ ...i, options: [] }));
-    }
-  }
+  /* Specifications are no longer a catalog entity, so there is no 'specs' tab
+     and nothing here loads an option list for one. The seller ticks from the
+     car template on the listing form instead — lib/spec-template.js, and
+     schema.sql §35 for why. resolveEntity() sends an old ?entity=specs
+     bookmark to Brands rather than failing, so nothing has to be redirected. */
+  const items = list.items;
 
   return {
     entityKey,

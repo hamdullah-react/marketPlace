@@ -594,11 +594,30 @@ function readStatic(key) {
       descAr: 'أسماء جاهزة للعروض حسب المناسبات السعودية.',
       descEn: 'Ready-made offer names for the Saudi occasions.',
       build: async () => readStatic('offer-names') },
-    { key: 'specifications', table: 'spec_attributes', ar: 'المواصفات', en: 'Specifications',
-      descAr: 'تعريفات المواصفات مع مجموعاتها وأيقوناتها وقيمها.',
-      descEn: 'Specification definitions with their categories, icons and allowed values.',
-      build: buildSpecs },
+    /**
+     * SPECIFICATIONS ARE NO LONGER BUILT, and this is the one template that
+     * had to stop.
+     *
+     * It harvested upstream's 79 specification definitions and downloaded 91
+     * of their icon files into this repo. Installing it was the only way a
+     * showroom could describe a car at all, so every showroom on this database
+     * installed it, and the platform ended up shipping another dealership's
+     * vocabulary and artwork as its own.
+     *
+     * The list is authored now — lib/spec-template.js, 298 entries across 14
+     * sections, with marks from this application's own icon set — and a
+     * showroom ticks from it with nothing to install. buildSpecs() and the
+     * helpers above it are kept rather than deleted: they are the record of
+     * what the old rows were built from, and a database still holding those
+     * rows is read by that code's output. Nothing calls them.
+     *
+     * See schema.sql §35.
+     */
   ];
+
+  /* Referenced so the harvesting code above is not reported as unused. It is
+     deliberately unreachable: see the note just above. */
+  void buildSpecs;
 
   /**
    * Build everything FIRST, write at the end.

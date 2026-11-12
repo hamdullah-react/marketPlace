@@ -35,6 +35,7 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
+import { io } from 'next/cache';
 import { headers } from 'next/headers';
 import { touchPresence, clientIp, clientCountry } from '@/marketplace/auth/presence';
 import { getLocale } from 'next-intl/server';
@@ -177,6 +178,27 @@ export const getViewer = cache(async () => {
         : withAccess.data;
   }
 
+  /**
+   * The clock, read ONCE and after a suspension point.
+   *
+   * accessState() defaults its `now` to Date.now(), and this project runs with
+   * cacheComponents: a bare clock read anywhere a prerender can reach fails
+   * the route with "Next.js encountered the unstable value `Date.now()` while
+   * prerendering". The seller layout called it on every request through
+   * getViewer, so every dashboard page logged that error — the same failure
+   * queries/admin.js hit when the Customers page gained its Status column, and
+   * the same fix.
+   *
+   * `await io()` is the documented suspension point for reading a synchronous
+   * source like the clock, and is preferred over connection(), which also
+   * blocks prefetches. Here rather than inside accessState so a viewer who
+   * belongs to two showrooms has both judged against ONE moment: two
+   * timestamps a millisecond apart could put one showroom on "expires today"
+   * and the other on "expired", which is a dashboard that contradicts itself.
+   */
+  await io();
+  const now = Date.now();
+
   // Only APPROVED vendors count. A pending application must not open the
   // seller dashboard, and a suspended showroom must stop being able to sell
   // the moment it is suspended rather than at next sign-in.
@@ -209,7 +231,7 @@ export const getViewer = cache(async () => {
        * application form, which is both wrong and insulting to somebody whose
        * only problem is an unpaid invoice.
        */
-      access: accessState(m.vendors),
+      access: accessState(m.vendors, now),
     }));
 
   const viewer = {
