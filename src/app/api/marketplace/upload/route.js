@@ -84,15 +84,37 @@ const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/s
  * then applied to whatever we ended up with, so nothing oversized gets in
  * through the fallback.
  */
-async function toFormat(bytes, mime, want = 'avif') {
+async function toFormat(bytes, mime) {
+  /**
+   * ── SVG is the one thing that stays as it is ─────────────────────────────
+   *
+   * Not an oversight in "everything becomes AVIF": an SVG is a vector, and
+   * the reason anybody uploads one is that it stays sharp at any size. A
+   * showroom logo rasterised to AVIF at 2000px is a logo that blurs on a
+   * letterhead and cannot be recoloured — so the one format that would LOSE
+   * something by converting is the one format left alone.
+   *
+   * Everything raster — JPEG, PNG, WebP, an AVIF that is bigger than it needs
+   * to be — is re-encoded below.
+   */
   if (mime === 'image/svg+xml') {
     return { bytes, mime, width: null, height: null, converted: false };
   }
 
-  /* The seller picked this in the upload dialog. Anything unrecognised falls
-     back to AVIF rather than erroring: the field arrives from a browser like
-     any other, and a bad value is not a reason to lose the photo. */
-  const target = want === 'webp' ? 'webp' : 'avif';
+  /**
+   * ── AVIF, always, and it is no longer the caller's choice ────────────────
+   *
+   * This used to read a `format` field the upload dialog sent, so a seller
+   * could store WebP instead. The dialog is gone and the choice went with it:
+   * there was never a case for a showroom picking the codec its photos are
+   * stored in — AVIF is smaller than WebP at the same quality on every one of
+   * these images, and a mixed library is only harder to reason about.
+   *
+   * Taking the decision out of the request also closes it as an input: the
+   * field arrived from a browser, and nothing about a storage format should
+   * be something a client can set.
+   */
+  const target = 'avif';
 
   try {
     const pipeline = sharp(bytes, { failOn: 'none' })
@@ -103,7 +125,10 @@ async function toFormat(bytes, mime, want = 'avif') {
       // showroom should not be publishing the coordinates of its forecourt.
       .rotate()
       .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
-      .toFormat(target, target === 'avif' ? { quality: 62, effort: 4 } : { quality: 80 });
+      /* 62 is where AVIF stops being distinguishable from the original on a
+         car photograph and starts saving real bytes; `effort: 4` is the most
+         encoder work a request can afford without the upload feeling slow. */
+      .avif({ quality: 62, effort: 4 });
 
     const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
     return {
@@ -252,7 +277,9 @@ export async function POST(request) {
 
     /* Converted BEFORE the key is built: the extension has to describe what is
        actually in the object, or every later reader disagrees about its type. */
-    const out = await toFormat(raw, mime, String(form.get('format') || 'avif'));
+    /* No `format` field is read: see toFormat. Anything a client still sends
+       is ignored rather than honoured. */
+    const out = await toFormat(raw, mime);
 
     /**
      * The limit, applied to what we are about to STORE.

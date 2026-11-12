@@ -530,35 +530,37 @@ export default function MediaGallery({
       setErrors([]);
 
       /**
-       * ── ONE photo opens the editor; a batch does not ────────────────────
+       * ── NOTHING IS ASKED. The photo is compressed and sent ──────────────
        *
-       * Nobody is going to crop twenty photos one at a time, and a dialog that
-       * appears twenty times is a dialog that gets dismissed twenty times. So a
-       * single pick — which is the cover shot, the one worth a minute — gets
-       * the cropper, and a drag of several is compressed with the defaults and
-       * sent straight through.
+       * Picking a file used to open the editor — a preview, a format choice,
+       * a crop mode, and an Upload button that stayed disabled until Compress
+       * had been pressed. Deliberate at the time, on the reasoning that a
+       * silent compress would make the Compress button a decoration.
        *
-       * SVG is passed through untouched either way: it is a vector, and a
-       * canvas would rasterise away the one property it was chosen for.
+       * It makes the common case worse, which is the case that matters here.
+       * A showroom putting twelve photos on a car wants twelve photos on the
+       * car; the format is not a decision they have information about — the
+       * answer is AVIF every time, which is why the server already defaulted
+       * to it — and a dialog per upload is a dialog that gets dismissed, not
+       * read.
+       *
+       * So the pick IS the upload. Resize and encode happen on the way out
+       * (below), the server writes AVIF whatever it is handed, and the seller
+       * sees a thumbnail appear.
+       *
+       * `skipEditor` and `precompressed` are still honoured because
+       * BackgroundStudio sends its cutout through here, already decided.
+       *
+       * ── The editor still exists ─────────────────────────────────────────
+       *
+       * ImageEditorDialog and the queue state below it are untouched and
+       * unreachable: nothing calls openQueue any more. Restoring the old
+       * behaviour is this one branch, and keeping the cropper costs a lazy
+       * chunk that is now never fetched. It is kept rather than deleted
+       * because cropping is a real feature that wants an entry point of its
+       * own — on an asset already in the library, rather than in the way of
+       * every upload.
        */
-      /**
-       * ── Every pick opens the editor, however many there are ─────────────
-       *
-       * One at a time, with the count shown, and "Apply to all" on the dialog
-       * for the seller who wants the same size and format across the batch
-       * without pressing Compress twenty times.
-       *
-       * SVG included: the dialog offers "keep vector" (uploaded byte for
-       * byte) or rasterise to AVIF/WebP, which is what makes one croppable.
-       *
-       * `skipEditor` is still honoured — BackgroundStudio's output is a
-       * decision the seller has already taken, and asking them to crop it
-       * again would be a second dialog for the same choice.
-       */
-      if (!precompressed && !skipEditor) {
-        openQueue(list);
-        return;
-      }
 
       setUploading((u) => [...u, ...list.map((f) => f.name)]);
 
